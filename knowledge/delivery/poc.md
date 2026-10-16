@@ -1,6 +1,7 @@
 ---
 type: poc
-status: active
+status: completed
+conclusion: validated
 generated_by: kaddo-init
 template_version: 1
 project_state: ai-assisted
@@ -107,7 +108,7 @@ El problema a resolver en esta **POC 003** es concebir y validar un **Capability
 | **`WI-020`** | spike | E2-003 Reparación controlada guiada por Capability diagnostics | `completed` | Inyección de violación de autorización de capability (`E_UNDECLARED_CAPABILITY`), rechazo determinista y reparación en 1 intento. |
 | **`WI-021`** | spike | E3-003 Extensión funcional con nueva regla de host | `completed` | Integración de consulta de límite de crédito de cliente en host sobre backend congelado. |
 | **`WI-022`** | spike | E4-003 Mantenimiento modularizado y auditabilidad | `completed` | Actualización localizada de regla comercial y eventos de auditoría con diff conciso y reproducibilidad 3/3. |
-| **`WI-023`** | chore | Análisis, matriz SC y conclusión POC 003 | `draft` | Evaluación de `SC-01` a `SC-16`, reporte final `poc-report-v004.md`, decisión Kaddo (`GO / PIVOT / STOP`). |
+| **`WI-023`** | chore | Análisis, matriz SC y conclusión POC 003 | `completed` | Evaluación de `SC-01` a `SC-16`, reporte final `poc-report-v004.md`, decisión Kaddo (`GO / PIVOT / STOP`). |
 | **`WI-024`** | spike opcional | Benchmark pareado POC-003 vs Rust con Host Imports | `draft` | Comparación cuantitativa: Semantic IR v0.3 vs `Rust` (`extern "C"` imports a host Wasmtime). |
 
 ## Conclusion Rule
@@ -115,3 +116,47 @@ El problema a resolver en esta **POC 003** es concebir y validar un **Capability
 - **GO (`validated`):** Se cumplen `SC-01` a `SC-16`. Justifica avanzar a la Fase 4 (**POC 004**: WebAssembly Component Model completo, interfaces WIT estandarizadas y empaquetado Wasm Component).
 - **PIVOT (`inconclusive`):** Los imports de host funcionan pero la verificación estática de capabilities o el testing de efectos secundarios resulta frágil sin un runtime asíncrono.
 - **STOP (`rejected`):** El agente no logra razonar sobre autorizaciones de host en la IR v0.3 o el backend no puede mantenerse congelado ante nuevas capacidades.
+
+## Toolchain Freeze Custody
+
+Los ejecutables del micro-toolchain en modo Release fueron congelados tras concluir `E1-003`:
+
+- `target/release/irtool.exe`: `1eff80daf7136e89766ccc55a2050b5c389e6b01ed89a2fbc633894b6ac99668`
+- `target/release/runner.exe`: `66700a4da713cb918ad722165a3b6bf26d3ebe57a7c483ee56f1ecb5460b9067`
+- Custodiados en: `runs/toolchain-freeze-poc003.sha256` y tag git `poc-003-e1-freeze`.
+
+## Evaluation and Answers to Core Questions
+
+1. **¿Puede el agente interactuar con servicios externos mediante un Capability ABI declarativo e imports tipados?**
+   Sí (`SC-01`, `SC-02`, `SC-12`, `SC-13`). El agente declaró en `ir/program-003.ir.json` las capabilities requeridas (`kv_store`, `audit_log`, `credit_service`), mapeó imports de host con firmas tipadas (`kv_get`, `emit_audit`, `check_credit`) y los invocó con el operador `call_import` de Semantic IR v0.3 sin alterar código en WAT/WASM ni requerir frameworks externos.
+
+2. **¿Fueron las violaciones de autorización detectadas y diagnosticadas de forma determinista?**
+   Sí (`SC-04`, `SC-05`, `SC-14`). Al retirar la capability `audit_log` en `E2-003`, el verificador emitió determinísticamente el error `E_UNDECLARED_CAPABILITY` con JSONPath exacto (`$.imports[1].capability`) en un payload de 343 bytes. El agente reparó la discrepancia en 1 solo intento recuperando la paridad binaria exacta (`637ee58c...`).
+
+3. **¿Se mantuvo el backend del compilador y runner 100 % congelado ante nuevas capacidades de host y mantenimiento?**
+   Sí (`SC-03`, `SC-07`, `SC-09`). A lo largo de `E2-003`, `E3-003` y `E4-003`, ni `irtool` ni `runner` requirieron un solo cambio en su código fuente. Los hashes SHA-256 de los binarios release en `runs/toolchain-freeze-poc003.sha256` se mantuvieron idénticos, demostrando la extensibilidad pura de la IR declarativa.
+
+4. **¿Los efectos secundarios en el host fueron reproducibles y auditables?**
+   Sí (`SC-02`, `SC-08`, `SC-10`). El runner en Wasmtime interceptó y registró todas las llamadas a funciones de host que producen efectos secundarios (`emit_audit`, `check_credit`), verificando contra las aserciones de `expected_host_calls` tanto el orden secuencial de llamada como los parámetros exactos (e.g. código de auditoría 999 para órdenes > $1000).
+
+5. **¿Se conservó la reproducibilidad binaria exacta y el rendimiento del micro-toolchain?**
+   Sí (`SC-11`, `SC-15`, `SC-16`). 3/3 builds independientes en `E1-003` y `E4-003` produjeron exactamente el mismo hash SHA-256 de WASM. La latencia combinada de verificación y compilación fue de tan solo 27 ms, y el runner ejecutó suites completas de 17 pruebas con mocks de host en 3 ms.
+
+## Conclusion
+
+Status: validated
+
+Decision: GO
+
+Evidence summary:
+- E1-003: Construcción autónoma de módulo con imports declarativos (`kv_get`, `emit_audit`) y capabilities en 1 intento (632 bytes WASM, 6/6 públicas, 9/9 reservadas). Freeze sellado en tag `poc-003-e1-freeze`.
+- E2-003: Violación de capability (`E_UNDECLARED_CAPABILITY`) rechazada con código de salida 1 y diagnóstico JSONPath de 343 bytes; reparada en 1 intento restaurando paridad bit a bit del binario.
+- E3-003: Extensión funcional incorporando capability `credit_service` y función importada `check_credit` completada en 1 intento con 0 cambios al backend congelado (703 bytes WASM, 7/7 públicas, 10/10 reservadas, 59/59 casos en regresión total).
+- E4-003: Mantenimiento modularizado (alícuota fiscal 12 % y evento de auditoría diferenciado 999) con diff conciso en subfunciones internas y reproducibilidad determinista 3/3 (`bf2021f6...`, 711 bytes WASM, 17/17 pruebas aprobadas).
+- Success criteria passed: 16/16 (SC-01 a SC-16).
+- Success criteria failed: 0/16.
+- Inmutabilidad de Toolchain: 100 % confirmada en `runs/toolchain-freeze-poc003.sha256`.
+
+Recommendation:
+Decisión GO (validated). Habiendo demostrado que Semantic IR v0.3 permite a agentes de IA consumir servicios de host externos mediante un Capability ABI declarativo e imports WebAssembly Core tipados, con verificación estática de autorizaciones, auditoría determinista de efectos secundarios y backend 100 % congelado, se recomienda formalmente avanzar a la Fase 4: **POC 004 — WebAssembly Component Model, Interfaces WIT estandarizadas y Canonical ABI** (composición de componentes WASM interoperables, imports/exports de tipos complejos de alto nivel vía WIT, y empaquetado de componentes estándar para arquitecturas agent-native de microservicios).
+
