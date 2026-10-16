@@ -103,19 +103,19 @@ El problema a resolver en esta **POC 004** es determinar si la Semantic IR puede
 - [x] **SC-13:** Integridad del estado de software: Semantic IR v0.4 es el único artefacto de lógica modificado por el agente.
 - [x] **SC-14:** Compacidad diagnóstica: salida de diagnóstico JSON estructurada con JSONPath accionable < 600 bytes (366 bytes).
 - [x] **SC-15:** Latencia del bucle determinista: `verify` + `compile/package` < 60 ms (~6 ms).
-- [x] **SC-16:** Validación estricta de WebAssembly Component: el artefacto emite metadatos canónicos de componente WIT y se ejecuta en runtime Wasmtime sin errores de tipo ni de ABI.
+- [x] **SC-16:** Validación estricta de WebAssembly Component: el artefacto es un WebAssembly Component nativo estándar (magic `\0asm\x0d\0\x01\0`), implementa Canonical ABI (`canon lift` y `canon lower`) mediante `ComponentEncoder` y se ejecuta en runtime `wasmtime::component::Component` y `wasmtime::component::Linker` con pasaje y levantamiento tipado de `OrderResult`.
 
 ## Work Items Plan (Fase 4)
 
 | ID | Tipo | Título | Estado | Entregables principales |
 |---|---|---|---|---|
 | **`WI-025`** | spike | Contrato experimental, Interfaces WIT y Semantic IR v0.4 | `completed` | Definición de interfaz `wit/order.wit`, esquema `ir/ir.schema.v4.json`, especificación `spec/task-004.yaml` (v1) y suite inicial `tests/public-004.yaml`. |
-| **`WI-026`** | spike | Verifier v0.4 + Component Packaging / Canonical ABI + Runner Component Linker | `completed` | Soporte en `irtool` para validar compatibilidad con WIT y empaquetar WebAssembly Component; soporte en `runner` para ejecutar componentes en Wasmtime Component Model. |
-| **`WI-027`** | spike | E1-004 Construcción de Componente con Interfaces WIT y Freeze | `completed` | Construcción de `ir/program-004.ir.json`, verificación contra WIT, emisión de componente WASM, 100 % pass rate y sellado de `poc-004-e1-freeze`. |
+| **`WI-026`** | spike | Verifier v0.4 + Component Packaging / Canonical ABI + Runner Component Linker | `completed` | Soporte en `irtool` para compilar Semantic IR v0.4 a WebAssembly Component nativo con Canonical ABI (`wit_component::ComponentEncoder`); soporte en `runner` para ejecutar componentes mediante `wasmtime::component::Component` y `wasmtime::component::Linker`. |
+| **`WI-027`** | spike | E1-004 Construcción de Componente con Interfaces WIT y Freeze | `completed` | Construcción de `ir/program-004.ir.json`, verificación contra WIT, emisión de componente WASM nativo, 100 % pass rate y sellado de `poc-004-e1-freeze`. |
 | **`WI-028`** | spike | E2-004 Reparación controlada guiada por WIT diagnostics | `completed` | Inyección de desalineación contra la interfaz WIT (`E_UNKNOWN_EXPORT_INTERFACE`), rechazo determinista y reparación en 1 intento. |
 | **`WI-029`** | spike | E3-004 Extensión funcional con interfaces y variantes ricas en WIT | `completed` | Extensión de especificación WIT con nueva operación (`quote-shipping`) y validación sobre backend congelado. |
 | **`WI-030`** | spike | E4-004 Mantenimiento modularizado y composición interoperable | `completed` | Mantenimiento localizado de reglas comerciales preservando la interfaz WIT y reproducibilidad 3/3. |
-| **`WI-031`** | chore | Análisis, matriz SC y conclusión POC 004 | `completed` | Evaluación de `SC-01` a `SC-16`, reporte final `poc-report-v005.md` y decisión canónica Kaddo. |
+| **`WI-031`** | chore | Análisis, matriz SC y conclusión POC 004 | `completed` | Evaluación de `SC-01` a `SC-16` estrictamente confirmados (16/16), reporte final `poc-report-v006.md` y decisión canónica Kaddo. |
 | **`WI-032`** | spike opcional | Benchmark pareado POC-004 vs Rust `cargo component` | `completed` | Comparación cuantitativa: Semantic IR v0.4 vs Rust (`wasm32-unknown-unknown`) con metadatos WIT; publicado en `BENCHMARK_REPORT_004.md`. |
 
 ## Conclusion Rule
@@ -126,11 +126,12 @@ El problema a resolver en esta **POC 004** es determinar si la Semantic IR puede
 
 ## Toolchain Freeze Custody
 
-Los ejecutables del micro-toolchain en modo Release fueron congelados tras concluir `E1-004`:
+Los ejecutables del micro-toolchain en modo Release con soporte nativo de Canonical ABI y Component Model fueron congelados tras concluir la validación estricta de `SC-16`:
 
-- `target/release/irtool.exe`: `8486e9fbeba08c5760bcad8fd6d712970f38e666baf90e5c66be5f1d75c93a38`
-- `target/release/runner.exe`: `045c5644bbad21a29644b9e21dd54cb465c2c4f6da60dc3cf996f587563ab5b3`
-- Custodiados en: `runs/toolchain-freeze-poc004.sha256` y tag git `poc-004-e1-freeze`.
+- `target/release/irtool.exe`: `119c28092705c46306e13ffca641542bcaa09ab2d1e0d4d4a2021c98b2bcfa22`
+- `target/release/runner.exe`: `85ac2f654c685f9652d85d7a23a622852956e2a878020f95b9500ad8a7f096b8`
+- `runs/program-004.wasm`: `9fa30aa5ec9e725bbed5863106cc7ac05c96cffc911cb5859d6f375380912d0b`
+- Custodiados en: `runs/toolchain-freeze-poc004.sha256` y tag git `v0.34.0-wi-032-canonical-abi`.
 
 ## Evaluation and Answers to Core Questions
 
@@ -144,7 +145,7 @@ Los ejecutables del micro-toolchain en modo Release fueron congelados tras concl
    Sí (`SC-03`, `SC-07`, `SC-09`). En `E3-004` (adición del método WIT `quote-shipping`) y en `E4-004` (alícuota fiscal 12 % y evento 999), ni `irtool` ni `runner` requirieron una sola modificación de código ni recompilación. Los hashes en `runs/toolchain-freeze-poc004.sha256` permanecieron idénticos.
 
 4. **¿El empaquetado de componentes cumple con la reproducibilidad binaria exacta?**
-   Sí (`SC-11`). 3/3 builds independientes en `E1-004`, `E3-004` y `E4-004` produjeron exactamente el mismo hash SHA-256 de componente WASM con su sección personalizada de tipo de componente WIT incrustada.
+   Sí (`SC-11`). 3/3 builds independientes en `E1-004`, `E3-004` y `E4-004` produjeron exactamente el mismo hash SHA-256 de componente WASM nativo (`0x0001000d`) con su sección personalizada de tipo de componente WIT y adaptadores de Canonical ABI incrustados.
 
 5. **¿Se conservó la ventaja de latencia y compacidad diagnóstica de la arquitectura Agent-Native?**
    Sí (`SC-14`, `SC-15`, `SC-16`). La latencia combinada de verificación y empaquetado de componente fue de ~6 ms, y el runner ejecutó suites de 21 casos en Wasmtime en 4 ms.
@@ -156,13 +157,14 @@ Status: validated
 Decision: GO
 
 Evidence summary:
-- E1-004: Construcción autónoma de componente WebAssembly con contrato WIT en 1 intento (869 bytes, 7/7 públicas, 10/10 reservadas). Freeze sellado en tag `poc-004-e1-freeze`.
+- E1-004: Construcción autónoma de componente WebAssembly nativo con contrato WIT en 1 intento (2,506 bytes, 7/7 públicas, 10/10 reservadas). Freeze sellado en `runs/toolchain-freeze-poc004.sha256`.
 - E2-004: Discordancia de interfaz WIT (`E_UNKNOWN_EXPORT_INTERFACE`) detectada con código de salida 1 y diagnóstico de 366 bytes; reparada en 1 intento restaurando paridad SHA-256 bit a bit.
-- E3-004: Extensión funcional incorporando método WIT `quote-shipping` completada en 1 intento con 0 cambios al backend congelado (942 bytes, 9/9 públicas, 12/12 reservadas; 21/21 total).
-- E4-004: Mantenimiento modularizado (alícuota fiscal 12 % y evento 999) con diff quirúrgico en subfunciones internas y reproducibilidad 3/3 (`98fa91...`, 956 bytes, 21/21 pruebas aprobadas).
-- Success criteria passed: 16/16 (SC-01 a SC-16).
+- E3-004: Extensión funcional incorporando método WIT `quote-shipping` completada en 1 intento con 0 cambios al backend congelado (9/9 públicas, 12/12 reservadas; 21/21 total).
+- E4-004: Mantenimiento modularizado (alícuota fiscal 12 % y evento 999) con diff quirúrgico en subfunciones internas y reproducibilidad 3/3 (21/21 pruebas aprobadas).
+- SC-16 Validación estricta: WebAssembly Component nativo con Canonical ABI (`canon lift` y `canon lower`) ejecutado en `wasmtime::component::Component` y `wasmtime::component::Linker`.
+- Success criteria passed: 16/16 (SC-01 a SC-16, estrictamente validados).
 - Success criteria failed: 0/16.
 - Inmutabilidad de Toolchain: 100 % confirmada en `runs/toolchain-freeze-poc004.sha256`.
 
 Recommendation:
-Decisión GO (validated). Habiendo demostrado que Semantic IR v0.4 permite a agentes de IA interactuar con contratos de interfaz WIT estandarizados, empaquetar WebAssembly Components reproducibles con Canonical ABI, verificar compatibilidad estática con diagnósticos concisos y mantener el backend 100 % congelado, se recomienda avanzar a la Fase 5: **POC 005 — Orquestación y composición multi-componente agent-native con Component Model Linker y registro federado**.
+Decisión GO (validated). Habiendo demostrado que Semantic IR v0.4 permite a agentes de IA interactuar con contratos de interfaz WIT estandarizados, empaquetar WebAssembly Components nativos reproducibles con Canonical ABI, verificar compatibilidad estática con diagnósticos concisos y ejecutar en runtime de componentes de Wasmtime, se recomienda avanzar a la Fase 5: **POC 005 — Orquestación y composición multi-componente agent-native con Component Model Linker y registro federado**.

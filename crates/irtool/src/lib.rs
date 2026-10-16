@@ -1648,7 +1648,15 @@ fn value_kind(v: &Value) -> &'static str {
     }
 }
 
-/// Compiles a verified Semantic IR v0.1 or v0.2 JSON document directly into deterministic WebAssembly bytes.
+fn wit_interface_id(package: &str, iface: &str) -> String {
+    if let Some((ns_pkg, ver)) = package.split_once('@') {
+        format!("{ns_pkg}/{iface}@{ver}")
+    } else {
+        format!("{package}/{iface}")
+    }
+}
+
+/// Compiles a verified Semantic IR JSON document directly into deterministic WebAssembly bytes (Core WASM or Component Model).
 pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
     let diags = verify_ir(root);
     if !diags.is_empty() {
@@ -1826,7 +1834,18 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
         let results = [ValType::I32];
         let type_idx = imp_idx as u32;
         types.ty().function(wasm_params, results);
-        import_section.import(&imp_sig.module, &imp_sig.name, EntityType::Function(type_idx));
+
+        let (imp_mod, imp_field) = if ir_version == "0.4" {
+            if let (Some(ref contract), Some(ref wit_iface)) = (&ctx.wit_contract, &imp_sig.wit_interface) {
+                (wit_interface_id(&contract.package, wit_iface), imp_sig.name.replace('_', "-"))
+            } else {
+                (imp_sig.module.clone(), imp_sig.name.clone())
+            }
+        } else {
+            (imp_sig.module.clone(), imp_sig.name.clone())
+        };
+
+        import_section.import(&imp_mod, &imp_field, EntityType::Function(type_idx));
     }
 
     for (func_idx, func_val) in functions.iter().enumerate() {
@@ -1851,6 +1870,12 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
 
         if is_export {
             exports.export(name, ExportKind::Func, num_imports + func_idx as u32);
+            if ir_version == "0.4" {
+                if let (Some(ref contract), Some(wit_iface)) = (&ctx.wit_contract, func_obj.get("wit_interface").and_then(|v| v.as_str())) {
+                    let wit_export_name = format!("{}#{}", wit_interface_id(&contract.package, wit_iface), name.replace('_', "-"));
+                    exports.export(&wit_export_name, ExportKind::Func, num_imports + func_idx as u32);
+                }
+            }
         }
 
         // Local 0..num_params-1: params
@@ -1897,18 +1922,58 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
     module.section(&code);
 
     if ir_version == "0.4" {
-        if let Some(wit_val) = root.get("wit_contract") {
-            let wit_json = serde_json::to_vec(wit_val).unwrap();
-            let custom = CustomSection {
-                name: "component-type:order-processor".into(),
-                data: wit_json.into(),
-            };
-            module.section(&custom);
+        if let Some(ref wit_contract) = ctx.wit_contract {
+            let wit_content = include_str!("../../../wit/order.wit");
+            let mut resolve = wit_parser::Resolve::new();
+            if let Ok(pkg) = resolve.push_str("order.wit", wit_content) {
+                let world_name = if wit_contract.world.is_empty() { "order-processor" } else { &wit_contract.world };
+                if let Ok(world) = resolve.select_world(pkg, Some(world_name)) {
+                    if let Ok(encoded_metadata) = wit_component::metadata::encode(
+                        &resolve,
+                        world,
+                        wit_component::StringEncoding::UTF8,
+                        None,
+                    ) {
+                        let custom = CustomSection {
+                            name: format!("component-type:{world_name}").into(),
+                            data: encoded_metadata.into(),
+                        };
+                        module.section(&custom);
+                    }
+                }
+            }
         }
     }
 
-    let wasm_bytes = module.finish();
-    Ok(wasm_bytes)
+    let core_bytes = module.finish();
+
+    if ir_version == "0.4" {
+        let component_bytes = wit_component::ComponentEncoder::default()
+            .module(&core_bytes)
+            .map_err(|e| vec![Diagnostic {
+                code: "E_COMPONENT_ENCODER".to_string(),
+                function: None,
+                path: "$".to_string(),
+                message: format!("Failed to create ComponentEncoder: {e}"),
+                expected: None,
+                found: None,
+            }])?
+            .encode()
+            .map_err(|e| {
+                let msg = e.chain().map(|c| c.to_string()).collect::<Vec<_>>().join(" -> ");
+                vec![Diagnostic {
+                    code: "E_COMPONENT_ENCODE".to_string(),
+                    function: None,
+                    path: "$".to_string(),
+                    message: format!("Failed to encode WebAssembly Component: {msg}"),
+                    expected: None,
+                    found: None,
+                }]
+            })?;
+        return Ok(component_bytes);
+    }
+
+    Ok(core_bytes)
 }
 
 fn emit_expr(
@@ -2081,9 +2146,9 @@ fn infer_expr_type(expr: &Value, params: &HashMap<String, u32>, ctx: &Context) -
     }
 }
 
-/// Validates a WebAssembly binary using `wasmparser` (the engine behind `wasm-tools validate`).
+/// Validates a WebAssembly binary (Core WASM or Component) using `wasmparser` (the engine behind `wasm-tools validate`).
 pub fn validate_wasm_bytes(bytes: &[u8]) -> Result<(), String> {
-    wasmparser::Validator::new()
+    wasmparser::Validator::new_with_features(wasmparser::WasmFeatures::all())
         .validate_all(bytes)
         .map(|_| ())
         .map_err(|e| e.to_string())
@@ -2426,21 +2491,13 @@ mod tests {
 
         let wasm = compile_ir_to_wasm(&val).expect("compile v0.4 to wasm");
         assert!(!wasm.is_empty());
+        assert!(
+            wasm.starts_with(b"\0asm\x0d\0\x01\0") || wasm.starts_with(b"\0asm\r\0\x01\0"),
+            "v0.4 must compile to a WebAssembly Component Model binary"
+        );
 
-        let mut validator = wasmparser::Validator::new();
-        validator.validate_all(&wasm).expect("valid wasm module with component metadata");
-
-        let parser = wasmparser::Parser::new(0);
-        let mut found_custom = false;
-        for payload in parser.parse_all(&wasm) {
-            if let Ok(wasmparser::Payload::CustomSection(cs)) = payload {
-                if cs.name() == "component-type:order-processor" {
-                    found_custom = true;
-                    break;
-                }
-            }
-        }
-        assert!(found_custom, "Custom section component-type:order-processor must be present in v0.4");
+        let mut validator = wasmparser::Validator::new_with_features(wasmparser::WasmFeatures::all());
+        validator.validate_all(&wasm).expect("valid wasm component");
     }
 
     #[test]
@@ -2454,4 +2511,21 @@ mod tests {
             "diags: {diags:?}"
         );
     }
+
+    #[test]
+    fn test_compiles_v0_4_to_component_model() {
+        let program_json = include_str!("../../../ir/program-004.ir.json");
+        let val: Value = serde_json::from_str(program_json).expect("valid JSON");
+        let comp_bytes = compile_ir_to_wasm(&val).expect("compile to component");
+        assert!(
+            comp_bytes.starts_with(b"\0asm\x0d\0\x01\0") || comp_bytes.starts_with(b"\0asm\r\0\x01\0"),
+            "Compiled binary must have WebAssembly Component magic [0, 61, 73, 6d, 13, 0, 1, 0]"
+        );
+        assert!(comp_bytes.len() > 1000);
+    }
 }
+
+
+
+
+

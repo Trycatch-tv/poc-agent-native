@@ -13,10 +13,10 @@
 La POC 004 demostró que **Semantic IR v0.4** permite a un agente de IA diseñar, evolucionar y componer lógica comercial en contratos estandarizados de **WIT** (WebAssembly Interface Types) con empaquetado canónico de componentes y backend 100 % congelado post-`E1-004`.
 
 Este benchmark pareado (**`WI-032`**) evalúa de forma empírica y reproducible la misma especificación funcional (`spec/task-004.yaml` v3) implementada en dos rutas tecnológicas independientes:
-1. **Ruta Agent-Native:** `ir/program-004.ir.json` procesada por el micro-toolchain determinista (`irtool verify` + `irtool compile` con sección personalizada `component-type:order-processor` y metadatos WIT).
+1. **Ruta Agent-Native:** `ir/program-004.ir.json` procesada por el micro-toolchain determinista (`irtool verify` + `irtool compile` emitiendo un WebAssembly Component nativo estándar `0x0001000d` vía `wit_component::ComponentEncoder`, adaptadores Canonical ABI `canon lift`/`canon lower` y metadatos WIT).
 2. **Ruta Baseline Rust:** `crates/baseline-rust-004/src/lib.rs` (`#![no_std]`, `crate-type = ["cdylib"]`, `opt-level = "z"`, `lto = true`, `strip = "symbols"`, imports de host y sección `component-type:order-processor`).
 
-Ambas rutas fueron ejecutadas y verificadas por el mismo ejecutor en runtime (`target/release/runner.exe` sobre Wasmtime 27.0.0) contra las mismas suites de pruebas públicas (`tests/public-004.yaml`, 9 casos) y reservadas (`tests/hidden-004.yaml`, 12 casos), sumando 21 casos de prueba exhaustivos con validación de valores estructurados, estados de host y efectos secundarios secuenciales.
+Ambas rutas fueron ejecutadas y verificadas por el mismo ejecutor en runtime (`target/release/runner.exe` sobre Wasmtime 27.0.0, utilizando `wasmtime::component::Component` y `wasmtime::component::Linker` para la ruta de componentes) contra las mismas suites de pruebas públicas (`tests/public-004.yaml`, 9 casos) y reservadas (`tests/hidden-004.yaml`, 12 casos), sumando 21 casos de prueba exhaustivos con validación de valores estructurados, estados de host y efectos secundarios secuenciales.
 
 ---
 
@@ -27,7 +27,7 @@ Ambas rutas fueron ejecutadas y verificadas por el mismo ejecutor en runtime (`t
 | **Verificación (`verify` vs `cargo check`)** | **`30.1 ms`** | `161.5 ms` | **`5.4x más rápido`** |
 | **Compilación (`compile` vs `cargo build`)** | **`24.6 ms`** | `76.9 ms` incremental (`351.8 ms` clean) | **`3.1x a 14.3x más rápido`** |
 | **Ciclo Total Toolchain (`verify + compile`)** | **`54.7 ms`** | `238.4 ms` incremental (`513.3 ms` clean) | **`4.4x a 9.4x más rápido`** |
-| **Tamaño Binario Componente (`.wasm`)** | `956 bytes` | `761 bytes` | Ambos ultra-compactos (< 1 KB) |
+| **Tamaño Binario Componente (`.wasm`)** | `2,506 bytes` (Component nativo) / `956 B` (Core) | `761 bytes` (Core con metadata) | Ambos ultra-compactos (< 2.5 KB) |
 | **Volumen Diagnóstico en Desalineación WIT** | **`366 bytes`** (JSONPath exacto) | `~8,800 bytes` (`cargo check --message-format=json`) | **`24.0x más compacto (95.8 % menos tokens)`** |
 | **Pass Rate Pruebas Públicas (`9/9`)** | `9/9 (100 %)` en 4 ms | `9/9 (100 %)` en 3 ms | **Empate (100 % corrección)** |
 | **Pass Rate Pruebas Reservadas (`12/12`)** | `12/12 (100 %)` en 4 ms | `12/12 (100 %)` en 2 ms | **Empate (100 % corrección)** |
@@ -48,8 +48,8 @@ Ante una desalineación de interfaz o discrepancia de tipos en el contrato WIT, 
 - En Rust `#![no_std]`, el agente debe gestionar punteros crudos (`&raw const`), variables globales mutables estáticas (`static mut RESULT`), bloques `unsafe` y directivas de memoria C (`#[repr(C)]`), introduciendo riesgos de concurrencia y corrupción si no se dominan estos patrones de bajo nivel.
 - En Semantic IR v0.4, la gestión de memoria lineal, el empaquetado de registros y la interfaz WIT son primitivas declarativas nativas de primer nivel. El compilador resuelve automáticamente la ubicación en heap y las llamadas a funciones sin que el agente deba manipular punteros ni invocar código inseguro.
 
-### D. Interoperabilidad Ecosistémica
-Tanto el componente Agent-Native como el binario de Rust incorporan la sección personalizada estándar `component-type:order-processor` con metadatos WIT, demostrando que la Semantic IR v0.4 es 100 % compatible con el estándar WebAssembly Component Model y apta para orquestarse en runtimes heterogéneos modernos.
+### D. Interoperabilidad Ecosistémica y Canonical ABI
+El componente emitido por Semantic IR v0.4 es un WebAssembly Component Model nativo estándar (magic `\0asm\x0d\0\x01\0`) con adaptadores Canonical ABI (`canon lift` y `canon lower`) verificables en WAT y ejecutados nativamente en `wasmtime::component::Component` y `wasmtime::component::Linker`, garantizando interoperabilidad real en arquitecturas heterogéneas modernas.
 
 ---
 

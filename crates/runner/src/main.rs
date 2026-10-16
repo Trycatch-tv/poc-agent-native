@@ -214,8 +214,251 @@ fn parse_cases(raw_yaml: &str) -> Result<Vec<TestCaseInput>, String> {
     }
 }
 
+wasmtime::component::bindgen!({
+    path: "../../wit/order.wit",
+    world: "order-processor",
+});
+
+impl kaddo::commercial::host_services::Host for HostStoreData {
+    fn check_credit(&mut self, customer_id: i32, amount: i32) -> bool {
+        let limit = *self.credit_limits.get(&customer_id).unwrap_or(&0);
+        let ok = amount <= limit;
+        self.all_calls.push(HostCallRecord {
+            import: "check_credit".to_string(),
+            args: vec![serde_json::json!(customer_id), serde_json::json!(amount)],
+        });
+        ok
+    }
+
+    fn kv_get(&mut self, key: i32) -> i32 {
+        let val = *self.kv.get(&key).unwrap_or(&0);
+        self.all_calls.push(HostCallRecord {
+            import: "kv_get".to_string(),
+            args: vec![serde_json::json!(key)],
+        });
+        val
+    }
+
+    fn emit_audit(&mut self, event_type: i32, entity_id: i32) -> i32 {
+        self.all_calls.push(HostCallRecord {
+            import: "emit_audit".to_string(),
+            args: vec![serde_json::json!(event_type), serde_json::json!(entity_id)],
+        });
+        1
+    }
+}
+
+impl kaddo::commercial::types::Host for HostStoreData {}
+
+fn run_suite_component(wasm_bytes: &[u8], test_cases: &[TestCaseInput], start: Instant) -> Result<SuiteReport, String> {
+    let engine = Engine::default();
+    let component = wasmtime::component::Component::from_binary(&engine, wasm_bytes).map_err(|e| e.to_string())?;
+
+    let mut passed_count = 0usize;
+    let mut failed_count = 0usize;
+    let mut results = Vec::with_capacity(test_cases.len());
+
+    for tc in test_cases {
+        let mut i32_args = Vec::with_capacity(tc.args.len());
+        let mut json_args = Vec::with_capacity(tc.args.len());
+        let mut conv_err = None;
+
+        for a in &tc.args {
+            json_args.push(yaml_to_json_val(a));
+            match yaml_val_to_i32(a) {
+                Ok(v) => i32_args.push(v),
+                Err(e) => {
+                    conv_err = Some(e);
+                    break;
+                }
+            }
+        }
+
+        let expected_json = yaml_to_json_val(&tc.expected);
+        let parsed_host_state = parse_host_state(tc.host_state.as_ref());
+        let expected_calls = parse_expected_host_calls(tc.expected_host_calls.as_ref());
+
+        if let Some(err_msg) = conv_err {
+            failed_count += 1;
+            results.push(CaseResult {
+                id: tc.id.clone(),
+                requirement: tc.requirement.clone(),
+                function: tc.function.clone(),
+                args: json_args,
+                expected: expected_json,
+                actual: None,
+                expected_host_calls: expected_calls,
+                actual_host_calls: None,
+                passed: false,
+                error: Some(err_msg),
+            });
+            continue;
+        }
+
+        let initial_store_data = HostStoreData {
+            kv: parsed_host_state.kv,
+            credit_limits: parsed_host_state.credit_limits,
+            all_calls: Vec::new(),
+        };
+
+        let mut store = Store::new(&engine, initial_store_data);
+        let mut linker = wasmtime::component::Linker::new(&engine);
+        if let Err(e) = OrderProcessor::add_to_linker(&mut linker, |state: &mut HostStoreData| state) {
+            failed_count += 1;
+            results.push(CaseResult {
+                id: tc.id.clone(),
+                requirement: tc.requirement.clone(),
+                function: tc.function.clone(),
+                args: json_args,
+                expected: expected_json,
+                actual: None,
+                expected_host_calls: expected_calls,
+                actual_host_calls: None,
+                passed: false,
+                error: Some(format!("Failed to link component imports: {e}")),
+            });
+            continue;
+        }
+
+        let processor = match OrderProcessor::instantiate(&mut store, &component, &linker) {
+            Ok(p) => p,
+            Err(e) => {
+                failed_count += 1;
+                results.push(CaseResult {
+                    id: tc.id.clone(),
+                    requirement: tc.requirement.clone(),
+                    function: tc.function.clone(),
+                    args: json_args,
+                    expected: expected_json,
+                    actual: None,
+                    expected_host_calls: expected_calls,
+                    actual_host_calls: None,
+                    passed: false,
+                    error: Some(format!("Failed to instantiate component: {e}")),
+                });
+                continue;
+            }
+        };
+
+        let calc = processor.kaddo_commercial_order_calculator();
+        let (actual_json, mut is_pass, mut err) = match tc.function.as_str() {
+            "calculate_order" | "calculate-order" => {
+                if i32_args.len() != 6 {
+                    (
+                        None,
+                        false,
+                        Some(format!("calculate_order requires 6 arguments, found {}", i32_args.len())),
+                    )
+                } else {
+                    match calc.call_calculate_order(
+                        &mut store,
+                        i32_args[0],
+                        i32_args[1],
+                        i32_args[2],
+                        i32_args[3],
+                        i32_args[4],
+                        i32_args[5],
+                    ) {
+                        Ok(order) => {
+                            let mut map = serde_json::Map::new();
+                            map.insert("status_code".to_string(), serde_json::json!(order.status_code));
+                            map.insert("subtotal_cents".to_string(), serde_json::json!(order.subtotal_cents));
+                            map.insert("discount_cents".to_string(), serde_json::json!(order.discount_cents));
+                            map.insert("tax_cents".to_string(), serde_json::json!(order.tax_cents));
+                            map.insert("shipping_cents".to_string(), serde_json::json!(order.shipping_cents));
+                            map.insert("total_cents".to_string(), serde_json::json!(order.total_cents));
+                            let act_val = serde_json::Value::Object(map);
+                            let pass = act_val == expected_json;
+                            (Some(act_val), pass, None)
+                        }
+                        Err(e) => (None, false, Some(format!("Component execution trap: {e}"))),
+                    }
+                }
+            }
+            "quote_shipping" | "quote-shipping" => {
+                if i32_args.len() != 2 {
+                    (
+                        None,
+                        false,
+                        Some(format!("quote_shipping requires 2 arguments, found {}", i32_args.len())),
+                    )
+                } else {
+                    match calc.call_quote_shipping(&mut store, i32_args[0], i32_args[1]) {
+                        Ok(q) => {
+                            let act_val = serde_json::json!(q);
+                            let pass = act_val == expected_json;
+                            (Some(act_val), pass, None)
+                        }
+                        Err(e) => (None, false, Some(format!("Component execution trap: {e}"))),
+                    }
+                }
+            }
+            other => (None, false, Some(format!("Unknown component exported function '{other}'"))),
+        };
+
+        let store_calls = store.data().all_calls.clone();
+        let actual_matched_calls = if let Some(ref exp_calls) = expected_calls {
+            let has_kv_assertion = exp_calls.iter().any(|c| c.import == "kv_get");
+            let filtered: Vec<HostCallRecord> = if has_kv_assertion {
+                store_calls
+            } else {
+                store_calls
+                    .into_iter()
+                    .filter(|c| c.import != "kv_get")
+                    .collect()
+            };
+            if is_pass && &filtered != exp_calls {
+                is_pass = false;
+                err = Some(format!(
+                    "Host call mismatch: expected {:?}, actual {:?}",
+                    exp_calls, filtered
+                ));
+            }
+            Some(filtered)
+        } else {
+            None
+        };
+
+        if is_pass {
+            passed_count += 1;
+        } else {
+            failed_count += 1;
+        }
+
+        results.push(CaseResult {
+            id: tc.id.clone(),
+            requirement: tc.requirement.clone(),
+            function: tc.function.clone(),
+            args: json_args,
+            expected: expected_json,
+            actual: actual_json,
+            expected_host_calls: expected_calls,
+            actual_host_calls: actual_matched_calls,
+            passed: is_pass,
+            error: err,
+        });
+    }
+
+    Ok(SuiteReport {
+        passed: passed_count,
+        failed: failed_count,
+        total: test_cases.len(),
+        execution_ms: start.elapsed().as_millis(),
+        cases: results,
+    })
+}
+
 fn run_suite(wasm_bytes: &[u8], test_cases: &[TestCaseInput]) -> Result<SuiteReport, String> {
     let start = Instant::now();
+    let is_component = wasm_bytes.starts_with(b"\0asm\x0d\0\x01\0") || wasm_bytes.starts_with(b"\0asm\r\0\x01\0");
+    if is_component {
+        run_suite_component(wasm_bytes, test_cases, start)
+    } else {
+        run_suite_core(wasm_bytes, test_cases, start)
+    }
+}
+
+fn run_suite_core(wasm_bytes: &[u8], test_cases: &[TestCaseInput], start: Instant) -> Result<SuiteReport, String> {
     let engine = Engine::default();
     let module = Module::from_binary(&engine, wasm_bytes).map_err(|e| e.to_string())?;
 
@@ -744,6 +987,39 @@ cases:
         let report = run_suite(&wasm_bytes, &cases).expect("run suite");
         assert_eq!(report.passed, 1, "report cases: {:?}", report.cases);
         assert_eq!(report.failed, 0);
+    }
+
+    #[test]
+    fn executes_v0_4_component_in_wasmtime() {
+        let program_json = include_str!("../../../ir/program-004.ir.json");
+        let val: serde_json::Value = serde_json::from_str(program_json).expect("valid JSON");
+        let wasm_bytes = irtool::compile_ir_to_wasm(&val).expect("compile to wasm");
+        assert!(
+            wasm_bytes.starts_with(b"\0asm\x0d\0\x01\0") || wasm_bytes.starts_with(b"\0asm\r\0\x01\0"),
+            "Must be a WebAssembly Component binary"
+        );
+
+        let pub_yaml = include_str!("../../../tests/public-004.yaml");
+        let cases = parse_cases(pub_yaml).expect("parse public-004 YAML");
+        let report = run_suite(&wasm_bytes, &cases).expect("run suite public-004");
+        assert_eq!(
+            report.failed,
+            0,
+            "Public-004 failures: {:?}",
+            report.cases.iter().filter(|c| !c.passed).collect::<Vec<_>>()
+        );
+        assert_eq!(report.passed, cases.len());
+
+        let hid_yaml = include_str!("../../../tests/hidden-004.yaml");
+        let hid_cases = parse_cases(hid_yaml).expect("parse hidden-004 YAML");
+        let hid_report = run_suite(&wasm_bytes, &hid_cases).expect("run suite hidden-004");
+        assert_eq!(
+            hid_report.failed,
+            0,
+            "Hidden-004 failures: {:?}",
+            hid_report.cases.iter().filter(|c| !c.passed).collect::<Vec<_>>()
+        );
+        assert_eq!(hid_report.passed, hid_cases.len());
     }
 }
 
