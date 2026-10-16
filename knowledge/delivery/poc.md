@@ -568,6 +568,29 @@ Resumen de métricas observacionales adicionales (`M08`–`M20`):
 - **`M19` (Human clarifications durante `E1`–`E4`):** `0`.
 - **`M20` (Diagnostic count):** `1` diagnóstico determinista esperado en la inyección de `E2` (`E_UNKNOWN_PARAM` en `$.functions[0].body.condition.left`); `0` diagnósticos en las versiones finales de `E1`–`E4`.
 
+### Benchmark comparativo pareado (`WI-008`: `Agent-Native IR → WASM` vs `Rust → wasm32-unknown-unknown`)
+
+Se ejecutó la serie pareada `B1`–`B4` (`crates/baseline-rust/src/lib.rs`, `#![no_std]`, `opt-level = "z"`, `lto = true`, `strip = "symbols"`) bajo las mismas especificaciones (`v1`–`v3`), el mismo validador (`irtool validate`) y el mismo runner (`Wasmtime 27.0.0`):
+
+| Par experimental | Dimensión medida | Ruta Agent-Native (`IR v0.1 → WASM`) | Baseline Rust (`Rust → wasm32-unknown-unknown`) | Ratio / Diferencia |
+|---|---|---:|---:|---|
+| **`E1` vs `B1` (Construcción)** | Verificación (`verify_ms` vs `cargo check`) | **`12 ms`** | `365 ms` | **`30.4x` más rápido** en Agent-Native |
+| | Compilación (`compile_ms` vs `cargo build --release`) | **`15 ms`** | `959 ms` | **`63.9x` más rápido** en Agent-Native |
+| | Ciclo determinista total (`verify + compile`) | **`27 ms`** | `1324 ms` | **`49.0x` más rápido** en Agent-Native |
+| | Tamaño del `.wasm` emitido (`1` función) | **`76 B`** | `138 B` | **`44.9 %` más compacto** en Agent-Native |
+| | Pruebas públicas / reservadas | `6/6` / `9/9` (`100 %`) | `6/6` / `9/9` (`100 %`) | Empate (`100 %`) |
+| **`E2` vs `B2` (Reparación)** | Tiempo de rechazo del defecto sembrado (`subtotal`) | **`11 ms`** | `181 ms` | **`16.5x` más rápido** en Agent-Native |
+| | Tamaño del payload JSON de diagnóstico | **`264 B`** (`1` objeto JSON con JSONPath) | `6158 B` (stream JSONL de `cargo check`) | **`23.3x` más compacto** en Agent-Native |
+| | Ciclo `verify + compile` tras reparar | **`25 ms`** (`11 + 14 ms`) | `401 ms` (`138 + 263 ms`) | **`16.0x` más rápido** en Agent-Native |
+| | Intentos de reparación (`repair_attempts`) | `1` | `1` | Empate (`1` intento) |
+| **`E3` vs `B3` (Extensión)** | Ciclo `verify + compile` | **`25 ms`** (`11 + 14 ms`) | `550 ms` (`237 + 313 ms`) | **`22.0x` más rápido** en Agent-Native |
+| | Tamaño del `.wasm` emitido (`2` funciones) | **`134 B`** | `205 B` | **`34.6 %` más compacto** en Agent-Native |
+| | Pruebas públicas / reservadas | `12/12` / `18/18` (`100 %`) | `12/12` / `18/18` (`100 %`) | Empate (`100 %`) |
+| **`E4` vs `B4` (Mantenimiento)** | Ciclo `verify + compile` (incremental / clean) | **`25 ms`** (`11 + 14 ms`) | `508 ms` inc. / `584 ms` clean (`188 + 396 ms`) | **`20.3x`–`23.4x` más rápido** en Agent-Native |
+| | Reproducibilidad (`3/3` builds) y localidad del diff | `3/3` idénticos (`3` líneas diff) | `3/3` idénticos (`3` líneas diff) | Empate (`3/3` builds, `3` líneas) |
+
+Evidencia detallada del benchmark pareado en `runs/rust-baseline/comparison-summary.md` y `runs/rust-baseline/comparison-summary.json`.
+
 ### Formato de `run.json`
 
 ```json

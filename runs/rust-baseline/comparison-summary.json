@@ -1,0 +1,106 @@
+{
+  "experiment_id": "KADDO-AGENT-NATIVE-POC-001",
+  "work_item": "WI-008",
+  "title": "Paired Benchmark: Agent-Native Semantic IR v0.1 -> WASM vs Rust -> wasm32-unknown-unknown",
+  "pairs": [
+    {
+      "pair": "E1 vs B1 (Initial Build)",
+      "agent_native": {
+        "verify_ms": 12,
+        "compile_ms": 15,
+        "total_toolchain_ms": 27,
+        "test_public_ms": 16,
+        "wasm_size_bytes": 76,
+        "public_passed": "6/6",
+        "hidden_passed": "9/9",
+        "artifact_sha256": "026cbbc30f6252a535cab1b1608df265f7641ff0ef5aae1b22fd36e8e3dee505"
+      },
+      "rust_baseline": {
+        "verify_ms": 365,
+        "compile_ms": 959,
+        "total_toolchain_ms": 1324,
+        "test_public_ms": 11,
+        "wasm_size_bytes": 138,
+        "public_passed": "6/6",
+        "hidden_passed": "9/9",
+        "artifact_sha256": "41c677673fc8a4e4d33f8963f3756d6ea9414ea296d11f635e29fb5560e29340"
+      }
+    },
+    {
+      "pair": "E2 vs B2 (Diagnostic & Controlled Repair)",
+      "agent_native": {
+        "injected_verify_ms": 11,
+        "diagnostic_payload_bytes": 264,
+        "diagnostic_code": "E_UNKNOWN_PARAM",
+        "diagnostic_locator": "$.functions[0].body.condition.left",
+        "repair_attempts": 1,
+        "verify_ms": 11,
+        "compile_ms": 14,
+        "total_toolchain_ms": 25,
+        "wasm_size_bytes": 76
+      },
+      "rust_baseline": {
+        "injected_verify_ms": 181,
+        "diagnostic_payload_bytes": 6158,
+        "diagnostic_code": "E0425",
+        "diagnostic_locator": "src/lib.rs:11:8..11:16",
+        "repair_attempts": 1,
+        "verify_ms": 138,
+        "compile_ms": 263,
+        "total_toolchain_ms": 401,
+        "wasm_size_bytes": 138
+      }
+    },
+    {
+      "pair": "E3 vs B3 (Functional Extension: calculate_discount)",
+      "agent_native": {
+        "verify_ms": 11,
+        "compile_ms": 14,
+        "total_toolchain_ms": 25,
+        "test_public_ms": 28,
+        "wasm_size_bytes": 134,
+        "public_passed": "12/12",
+        "hidden_passed": "18/18",
+        "artifact_sha256": "e9450f963e606588e4c01c7b2860e1735598dd0f040ed221a62f11de42211e02"
+      },
+      "rust_baseline": {
+        "verify_ms": 237,
+        "compile_ms": 313,
+        "total_toolchain_ms": 550,
+        "test_public_ms": 12,
+        "wasm_size_bytes": 205,
+        "public_passed": "12/12",
+        "hidden_passed": "18/18",
+        "artifact_sha256": "d360786e095f9665f2f1ac83d61924b298c1ba2cedf6f6f488df9c7a74250283"
+      }
+    },
+    {
+      "pair": "E4 vs B4 (Localized Maintenance & 3/3 Reproducibility)",
+      "agent_native": {
+        "verify_ms": 11,
+        "compile_ms": 14,
+        "total_toolchain_ms": 25,
+        "test_public_ms": 28,
+        "wasm_size_bytes": 134,
+        "reproducible_3_of_3": true,
+        "diff_changed_lines": 3,
+        "public_passed": "12/12",
+        "hidden_passed": "18/18",
+        "artifact_sha256": "947620fe23636397ba820b7cadf673e95fb3e09f68591bd0b54bfc8183d0a450"
+      },
+      "rust_baseline": {
+        "verify_ms": 188,
+        "compile_ms": 320,
+        "clean_compile_ms": 396,
+        "total_toolchain_ms": 508,
+        "test_public_ms": 15,
+        "wasm_size_bytes": 205,
+        "reproducible_3_of_3": true,
+        "diff_changed_lines": 3,
+        "public_passed": "12/12",
+        "hidden_passed": "18/18",
+        "artifact_sha256": "e840e0d1b084e8d97b6f8b114e1f148287ccefd5566cc0c7383c168c5de71b67"
+      }
+    }
+  ]
+}

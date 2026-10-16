@@ -1,0 +1,107 @@
+{
+  "passed": 9,
+  "failed": 0,
+  "total": 9,
+  "execution_ms": 11,
+  "cases": [
+    {
+      "id": "SHIP-H01",
+      "requirement": "SHIP-001",
+      "function": "calculate_shipping",
+      "args": [
+        -2147483648
+      ],
+      "expected": -1,
+      "actual": -1,
+      "passed": true
+    },
+    {
+      "id": "SHIP-H02",
+      "requirement": "SHIP-001",
+      "function": "calculate_shipping",
+      "args": [
+        -500
+      ],
+      "expected": -1,
+      "actual": -1,
+      "passed": true
+    },
+    {
+      "id": "SHIP-H03",
+      "requirement": "SHIP-001",
+      "function": "calculate_shipping",
+      "args": [
+        -2
+      ],
+      "expected": -1,
+      "actual": -1,
+      "passed": true
+    },
+    {
+      "id": "SHIP-H04",
+      "requirement": "SHIP-003",
+      "function": "calculate_shipping",
+      "args": [
+        1
+      ],
+      "expected": 500,
+      "actual": 500,
+      "passed": true
+    },
+    {
+      "id": "SHIP-H05",
+      "requirement": "SHIP-003",
+      "function": "calculate_shipping",
+      "args": [
+        2500
+      ],
+      "expected": 500,
+      "actual": 500,
+      "passed": true
+    },
+    {
+      "id": "SHIP-H06",
+      "requirement": "SHIP-003",
+      "function": "calculate_shipping",
+      "args": [
+        4998
+      ],
+      "expected": 500,
+      "actual": 500,
+      "passed": true
+    },
+    {
+      "id": "SHIP-H07",
+      "requirement": "SHIP-002",
+      "function": "calculate_shipping",
+      "args": [
+        5002
+      ],
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "id": "SHIP-H08",
+      "requirement": "SHIP-002",
+      "function": "calculate_shipping",
+      "args": [
+        10000
+      ],
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "id": "SHIP-H09",
+      "requirement": "SHIP-002",
+      "function": "calculate_shipping",
+      "args": [
+        1000000
+      ],
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    }
+  ]
+}

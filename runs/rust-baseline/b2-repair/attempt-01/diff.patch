@@ -1,0 +1,13 @@
+﻿diff --git a/runs/rust-baseline/b2-repair/attempt-01/source.injected.rs b/runs/rust-baseline/b2-repair/attempt-01/source.after.rs
+index 27c278d..5e0d187 100644
+--- a/runs/rust-baseline/b2-repair/attempt-01/source.injected.rs
++++ b/runs/rust-baseline/b2-repair/attempt-01/source.after.rs
+@@ -8,7 +8,7 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
+ /// Requirements: SHIP-001, SHIP-002, SHIP-003 (Spec v1)
+ #[no_mangle]
+ pub extern "C" fn calculate_shipping(subtotal_cents: i32) -> i32 {
+-    if subtotal < 0 {
++    if subtotal_cents < 0 {
+         -1
+     } else if subtotal_cents >= 5000 {
+         0

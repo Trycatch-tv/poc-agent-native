@@ -1,0 +1,28 @@
+﻿diff --git a/runs/rust-baseline/b4-maintain/attempt-01/source.before.rs b/runs/rust-baseline/b4-maintain/attempt-01/source.after.rs
+index 0b77c37..3c5317c 100644
+--- a/runs/rust-baseline/b4-maintain/attempt-01/source.before.rs
++++ b/runs/rust-baseline/b4-maintain/attempt-01/source.after.rs
+@@ -5,19 +5,19 @@ fn panic(_info: &core::panic::PanicInfo) -> ! {
+     loop {}
+ }
+ 
+-/// Requirements: SHIP-001, SHIP-002, SHIP-003 (Spec v2)
++/// Requirements: SHIP-001, SHIP-002, SHIP-003 (Spec v3)
+ #[no_mangle]
+ pub extern "C" fn calculate_shipping(subtotal_cents: i32) -> i32 {
+     if subtotal_cents < 0 {
+         -1
+-    } else if subtotal_cents >= 5000 {
++    } else if subtotal_cents >= 4000 {
+         0
+     } else {
+-        500
++        600
+     }
+ }
+ 
+-/// Requirements: DISC-001, DISC-002, DISC-003 (Spec v2)
++/// Requirements: DISC-001, DISC-002, DISC-003 (Spec v3)
+ #[no_mangle]
+ pub extern "C" fn calculate_discount(subtotal_cents: i32, premium: i32) -> i32 {
+     if subtotal_cents < 0 {

@@ -1,0 +1,86 @@
+id: KAN-POC-001
+version: 2
+title: Motor mínimo de reglas comerciales
+description: >
+  Implementar las funciones descritas aquí usando exclusivamente la Semantic IR
+  definida por el experimento. El agente no debe implementar la lógica de negocio
+  en Rust, JavaScript, TypeScript, Python, Go u otro lenguaje fuente tradicional.
+
+exports:
+  - name: calculate_shipping
+    params:
+      - name: subtotal_cents
+        type: i32
+    returns: i32
+    requirements:
+      - id: SHIP-001
+        description: Si subtotal_cents es negativo, devolver -1.
+      - id: SHIP-002
+        description: Si subtotal_cents es mayor o igual a 5000, devolver 0.
+      - id: SHIP-003
+        description: En cualquier otro caso, devolver 500.
+  - name: calculate_discount
+    params:
+      - name: subtotal_cents
+        type: i32
+      - name: premium
+        type: bool
+    returns: i32
+    requirements:
+      - id: DISC-001
+        description: Si subtotal_cents es negativo, devolver -1.
+      - id: DISC-002
+        description: Si premium == false, devolver 0.
+      - id: DISC-003
+        description: Si premium == true, devolver subtotal_cents / 10 (división entera con signo).
+
+acceptance:
+  public:
+    - id: SHIP-P01
+      function: calculate_shipping
+      args: [-1]
+      expected: -1
+    - id: SHIP-P02
+      function: calculate_shipping
+      args: [0]
+      expected: 500
+    - id: SHIP-P03
+      function: calculate_shipping
+      args: [4999]
+      expected: 500
+    - id: SHIP-P04
+      function: calculate_shipping
+      args: [5000]
+      expected: 0
+    - id: SHIP-P05
+      function: calculate_shipping
+      args: [5001]
+      expected: 0
+    - id: SHIP-P06
+      function: calculate_shipping
+      args: [2147483647]
+      expected: 0
+    - id: E3-P01
+      function: calculate_discount
+      args: [-1, true]
+      expected: -1
+    - id: E3-P02
+      function: calculate_discount
+      args: [0, true]
+      expected: 0
+    - id: E3-P03
+      function: calculate_discount
+      args: [99, true]
+      expected: 9
+    - id: E3-P04
+      function: calculate_discount
+      args: [100, true]
+      expected: 10
+    - id: E3-P05
+      function: calculate_discount
+      args: [100, false]
+      expected: 0
+    - id: E3-P06
+      function: calculate_discount
+      args: [5000, true]
+      expected: 500

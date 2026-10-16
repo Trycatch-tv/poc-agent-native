@@ -1,0 +1,36 @@
+{
+  "schema_version": "1",
+  "experiment_id": "KADDO-AGENT-NATIVE-POC-001",
+  "track": "rust-baseline",
+  "exercise": "B1",
+  "paired_with": "E1",
+  "attempt": 1,
+  "started_at": "2026-10-16T00:53:34-05:00",
+  "ended_at": "2026-10-16T00:53:38-05:00",
+  "toolchain": {
+    "rustc": "rustc 1.85.0 (4d91de4e4 2025-02-17)",
+    "target": "wasm32-unknown-unknown",
+    "wasmtime": "27.0.0",
+    "runner_sha256": "808cf7f6a6b88aedb141a2d09d75d999d3f36b8824aa1837b19113fb9963782c"
+  },
+  "results": {
+    "wasm_valid": true,
+    "public_tests": {
+      "passed": 6,
+      "failed": 0,
+      "total": 6
+    },
+    "hidden_tests": {
+      "passed": 9,
+      "failed": 0,
+      "total": 9
+    },
+    "repair_attempts": 0,
+    "wasm_size_bytes": 138,
+    "verify_ms": 365,
+    "compile_ms": 959,
+    "test_ms": 11,
+    "artifact_sha256": "41c677673fc8a4e4d33f8963f3756d6ea9414ea296d11f635e29fb5560e29340"
+  },
+  "outcome": "passed"
+}

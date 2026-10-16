@@ -1,0 +1,146 @@
+{
+  "passed": 12,
+  "failed": 0,
+  "total": 12,
+  "execution_ms": 12,
+  "cases": [
+    {
+      "id": "SHIP-P01",
+      "requirement": "SHIP-001",
+      "function": "calculate_shipping",
+      "args": [
+        -1
+      ],
+      "expected": -1,
+      "actual": -1,
+      "passed": true
+    },
+    {
+      "id": "SHIP-P02",
+      "requirement": "SHIP-003",
+      "function": "calculate_shipping",
+      "args": [
+        0
+      ],
+      "expected": 500,
+      "actual": 500,
+      "passed": true
+    },
+    {
+      "id": "SHIP-P03",
+      "requirement": "SHIP-003",
+      "function": "calculate_shipping",
+      "args": [
+        4999
+      ],
+      "expected": 500,
+      "actual": 500,
+      "passed": true
+    },
+    {
+      "id": "SHIP-P04",
+      "requirement": "SHIP-002",
+      "function": "calculate_shipping",
+      "args": [
+        5000
+      ],
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "id": "SHIP-P05",
+      "requirement": "SHIP-002",
+      "function": "calculate_shipping",
+      "args": [
+        5001
+      ],
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "id": "SHIP-P06",
+      "requirement": "SHIP-002",
+      "function": "calculate_shipping",
+      "args": [
+        2147483647
+      ],
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "id": "E3-P01",
+      "requirement": "DISC-001",
+      "function": "calculate_discount",
+      "args": [
+        -1,
+        1
+      ],
+      "expected": -1,
+      "actual": -1,
+      "passed": true
+    },
+    {
+      "id": "E3-P02",
+      "requirement": "DISC-003",
+      "function": "calculate_discount",
+      "args": [
+        0,
+        1
+      ],
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "id": "E3-P03",
+      "requirement": "DISC-003",
+      "function": "calculate_discount",
+      "args": [
+        99,
+        1
+      ],
+      "expected": 9,
+      "actual": 9,
+      "passed": true
+    },
+    {
+      "id": "E3-P04",
+      "requirement": "DISC-003",
+      "function": "calculate_discount",
+      "args": [
+        100,
+        1
+      ],
+      "expected": 10,
+      "actual": 10,
+      "passed": true
+    },
+    {
+      "id": "E3-P05",
+      "requirement": "DISC-002",
+      "function": "calculate_discount",
+      "args": [
+        100,
+        0
+      ],
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "id": "E3-P06",
+      "requirement": "DISC-003",
+      "function": "calculate_discount",
+      "args": [
+        5000,
+        1
+      ],
+      "expected": 500,
+      "actual": 500,
+      "passed": true
+    }
+  ]
+}

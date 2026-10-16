@@ -1,0 +1,74 @@
+{
+  "passed": 6,
+  "failed": 0,
+  "total": 6,
+  "execution_ms": 7,
+  "cases": [
+    {
+      "id": "SHIP-P01",
+      "requirement": "SHIP-001",
+      "function": "calculate_shipping",
+      "args": [
+        -1
+      ],
+      "expected": -1,
+      "actual": -1,
+      "passed": true
+    },
+    {
+      "id": "SHIP-P02",
+      "requirement": "SHIP-003",
+      "function": "calculate_shipping",
+      "args": [
+        0
+      ],
+      "expected": 500,
+      "actual": 500,
+      "passed": true
+    },
+    {
+      "id": "SHIP-P03",
+      "requirement": "SHIP-003",
+      "function": "calculate_shipping",
+      "args": [
+        4999
+      ],
+      "expected": 500,
+      "actual": 500,
+      "passed": true
+    },
+    {
+      "id": "SHIP-P04",
+      "requirement": "SHIP-002",
+      "function": "calculate_shipping",
+      "args": [
+        5000
+      ],
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "id": "SHIP-P05",
+      "requirement": "SHIP-002",
+      "function": "calculate_shipping",
+      "args": [
+        5001
+      ],
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "id": "SHIP-P06",
+      "requirement": "SHIP-002",
+      "function": "calculate_shipping",
+      "args": [
+        2147483647
+      ],
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    }
+  ]
+}
