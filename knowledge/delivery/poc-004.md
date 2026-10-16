@@ -107,7 +107,7 @@ El problema a resolver en esta **POC 004** es determinar si la Semantic IR puede
 
 | ID | Tipo | Título | Estado | Entregables principales |
 |---|---|---|---|---|
-| **`WI-025`** | spike | Contrato experimental, Interfaces WIT y Semantic IR v0.4 | `draft` | Definición de interfaz `wit/order.wit`, esquema `ir/ir.schema.v4.json`, especificación `spec/task-004.yaml` (v1) y suite inicial `tests/public-004.yaml`. |
+| **`WI-025`** | spike | Contrato experimental, Interfaces WIT y Semantic IR v0.4 | `completed` | Definición de interfaz `wit/order.wit`, esquema `ir/ir.schema.v4.json`, especificación `spec/task-004.yaml` (v1) y suite inicial `tests/public-004.yaml`. |
 | **`WI-026`** | spike | Verifier v0.4 + Component Packaging / Canonical ABI + Runner Component Linker | `draft` | Soporte en `irtool` para validar compatibilidad con WIT y empaquetar WebAssembly Component; soporte en `runner` para ejecutar componentes en Wasmtime Component Model. |
 | **`WI-027`** | spike | E1-004 Construcción de Componente con Interfaces WIT y Freeze | `draft` | Construcción de `ir/program-004.ir.json`, verificación contra WIT, emisión de componente WASM, 100 % pass rate y sellado de `poc-004-e1-freeze`. |
 | **`WI-028`** | spike | E2-004 Reparación controlada guiada por WIT diagnostics | `draft` | Inyección de desalineación contra la interfaz WIT (`E_WIT_TYPE_MISMATCH`), rechazo determinista y reparación en 1 intento. |

@@ -1,0 +1,73 @@
+{
+  "ir_version": "0.4",
+  "spec_version": 1,
+  "wit_contract": {
+    "package": "kaddo:commercial@0.1.0",
+    "world": "order-processor",
+    "export_interface": "order-calculator",
+    "import_interfaces": [
+      "host-services"
+    ]
+  },
+  "capabilities": [
+    "audit_log"
+  ],
+  "imports": [
+    {
+      "module": "host",
+      "name": "emit_audit",
+      "capability": "audit_log",
+      "wit_interface": "host-services",
+      "params": [
+        {
+          "name": "event_id",
+          "type": "i32"
+        },
+        {
+          "name": "payload",
+          "type": "i32"
+        }
+      ],
+      "returns": "i32"
+    }
+  ],
+  "types": [
+    {
+      "name": "OrderResult",
+      "fields": [
+        {
+          "name": "status_code",
+          "type": "i32"
+        }
+      ]
+    }
+  ],
+  "functions": [
+    {
+      "name": "calculate_order",
+      "export": true,
+      "wit_interface": "order-calculator",
+      "params": [
+        {
+          "name": "x",
+          "type": "i32"
+        }
+      ],
+      "returns": "OrderResult",
+      "requirements": [
+        "SMOKE-001"
+      ],
+      "body": {
+        "op": "record.construct",
+        "type": "OrderResult",
+        "fields": {
+          "status_code": {
+            "op": "const",
+            "type": "i32",
+            "value": 0
+          }
+        }
+      }
+    }
+  ]
+}
