@@ -28,6 +28,11 @@ interface order-calculator {
         qty2: s32,
         shipping-cents: s32
     ) -> order-result;
+
+    quote-shipping: func(
+        weight-grams: s32,
+        is-express: s32
+    ) -> s32;
 }
 
 world order-processor {

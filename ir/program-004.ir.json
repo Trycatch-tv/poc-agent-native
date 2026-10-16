@@ -1,6 +1,6 @@
 {
   "ir_version": "0.4",
-  "spec_version": 1,
+  "spec_version": 2,
   "wit_contract": {
     "package": "kaddo:commercial@0.1.0",
     "world": "order-processor",
@@ -932,6 +932,118 @@
               "name": "shipping_cents"
             }
           ]
+        }
+      }
+    },
+    {
+      "name": "quote_shipping",
+      "export": true,
+      "wit_interface": "order-calculator",
+      "params": [
+        {
+          "name": "weight_grams",
+          "type": "i32"
+        },
+        {
+          "name": "is_express",
+          "type": "i32"
+        }
+      ],
+      "returns": "i32",
+      "requirements": [
+        "SHIP-001",
+        "SHIP-002",
+        "SHIP-003"
+      ],
+      "body": {
+        "op": "if",
+        "condition": {
+          "op": "lt_s",
+          "left": {
+            "op": "param",
+            "name": "weight_grams"
+          },
+          "right": {
+            "op": "const",
+            "type": "i32",
+            "value": 0
+          }
+        },
+        "then": {
+          "op": "const",
+          "type": "i32",
+          "value": -1
+        },
+        "else": {
+          "op": "if",
+          "condition": {
+            "op": "eq",
+            "left": {
+              "op": "param",
+              "name": "is_express"
+            },
+            "right": {
+              "op": "const",
+              "type": "i32",
+              "value": 1
+            }
+          },
+          "then": {
+            "op": "add",
+            "left": {
+              "op": "const",
+              "type": "i32",
+              "value": 500
+            },
+            "right": {
+              "op": "div_s",
+              "left": {
+                "op": "mul",
+                "left": {
+                  "op": "param",
+                  "name": "weight_grams"
+                },
+                "right": {
+                  "op": "const",
+                  "type": "i32",
+                  "value": 2
+                }
+              },
+              "right": {
+                "op": "const",
+                "type": "i32",
+                "value": 10
+              }
+            }
+          },
+          "else": {
+            "op": "add",
+            "left": {
+              "op": "const",
+              "type": "i32",
+              "value": 200
+            },
+            "right": {
+              "op": "div_s",
+              "left": {
+                "op": "mul",
+                "left": {
+                  "op": "param",
+                  "name": "weight_grams"
+                },
+                "right": {
+                  "op": "const",
+                  "type": "i32",
+                  "value": 1
+                }
+              },
+              "right": {
+                "op": "const",
+                "type": "i32",
+                "value": 10
+              }
+            }
+          }
         }
       }
     }

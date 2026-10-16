@@ -1,12 +1,12 @@
 id: KAN-POC-004
-version: 1
+version: 2
 title: Motor de cálculo comercial con WebAssembly Component Model y contrato WIT
 description: >
   Implementar el cálculo de órdenes de compra comerciales utilizando la Semantic IR v0.4
   y conforme al contrato de interfaces estandarizadas en WebAssembly Interface Types (wit/order.wit).
   El componente debe:
   1. Declarar el contrato WIT de paquete kaddo:commercial@0.1.0 y world order-processor.
-  2. Implementar la interfaz exportada order-calculator (calculate-order).
+  2. Implementar la interfaz exportada order-calculator (calculate-order, quote-shipping).
   3. Declarar e invocar capacidades de host (kv-get, check-credit, emit-audit).
   4. Retornar el registro OrderResult estructurado y auditar eventos deterministas.
 
@@ -101,7 +101,7 @@ functions:
       - id: TAX-001
         description: Si taxable_amount_cents < 0, retornar 0.
       - id: TAX-002
-        description: De lo contrario, retornar taxable_amount_cents * 10 / 100 (tasa base del 10 % en v1).
+        description: De lo contrario, retornar taxable_amount_cents * 10 / 100 (tasa base del 10 % en v1 y v2).
 
   - name: calculate_order
     export: true
@@ -137,3 +137,21 @@ functions:
         description: Si check_credit es válido: emitir emit_audit(100, total_cents) y retornar OrderResult con status_code = 0.
       - id: ORD-007
         description: Si check_credit(customer_id, total_cents) retorna 0 (crédito insuficiente), retornar OrderResult con status_code = 3 y montos en 0 sin emitir auditoría.
+
+  - name: quote_shipping
+    export: true
+    wit_interface: order-calculator
+    params:
+      - name: weight_grams
+        type: i32
+      - name: is_express
+        type: i32
+    returns: i32
+    requirements:
+      - id: SHIP-001
+        description: Si weight_grams < 0, retornar -1.
+      - id: SHIP-002
+        description: Si is_express == 1, retornar 500 + (weight_grams * 2) / 10.
+      - id: SHIP-003
+        description: De lo contrario, retornar 200 + (weight_grams * 1) / 10.
+

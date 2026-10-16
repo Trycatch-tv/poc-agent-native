@@ -149,3 +149,19 @@ cases:
         args: [606, 9800]
       - import: emit_audit
         args: [100, 9800]
+
+  - id: TC-PUB-408
+    description: Cotización de envío estándar (1000g, normal)
+    requirement: SHIP-003
+    function: quote_shipping
+    args: [1000, 0]
+    expected: 300
+    expected_host_calls: []
+
+  - id: TC-PUB-409
+    description: Cotización de envío exprés (1500g, exprés)
+    requirement: SHIP-002
+    function: quote_shipping
+    args: [1500, 1]
+    expected: 800
+    expected_host_calls: []

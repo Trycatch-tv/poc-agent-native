@@ -205,3 +205,18 @@ cases:
     expected_host_calls:
       - import: check_credit
         args: [208, 6000]
+
+  - id: E3-004-H11
+    requirement: SHIP-001
+    function: quote_shipping
+    args: [-50, 0]
+    expected: -1
+    expected_host_calls: []
+
+  - id: E3-004-H12
+    requirement: SHIP-002
+    function: quote_shipping
+    args: [0, 1]
+    expected: 500
+    expected_host_calls: []
+
