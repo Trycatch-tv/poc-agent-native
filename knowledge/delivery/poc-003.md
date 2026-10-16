@@ -109,7 +109,7 @@ El problema a resolver en esta **POC 003** es concebir y validar un **Capability
 | **`WI-021`** | spike | E3-003 Extensión funcional con nueva regla de host | `completed` | Integración de consulta de límite de crédito de cliente en host sobre backend congelado. |
 | **`WI-022`** | spike | E4-003 Mantenimiento modularizado y auditabilidad | `completed` | Actualización localizada de regla comercial y eventos de auditoría con diff conciso y reproducibilidad 3/3. |
 | **`WI-023`** | chore | Análisis, matriz SC y conclusión POC 003 | `completed` | Evaluación de `SC-01` a `SC-16`, reporte final `poc-report-v004.md`, decisión Kaddo (`GO / PIVOT / STOP`). |
-| **`WI-024`** | spike opcional | Benchmark pareado POC-003 vs Rust con Host Imports | `draft` | Comparación cuantitativa: Semantic IR v0.3 vs `Rust` (`extern "C"` imports a host Wasmtime). |
+| **`WI-024`** | spike opcional | Benchmark pareado POC-003 vs Rust con Host Imports | `completed` | Comparación cuantitativa: Semantic IR v0.3 vs `Rust` (`extern "C"` imports a host Wasmtime); publicado en `BENCHMARK_REPORT_003.md`. |
 
 ## Conclusion Rule
 
