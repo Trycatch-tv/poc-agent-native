@@ -1,0 +1,273 @@
+{
+  "$schema": "./system-spec.schema.json",
+  "spec_version": "1.1.0",
+  "metadata": {
+    "title": "Especificación Consolidada del Sistema Comercial - Evolución E3",
+    "description": "Sistema de procesamiento de órdenes comerciales con tasa general de IVA actualizada al 18 % vía Work Item WI-E3-01.",
+    "source_type": "work-items",
+    "source_files": [
+      "spec/narrative-005.md",
+      "spec/work-items-e3/WI-E3-01-actualizacion-tasa-iva-18.md"
+    ],
+    "last_updated": "2026-10-16"
+  },
+  "components": [
+    {
+      "id": "shipping-calculator",
+      "name": "Calculador de Envíos",
+      "description": "Determina tarifas de flete según peso, subtotal y tipo de entrega.",
+      "wit_file": "wit/shipping-calculator.wit",
+      "world": "shipping-component",
+      "export_interfaces": [
+        "kaddo:shipping/shipping-service@0.1.0"
+      ],
+      "import_interfaces": [],
+      "capabilities": [],
+      "dependencies": []
+    },
+    {
+      "id": "order-processor",
+      "name": "Procesador de Órdenes",
+      "description": "Liquida pedidos, valida líneas, aplica descuentos, delega flete y audita.",
+      "wit_file": "wit/order-processor.wit",
+      "world": "order-processor",
+      "export_interfaces": [
+        "kaddo:commercial/order-calculator@0.1.0"
+      ],
+      "import_interfaces": [
+        "kaddo:commercial/host-services@0.1.0",
+        "kaddo:shipping/shipping-service@0.1.0"
+      ],
+      "capabilities": [
+        "kv_store",
+        "credit_service",
+        "audit_log"
+      ],
+      "dependencies": [
+        "shipping-calculator"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "SHIP-001",
+      "component": "shipping-calculator",
+      "title": "Validación de peso positivo",
+      "statement": "Si weight_grams <= 0, retorna código de error -1.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref": "spec/narrative-005.md#ship-001"
+      },
+      "acceptance_criteria": [
+        "weight_grams <= 0 retorna -1"
+      ]
+    },
+    {
+      "id": "SHIP-002",
+      "component": "shipping-calculator",
+      "title": "Envío gratis por volumen de compra",
+      "statement": "Si subtotal_cents >= 50000 y is_express == 0, la tarifa es 0 centavos.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref": "spec/narrative-005.md#ship-002"
+      },
+      "acceptance_criteria": [
+        "subtotal >= 50000 y no exprés resulta en tarifa 0"
+      ]
+    },
+    {
+      "id": "SHIP-003",
+      "component": "shipping-calculator",
+      "title": "Tarifa estándar escalonada por peso",
+      "statement": "Tarifa base de 500 para <= 2000g, 800 para <= 5000g y 1200 para > 5000g.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref": "spec/narrative-005.md#ship-003"
+      },
+      "acceptance_criteria": [
+        "peso 1500g -> tarifa 500",
+        "peso 3500g -> tarifa 800",
+        "peso 6000g -> tarifa 1200"
+      ]
+    },
+    {
+      "id": "SHIP-004",
+      "component": "shipping-calculator",
+      "title": "Recargo por entrega exprés",
+      "statement": "Si is_express == 1, suma 600 centavos adicionales a la tarifa base.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref": "spec/narrative-005.md#ship-004"
+      },
+      "acceptance_criteria": [
+        "exprés activo incrementa 600 centavos"
+      ]
+    },
+    {
+      "id": "LINE-001",
+      "component": "order-processor",
+      "title": "Validación de líneas de producto",
+      "statement": "price1 > 0, qty1 > 0, price2 > 0 y qty2 > 0. En caso de incumplimiento aborta con status_code = 1.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref": "spec/narrative-005.md#line-001"
+      },
+      "acceptance_criteria": [
+        "Línea con precio <= 0 aborta con status 1",
+        "Línea con cantidad <= 0 aborta con status 1"
+      ]
+    },
+    {
+      "id": "LINE-002",
+      "component": "order-processor",
+      "title": "Cálculo de subtotal bruto",
+      "statement": "subtotal_cents = (price1 * qty1) + (price2 * qty2).",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref": "spec/narrative-005.md#line-002"
+      },
+      "acceptance_criteria": [
+        "Suma exacta de precios multiplicados por cantidades"
+      ]
+    },
+    {
+      "id": "DISC-001",
+      "component": "order-processor",
+      "title": "Consulta externa de descuentos",
+      "statement": "Consulta kv_get(customer_id) para obtener porcentaje de descuento.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref": "spec/narrative-005.md#disc-001"
+      },
+      "acceptance_criteria": [
+        "Aplica porcentaje obtenido de kv_get"
+      ]
+    },
+    {
+      "id": "DISC-002",
+      "component": "order-processor",
+      "title": "Tope máximo de descuento al 20%",
+      "statement": "El descuento efectivo no puede exceder el 20 % del subtotal.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref": "spec/narrative-005.md#disc-002"
+      },
+      "acceptance_criteria": [
+        "Descuentos mayores al 20 % son acotados a subtotal * 20 / 100"
+      ]
+    },
+    {
+      "id": "TAX-001",
+      "component": "order-processor",
+      "title": "Alícuota impositiva del 18%",
+      "statement": "tax_cents = (subtotal_cents - discount_cents) * 18 / 100.",
+      "status": "active",
+      "version": 2,
+      "source": {
+        "type": "work-item",
+        "ref": "spec/work-items-e3/WI-E3-01-actualizacion-tasa-iva-18.md"
+      },
+      "acceptance_criteria": [
+        "18 % liquidado sobre la base imponible neta"
+      ]
+    },
+    {
+      "id": "CREDIT-001",
+      "component": "order-processor",
+      "title": "Control de solvencia crediticia",
+      "statement": "Si check_credit(customer_id, total_cents) es falso, retorna status_code = 3.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref": "spec/narrative-005.md#credit-001"
+      },
+      "acceptance_criteria": [
+        "Crédito rechazado finaliza con status 3 y emite auditoría 999"
+      ]
+    },
+    {
+      "id": "AUDIT-001",
+      "component": "order-processor",
+      "title": "Registro auditable de eventos",
+      "statement": "Emite evento 100 para pedidos aprobados y evento 999 para rechazados por crédito.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref": "spec/narrative-005.md#audit-001"
+      },
+      "acceptance_criteria": [
+        "emit_audit(100, total) cuando status_code == 0",
+        "emit_audit(999, total) cuando status_code == 3"
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "name": "OrderResult",
+      "description": "Resultado consolidado de liquidación de la orden",
+      "fields": [
+        { "name": "status_code", "type": "i32", "description": "0=OK, 1=Línea inválida, 2=Flete inválido, 3=Crédito denegado" },
+        { "name": "subtotal_cents", "type": "i32", "description": "Subtotal de líneas en centavos" },
+        { "name": "discount_cents", "type": "i32", "description": "Deducción aplicada" },
+        { "name": "tax_cents", "type": "i32", "description": "Impuesto liquidado" },
+        { "name": "shipping_cents", "type": "i32", "description": "Flete liquidado por shipping-calculator" },
+        { "name": "total_cents", "type": "i32", "description": "Monto final liquidado" }
+      ]
+    }
+  ],
+  "operations": [
+    {
+      "name": "quote_shipping",
+      "component": "shipping-calculator",
+      "wit_interface": "kaddo:shipping/shipping-service@0.1.0",
+      "params": [
+        { "name": "subtotal_cents", "type": "i32" },
+        { "name": "weight_grams", "type": "i32" },
+        { "name": "is_express", "type": "i32" }
+      ],
+      "returns": "i32",
+      "rules_applied": ["SHIP-001", "SHIP-002", "SHIP-003", "SHIP-004"],
+      "effects": []
+    },
+    {
+      "name": "calculate_order",
+      "component": "order-processor",
+      "wit_interface": "kaddo:commercial/order-calculator@0.1.0",
+      "params": [
+        { "name": "customer_id", "type": "i32" },
+        { "name": "price1", "type": "i32" },
+        { "name": "qty1", "type": "i32" },
+        { "name": "price2", "type": "i32" },
+        { "name": "qty2", "type": "i32" },
+        { "name": "weight_grams", "type": "i32" },
+        { "name": "is_express", "type": "i32" }
+      ],
+      "returns": "OrderResult",
+      "rules_applied": ["LINE-001", "LINE-002", "DISC-001", "DISC-002", "TAX-001", "CREDIT-001", "AUDIT-001"],
+      "effects": [
+        "Invoca shipping-calculator.quote_shipping",
+        "Consulta kv_get",
+        "Valida check_credit",
+        "Emite emit_audit"
+      ]
+    }
+  ]
+}

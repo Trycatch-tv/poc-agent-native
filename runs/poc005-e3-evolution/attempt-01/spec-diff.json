@@ -1,0 +1,10 @@
+{
+  "added_requirements": [],
+  "modified_requirements": [
+    "TAX-001"
+  ],
+  "deprecated_requirements": [],
+  "affected_components": [
+    "order-processor"
+  ]
+}

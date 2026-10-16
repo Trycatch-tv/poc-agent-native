@@ -69,6 +69,7 @@ pub struct WitContractDef {
     pub world: String,
     pub export_interface: String,
     pub import_interfaces: Vec<String>,
+    pub wit_file: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -126,13 +127,14 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
         Some("0.2") => "0.2",
         Some("0.3") => "0.3",
         Some("0.4") => "0.4",
+        Some("0.5") => "0.5",
         Some(other) => {
             diags.push(Diagnostic {
                 code: "E_SCHEMA_INVALID".to_string(),
                 function: None,
                 path: "$.ir_version".to_string(),
-                message: "ir_version must be \"0.1\", \"0.2\", \"0.3\", or \"0.4\".".to_string(),
-                expected: Some("\"0.1\" | \"0.2\" | \"0.3\" | \"0.4\"".to_string()),
+                message: "ir_version must be \"0.1\", \"0.2\", \"0.3\", \"0.4\", or \"0.5\".".to_string(),
+                expected: Some("\"0.1\" | \"0.2\" | \"0.3\" | \"0.4\" | \"0.5\"".to_string()),
                 found: Some(other.to_string()),
             });
             "0.1"
@@ -161,7 +163,7 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
                 key.as_str(),
                 "ir_version" | "spec_version" | "capabilities" | "imports" | "types" | "functions"
             ),
-            "0.4" => matches!(
+            "0.4" | "0.5" => matches!(
                 key.as_str(),
                 "ir_version" | "spec_version" | "wit_contract" | "capabilities" | "imports" | "types" | "functions"
             ),
@@ -208,7 +210,7 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
     }
 
     let mut wit_contract_def = None;
-    if ir_version == "0.4" {
+    if ir_version == "0.4" || ir_version == "0.5" {
         if let Some(wit_val) = obj.get("wit_contract") {
             if let Some(wit_obj) = wit_val.as_object() {
                 let pkg = wit_obj.get("package").and_then(|v| v.as_str()).unwrap_or("");
@@ -222,6 +224,7 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
                         }
                     }
                 }
+                let wit_file = wit_obj.get("wit_file").and_then(|v| v.as_str()).map(|s| s.to_string());
                 if pkg.is_empty() {
                     diags.push(Diagnostic {
                         code: "E_SCHEMA_INVALID".to_string(),
@@ -247,6 +250,7 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
                     world: world.to_string(),
                     export_interface: exp_iface.to_string(),
                     import_interfaces: imp_ifaces,
+                    wit_file,
                 });
             } else {
                 diags.push(Diagnostic {
@@ -606,7 +610,7 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
             .get("wit_interface")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
-        if ir_version == "0.4" && is_export {
+        if (ir_version == "0.4" || ir_version == "0.5") && is_export {
             if let Some(ref wit_c) = wit_contract_def {
                 match &wit_interface {
                     Some(iface) if iface == &wit_c.export_interface => {}
@@ -629,7 +633,7 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
                             function: Some(name.clone()),
                             path: format!("{f_path}.wit_interface"),
                             message: format!(
-                                "Exported function '{name}' in IR v0.4 must declare wit_interface matching '{}'.",
+                                "Exported function '{name}' in IR v{ir_version} must declare wit_interface matching '{}'.",
                                 wit_c.export_interface
                             ),
                             expected: Some(wit_c.export_interface.clone()),
@@ -1793,7 +1797,7 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
         );
     }
 
-    let wit_contract_def = if ir_version == "0.4" {
+    let wit_contract_def = if ir_version == "0.4" || ir_version == "0.5" {
         root.get("wit_contract").and_then(|v| v.as_object()).map(|obj| WitContractDef {
             package: obj.get("package").and_then(|v| v.as_str()).unwrap_or("").to_string(),
             world: obj.get("world").and_then(|v| v.as_str()).unwrap_or("").to_string(),
@@ -1803,6 +1807,7 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
                 .and_then(|v| v.as_array())
                 .map(|arr| arr.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect())
                 .unwrap_or_default(),
+            wit_file: obj.get("wit_file").and_then(|v| v.as_str()).map(|s| s.to_string()),
         })
     } else {
         None
@@ -1835,9 +1840,14 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
         let type_idx = imp_idx as u32;
         types.ty().function(wasm_params, results);
 
-        let (imp_mod, imp_field) = if ir_version == "0.4" {
+        let (imp_mod, imp_field) = if ir_version == "0.4" || ir_version == "0.5" {
             if let (Some(ref contract), Some(ref wit_iface)) = (&ctx.wit_contract, &imp_sig.wit_interface) {
-                (wit_interface_id(&contract.package, wit_iface), imp_sig.name.replace('_', "-"))
+                let pkg = if imp_sig.module.contains(':') && imp_sig.module.contains('@') {
+                    &imp_sig.module
+                } else {
+                    &contract.package
+                };
+                (wit_interface_id(pkg, wit_iface), imp_sig.name.replace('_', "-"))
             } else {
                 (imp_sig.module.clone(), imp_sig.name.clone())
             }
@@ -1870,7 +1880,7 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
 
         if is_export {
             exports.export(name, ExportKind::Func, num_imports + func_idx as u32);
-            if ir_version == "0.4" {
+            if ir_version == "0.4" || ir_version == "0.5" {
                 if let (Some(ref contract), Some(wit_iface)) = (&ctx.wit_contract, func_obj.get("wit_interface").and_then(|v| v.as_str())) {
                     let wit_export_name = format!("{}#{}", wit_interface_id(&contract.package, wit_iface), name.replace('_', "-"));
                     exports.export(&wit_export_name, ExportKind::Func, num_imports + func_idx as u32);
@@ -1921,11 +1931,28 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
     module.section(&exports);
     module.section(&code);
 
-    if ir_version == "0.4" {
+    if ir_version == "0.4" || ir_version == "0.5" {
         if let Some(ref wit_contract) = ctx.wit_contract {
-            let wit_content = include_str!("../../../wit/order.wit");
+            let wit_content = if let Some(ref p) = wit_contract.wit_file {
+                std::fs::read_to_string(p)
+                    .or_else(|_| std::fs::read_to_string(format!("../../{p}")))
+                    .or_else(|_| std::fs::read_to_string(format!("../../../{p}")))
+                    .unwrap_or_else(|_| {
+                        include_str!("../../../wit/order.wit").to_string()
+                    })
+            } else if ir_version == "0.4" {
+                include_str!("../../../wit/order.wit").to_string()
+            } else {
+                let p1 = format!("wit/{}.wit", wit_contract.world);
+                let p2 = format!("wit/{}.wit", wit_contract.export_interface);
+                std::fs::read_to_string(&p1)
+                    .or_else(|_| std::fs::read_to_string(&p2))
+                    .or_else(|_| std::fs::read_to_string(format!("../../{p1}")))
+                    .or_else(|_| std::fs::read_to_string(format!("../../{p2}")))
+                    .unwrap_or_else(|_| include_str!("../../../wit/order.wit").to_string())
+            };
             let mut resolve = wit_parser::Resolve::new();
-            if let Ok(pkg) = resolve.push_str("order.wit", wit_content) {
+            if let Ok(pkg) = resolve.push_str("contract.wit", &wit_content) {
                 let world_name = if wit_contract.world.is_empty() { "order-processor" } else { &wit_contract.world };
                 if let Ok(world) = resolve.select_world(pkg, Some(world_name)) {
                     if let Ok(encoded_metadata) = wit_component::metadata::encode(
@@ -1947,7 +1974,7 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
 
     let core_bytes = module.finish();
 
-    if ir_version == "0.4" {
+    if ir_version == "0.4" || ir_version == "0.5" {
         let component_bytes = wit_component::ComponentEncoder::default()
             .module(&core_bytes)
             .map_err(|e| vec![Diagnostic {

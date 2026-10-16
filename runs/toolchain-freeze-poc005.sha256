@@ -1,0 +1,14 @@
+# Toolchain Freeze POC-005 — Kaddo Agent-Native
+# Date: 2026-10-16
+# Crate: orchestrator v0.1.0, irtool v0.1.0, runner v0.1.0
+# Engine: wasmtime 27.0.0 (WebAssembly Component Model native runtime)
+
+# Component Artifacts (attempt-01, 3/3 bit-for-bit identical):
+a075570a554a67251a66d24c2fbcd9c46569e4a88cd69d15230b3abdae9a8751  order-processor.wasm
+b9ae16245dc4b800a31d5362384a45188dabb765e119885b933fdb969c90979e  shipping-calculator.wasm
+
+# System Spec & WIT Contracts:
+3b984013444005b8214fa3f345c2250ea54cb1c26027aeb772a806208573199c  spec/system-spec.json
+0aa7904cbfe5c6353ea2b12cfcf5b0c74f51fb84784a83fb7ff592bda36e053a  spec/narrative-005.md
+2c75a408795c64395e54d89fa7e26fc4d3ff3fb1d0bfa8c8bfa345d31592c3a5  wit/order-processor.wit
+8e807357497ec15d8d02dfba1cb0d37e4113cb6a1cf8bc579dd1c107bf4a72d1  wit/shipping-calculator.wit

@@ -1,0 +1,254 @@
+cases:
+  # Boundary weight 2000g (tier 1: 500 cents)
+  - id: TC-HID-501
+    requirement: SHIP-003
+    function: calculate_order
+    args: [201, 1500, 2, 1000, 1, 2000, 0]
+    host_state:
+      kv:
+        201: 0
+      credit_ok: true
+    expected:
+      status_code: 0
+      subtotal_cents: 4000
+      discount_cents: 0
+      tax_cents: 600
+      shipping_cents: 500
+      total_cents: 5100
+    expected_host_calls:
+      - import: check_credit
+        args: [201, 5100]
+      - import: emit_audit
+        args: [100, 5100]
+
+  # Boundary weight 2001g (tier 2: 800 cents)
+  - id: TC-HID-502
+    requirement: SHIP-003
+    function: calculate_order
+    args: [202, 1500, 2, 1000, 1, 2001, 0]
+    host_state:
+      kv:
+        202: 0
+      credit_ok: true
+    expected:
+      status_code: 0
+      subtotal_cents: 4000
+      discount_cents: 0
+      tax_cents: 600
+      shipping_cents: 800
+      total_cents: 5400
+    expected_host_calls:
+      - import: check_credit
+        args: [202, 5400]
+      - import: emit_audit
+        args: [100, 5400]
+
+  # Boundary weight 5000g (tier 2: 800 cents)
+  - id: TC-HID-503
+    requirement: SHIP-003
+    function: calculate_order
+    args: [203, 1500, 2, 1000, 1, 5000, 0]
+    host_state:
+      kv:
+        203: 0
+      credit_ok: true
+    expected:
+      status_code: 0
+      subtotal_cents: 4000
+      discount_cents: 0
+      tax_cents: 600
+      shipping_cents: 800
+      total_cents: 5400
+    expected_host_calls:
+      - import: check_credit
+        args: [203, 5400]
+      - import: emit_audit
+        args: [100, 5400]
+
+  # Boundary weight 5001g (tier 3: 1200 cents)
+  - id: TC-HID-504
+    requirement: SHIP-003
+    function: calculate_order
+    args: [204, 1500, 2, 1000, 1, 5001, 0]
+    host_state:
+      kv:
+        204: 0
+      credit_ok: true
+    expected:
+      status_code: 0
+      subtotal_cents: 4000
+      discount_cents: 0
+      tax_cents: 600
+      shipping_cents: 1200
+      total_cents: 5800
+    expected_host_calls:
+      - import: check_credit
+        args: [204, 5800]
+      - import: emit_audit
+        args: [100, 5800]
+
+  # Express shipping tier 1 (500 + 600 = 1100 cents)
+  - id: TC-HID-505
+    requirement: SHIP-004
+    function: calculate_order
+    args: [205, 1000, 1, 1000, 1, 1500, 1]
+    host_state:
+      kv:
+        205: 0
+      credit_ok: true
+    expected:
+      status_code: 0
+      subtotal_cents: 2000
+      discount_cents: 0
+      tax_cents: 300
+      shipping_cents: 1100
+      total_cents: 3400
+    expected_host_calls:
+      - import: check_credit
+        args: [205, 3400]
+      - import: emit_audit
+        args: [100, 3400]
+
+  # Express shipping with subtotal >= 50000 (NOT free, express surcharge applies: 500 + 600 = 1100 cents)
+  - id: TC-HID-506
+    requirement: SHIP-002
+    function: calculate_order
+    args: [206, 25000, 2, 5000, 1, 1500, 1]
+    host_state:
+      kv:
+        206: 0
+      credit_ok: true
+    expected:
+      status_code: 0
+      subtotal_cents: 55000
+      discount_cents: 0
+      tax_cents: 8250
+      shipping_cents: 1100
+      total_cents: 64350
+    expected_host_calls:
+      - import: check_credit
+        args: [206, 64350]
+      - import: emit_audit
+        args: [100, 64350]
+
+  # Standard shipping with subtotal >= 50000 (free shipping = 0 cents)
+  - id: TC-HID-507
+    requirement: SHIP-002
+    function: calculate_order
+    args: [207, 30000, 1, 20000, 1, 8000, 0]
+    host_state:
+      kv:
+        207: 0
+      credit_ok: true
+    expected:
+      status_code: 0
+      subtotal_cents: 50000
+      discount_cents: 0
+      tax_cents: 7500
+      shipping_cents: 0
+      total_cents: 57500
+    expected_host_calls:
+      - import: check_credit
+        args: [207, 57500]
+      - import: emit_audit
+        args: [100, 57500]
+
+  # Negative price on item 1 (status_code 1)
+  - id: TC-HID-508
+    requirement: LINE-001
+    function: calculate_order
+    args: [208, -100, 1, 1000, 1, 1000, 0]
+    host_state:
+      kv: {}
+      credit_ok: true
+    expected:
+      status_code: 1
+      subtotal_cents: 0
+      discount_cents: 0
+      tax_cents: 0
+      shipping_cents: 0
+      total_cents: 0
+    expected_host_calls: []
+
+  # Negative quantity on item 2 (status_code 1)
+  - id: TC-HID-509
+    requirement: LINE-001
+    function: calculate_order
+    args: [209, 1000, 1, 500, -2, 1000, 0]
+    host_state:
+      kv: {}
+      credit_ok: true
+    expected:
+      status_code: 1
+      subtotal_cents: 0
+      discount_cents: 0
+      tax_cents: 0
+      shipping_cents: 0
+      total_cents: 0
+    expected_host_calls: []
+
+  # Credit failure with status_code 3 and audit 999
+  - id: TC-HID-510
+    requirement: CREDIT-001
+    function: calculate_order
+    args: [210, 5000, 2, 2000, 1, 3000, 0]
+    host_state:
+      kv:
+        210: 0
+      credit_ok: false
+    expected:
+      status_code: 3
+      subtotal_cents: 12000
+      discount_cents: 0
+      tax_cents: 1800
+      shipping_cents: 800
+      total_cents: 14600
+    expected_host_calls:
+      - import: check_credit
+        args: [210, 14600]
+      - import: emit_audit
+        args: [999, 14600]
+
+  # Discount tier 1 (subtotal >= 10000, 10% discount)
+  - id: TC-HID-511
+    requirement: DISC-001
+    function: calculate_order
+    args: [211, 6000, 1, 4000, 1, 1500, 0]
+    host_state:
+      kv:
+        211: 10
+      credit_ok: true
+    expected:
+      status_code: 0
+      subtotal_cents: 10000
+      discount_cents: 1000
+      tax_cents: 1350
+      shipping_cents: 500
+      total_cents: 10850
+    expected_host_calls:
+      - import: check_credit
+        args: [211, 10850]
+      - import: emit_audit
+        args: [100, 10850]
+
+  # Discount rate cap at 20% (DISC-002)
+  - id: TC-HID-512
+    requirement: DISC-002
+    function: calculate_order
+    args: [212, 10000, 2, 5000, 2, 1000, 0]
+    host_state:
+      kv:
+        212: 50
+      credit_ok: true
+    expected:
+      status_code: 0
+      subtotal_cents: 30000
+      discount_cents: 6000
+      tax_cents: 3600
+      shipping_cents: 500
+      total_cents: 28100
+    expected_host_calls:
+      - import: check_credit
+        args: [212, 28100]
+      - import: emit_audit
+        args: [100, 28100]

@@ -1,0 +1,1034 @@
+{
+  "ir_version": "0.5",
+  "spec_version": 1,
+  "wit_contract": {
+    "package": "kaddo:commercial@0.1.0",
+    "world": "order-processor",
+    "export_interface": "order-calculator",
+    "import_interfaces": [
+      "host-services",
+      "shipping-service"
+    ],
+    "wit_file": "wit/order-processor.wit"
+  },
+  "capabilities": [
+    "kv_store",
+    "credit_service",
+    "audit_log",
+    "shipping_service"
+  ],
+  "imports": [
+    {
+      "module": "host",
+      "name": "kv_get",
+      "capability": "kv_store",
+      "wit_interface": "host-services",
+      "params": [
+        {
+          "name": "key",
+          "type": "i32"
+        }
+      ],
+      "returns": "i32"
+    },
+    {
+      "module": "host",
+      "name": "check_credit",
+      "capability": "credit_service",
+      "wit_interface": "host-services",
+      "params": [
+        {
+          "name": "customer_id",
+          "type": "i32"
+        },
+        {
+          "name": "amount",
+          "type": "i32"
+        }
+      ],
+      "returns": "bool"
+    },
+    {
+      "module": "host",
+      "name": "emit_audit",
+      "capability": "audit_log",
+      "wit_interface": "host-services",
+      "params": [
+        {
+          "name": "event_id",
+          "type": "i32"
+        },
+        {
+          "name": "payload",
+          "type": "i32"
+        }
+      ],
+      "returns": "i32"
+    },
+    {
+      "module": "shipping",
+      "name": "quote_shipping",
+      "capability": "shipping_service",
+      "wit_interface": "shipping-service",
+      "params": [
+        {
+          "name": "subtotal_cents",
+          "type": "i32"
+        },
+        {
+          "name": "weight_grams",
+          "type": "i32"
+        },
+        {
+          "name": "is_express",
+          "type": "i32"
+        }
+      ],
+      "returns": "i32"
+    }
+  ],
+  "types": [
+    {
+      "name": "OrderResult",
+      "fields": [
+        {
+          "name": "status_code",
+          "type": "i32"
+        },
+        {
+          "name": "subtotal_cents",
+          "type": "i32"
+        },
+        {
+          "name": "discount_cents",
+          "type": "i32"
+        },
+        {
+          "name": "tax_cents",
+          "type": "i32"
+        },
+        {
+          "name": "shipping_cents",
+          "type": "i32"
+        },
+        {
+          "name": "total_cents",
+          "type": "i32"
+        }
+      ]
+    }
+  ],
+  "functions": [
+    {
+      "name": "calculate_line_item",
+      "export": false,
+      "params": [
+        {
+          "name": "unit_price_cents",
+          "type": "i32"
+        },
+        {
+          "name": "quantity",
+          "type": "i32"
+        }
+      ],
+      "returns": "i32",
+      "requirements": [
+        "LINE-001",
+        "LINE-002"
+      ],
+      "body": {
+        "op": "if",
+        "condition": {
+          "op": "or",
+          "left": {
+            "op": "lt_s",
+            "left": {
+              "op": "param",
+              "name": "unit_price_cents"
+            },
+            "right": {
+              "op": "const",
+              "type": "i32",
+              "value": 1
+            }
+          },
+          "right": {
+            "op": "lt_s",
+            "left": {
+              "op": "param",
+              "name": "quantity"
+            },
+            "right": {
+              "op": "const",
+              "type": "i32",
+              "value": 1
+            }
+          }
+        },
+        "then": {
+          "op": "const",
+          "type": "i32",
+          "value": -1
+        },
+        "else": {
+          "op": "mul",
+          "left": {
+            "op": "param",
+            "name": "unit_price_cents"
+          },
+          "right": {
+            "op": "param",
+            "name": "quantity"
+          }
+        }
+      }
+    },
+    {
+      "name": "calculate_discount",
+      "export": false,
+      "params": [
+        {
+          "name": "customer_id",
+          "type": "i32"
+        },
+        {
+          "name": "subtotal",
+          "type": "i32"
+        }
+      ],
+      "returns": "i32",
+      "requirements": [
+        "DISC-001",
+        "DISC-002"
+      ],
+      "body": {
+        "op": "if",
+        "condition": {
+          "op": "lt_s",
+          "left": {
+            "op": "param",
+            "name": "customer_id"
+          },
+          "right": {
+            "op": "const",
+            "type": "i32",
+            "value": 1
+          }
+        },
+        "then": {
+          "op": "const",
+          "type": "i32",
+          "value": 0
+        },
+        "else": {
+          "op": "if",
+          "condition": {
+            "op": "lt_s",
+            "left": {
+              "op": "call_import",
+              "import": "kv_get",
+              "args": [
+                {
+                  "op": "param",
+                  "name": "customer_id"
+                }
+              ]
+            },
+            "right": {
+              "op": "const",
+              "type": "i32",
+              "value": 1
+            }
+          },
+          "then": {
+            "op": "const",
+            "type": "i32",
+            "value": 0
+          },
+          "else": {
+            "op": "if",
+            "condition": {
+              "op": "lt_s",
+              "left": {
+                "op": "const",
+                "type": "i32",
+                "value": 20
+              },
+              "right": {
+                "op": "call_import",
+                "import": "kv_get",
+                "args": [
+                  {
+                    "op": "param",
+                    "name": "customer_id"
+                  }
+                ]
+              }
+            },
+            "then": {
+              "op": "div_s",
+              "left": {
+                "op": "mul",
+                "left": {
+                  "op": "param",
+                  "name": "subtotal"
+                },
+                "right": {
+                  "op": "const",
+                  "type": "i32",
+                  "value": 20
+                }
+              },
+              "right": {
+                "op": "const",
+                "type": "i32",
+                "value": 100
+              }
+            },
+            "else": {
+              "op": "div_s",
+              "left": {
+                "op": "mul",
+                "left": {
+                  "op": "param",
+                  "name": "subtotal"
+                },
+                "right": {
+                  "op": "call_import",
+                  "import": "kv_get",
+                  "args": [
+                    {
+                      "op": "param",
+                      "name": "customer_id"
+                    }
+                  ]
+                }
+              },
+              "right": {
+                "op": "const",
+                "type": "i32",
+                "value": 100
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "calculate_tax",
+      "export": false,
+      "params": [
+        {
+          "name": "taxable_subtotal",
+          "type": "i32"
+        }
+      ],
+      "returns": "i32",
+      "requirements": [
+        "TAX-001"
+      ],
+      "body": {
+        "op": "div_s",
+        "left": {
+          "op": "mul",
+          "left": {
+            "op": "param",
+            "name": "taxable_subtotal"
+          },
+          "right": {
+            "op": "const",
+            "type": "i32",
+            "value": 15
+          }
+        },
+        "right": {
+          "op": "const",
+          "type": "i32",
+          "value": 100
+        }
+      }
+    },
+    {
+      "name": "build_error_result",
+      "export": false,
+      "params": [
+        {
+          "name": "status",
+          "type": "i32"
+        }
+      ],
+      "returns": "OrderResult",
+      "requirements": [
+        "LINE-001"
+      ],
+      "body": {
+        "op": "record.construct",
+        "type": "OrderResult",
+        "fields": {
+          "status_code": {
+            "op": "param",
+            "name": "status"
+          },
+          "subtotal_cents": {
+            "op": "const",
+            "type": "i32",
+            "value": 0
+          },
+          "discount_cents": {
+            "op": "const",
+            "type": "i32",
+            "value": 0
+          },
+          "tax_cents": {
+            "op": "const",
+            "type": "i32",
+            "value": 0
+          },
+          "shipping_cents": {
+            "op": "const",
+            "type": "i32",
+            "value": 0
+          },
+          "total_cents": {
+            "op": "const",
+            "type": "i32",
+            "value": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "finalize_order",
+      "export": false,
+      "params": [
+        {
+          "name": "customer_id",
+          "type": "i32"
+        },
+        {
+          "name": "subtotal",
+          "type": "i32"
+        },
+        {
+          "name": "discount",
+          "type": "i32"
+        },
+        {
+          "name": "tax",
+          "type": "i32"
+        },
+        {
+          "name": "shipping",
+          "type": "i32"
+        },
+        {
+          "name": "total",
+          "type": "i32"
+        }
+      ],
+      "returns": "OrderResult",
+      "requirements": [
+        "CREDIT-001",
+        "AUDIT-001"
+      ],
+      "body": {
+        "op": "if",
+        "condition": {
+          "op": "call_import",
+          "import": "check_credit",
+          "args": [
+            {
+              "op": "param",
+              "name": "customer_id"
+            },
+            {
+              "op": "param",
+              "name": "total"
+            }
+          ]
+        },
+        "then": {
+          "op": "if",
+          "condition": {
+            "op": "eq",
+            "left": {
+              "op": "call_import",
+              "import": "emit_audit",
+              "args": [
+                {
+                  "op": "const",
+                  "type": "i32",
+                  "value": 100
+                },
+                {
+                  "op": "param",
+                  "name": "total"
+                }
+              ]
+            },
+            "right": {
+              "op": "const",
+              "type": "i32",
+              "value": 100
+            }
+          },
+          "then": {
+            "op": "record.construct",
+            "type": "OrderResult",
+            "fields": {
+              "status_code": {
+                "op": "const",
+                "type": "i32",
+                "value": 0
+              },
+              "subtotal_cents": {
+                "op": "param",
+                "name": "subtotal"
+              },
+              "discount_cents": {
+                "op": "param",
+                "name": "discount"
+              },
+              "tax_cents": {
+                "op": "param",
+                "name": "tax"
+              },
+              "shipping_cents": {
+                "op": "param",
+                "name": "shipping"
+              },
+              "total_cents": {
+                "op": "param",
+                "name": "total"
+              }
+            }
+          },
+          "else": {
+            "op": "record.construct",
+            "type": "OrderResult",
+            "fields": {
+              "status_code": {
+                "op": "const",
+                "type": "i32",
+                "value": 0
+              },
+              "subtotal_cents": {
+                "op": "param",
+                "name": "subtotal"
+              },
+              "discount_cents": {
+                "op": "param",
+                "name": "discount"
+              },
+              "tax_cents": {
+                "op": "param",
+                "name": "tax"
+              },
+              "shipping_cents": {
+                "op": "param",
+                "name": "shipping"
+              },
+              "total_cents": {
+                "op": "param",
+                "name": "total"
+              }
+            }
+          }
+        },
+        "else": {
+          "op": "if",
+          "condition": {
+            "op": "eq",
+            "left": {
+              "op": "call_import",
+              "import": "emit_audit",
+              "args": [
+                {
+                  "op": "const",
+                  "type": "i32",
+                  "value": 999
+                },
+                {
+                  "op": "param",
+                  "name": "total"
+                }
+              ]
+            },
+            "right": {
+              "op": "const",
+              "type": "i32",
+              "value": 999
+            }
+          },
+          "then": {
+            "op": "record.construct",
+            "type": "OrderResult",
+            "fields": {
+              "status_code": {
+                "op": "const",
+                "type": "i32",
+                "value": 3
+              },
+              "subtotal_cents": {
+                "op": "param",
+                "name": "subtotal"
+              },
+              "discount_cents": {
+                "op": "param",
+                "name": "discount"
+              },
+              "tax_cents": {
+                "op": "param",
+                "name": "tax"
+              },
+              "shipping_cents": {
+                "op": "param",
+                "name": "shipping"
+              },
+              "total_cents": {
+                "op": "param",
+                "name": "total"
+              }
+            }
+          },
+          "else": {
+            "op": "record.construct",
+            "type": "OrderResult",
+            "fields": {
+              "status_code": {
+                "op": "const",
+                "type": "i32",
+                "value": 3
+              },
+              "subtotal_cents": {
+                "op": "param",
+                "name": "subtotal"
+              },
+              "discount_cents": {
+                "op": "param",
+                "name": "discount"
+              },
+              "tax_cents": {
+                "op": "param",
+                "name": "tax"
+              },
+              "shipping_cents": {
+                "op": "param",
+                "name": "shipping"
+              },
+              "total_cents": {
+                "op": "param",
+                "name": "total"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "evaluate_shipping_and_proceed",
+      "export": false,
+      "params": [
+        {
+          "name": "customer_id",
+          "type": "i32"
+        },
+        {
+          "name": "subtotal",
+          "type": "i32"
+        },
+        {
+          "name": "weight_grams",
+          "type": "i32"
+        },
+        {
+          "name": "is_express",
+          "type": "i32"
+        }
+      ],
+      "returns": "OrderResult",
+      "requirements": [
+        "DISC-001",
+        "TAX-001"
+      ],
+      "body": {
+        "op": "if",
+        "condition": {
+          "op": "lt_s",
+          "left": {
+            "op": "call_import",
+            "import": "quote_shipping",
+            "args": [
+              {
+                "op": "param",
+                "name": "subtotal"
+              },
+              {
+                "op": "param",
+                "name": "weight_grams"
+              },
+              {
+                "op": "param",
+                "name": "is_express"
+              }
+            ]
+          },
+          "right": {
+            "op": "const",
+            "type": "i32",
+            "value": 0
+          }
+        },
+        "then": {
+          "op": "call",
+          "function": "build_error_result",
+          "args": [
+            {
+              "op": "const",
+              "type": "i32",
+              "value": 2
+            }
+          ]
+        },
+        "else": {
+          "op": "call",
+          "function": "finalize_order",
+          "args": [
+            {
+              "op": "param",
+              "name": "customer_id"
+            },
+            {
+              "op": "param",
+              "name": "subtotal"
+            },
+            {
+              "op": "call",
+              "function": "calculate_discount",
+              "args": [
+                {
+                  "op": "param",
+                  "name": "customer_id"
+                },
+                {
+                  "op": "param",
+                  "name": "subtotal"
+                }
+              ]
+            },
+            {
+              "op": "call",
+              "function": "calculate_tax",
+              "args": [
+                {
+                  "op": "sub",
+                  "left": {
+                    "op": "param",
+                    "name": "subtotal"
+                  },
+                  "right": {
+                    "op": "call",
+                    "function": "calculate_discount",
+                    "args": [
+                      {
+                        "op": "param",
+                        "name": "customer_id"
+                      },
+                      {
+                        "op": "param",
+                        "name": "subtotal"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "op": "call_import",
+              "import": "quote_shipping",
+              "args": [
+                {
+                  "op": "param",
+                  "name": "subtotal"
+                },
+                {
+                  "op": "param",
+                  "name": "weight_grams"
+                },
+                {
+                  "op": "param",
+                  "name": "is_express"
+                }
+              ]
+            },
+            {
+              "op": "add",
+              "left": {
+                "op": "add",
+                "left": {
+                  "op": "sub",
+                  "left": {
+                    "op": "param",
+                    "name": "subtotal"
+                  },
+                  "right": {
+                    "op": "call",
+                    "function": "calculate_discount",
+                    "args": [
+                      {
+                        "op": "param",
+                        "name": "customer_id"
+                      },
+                      {
+                        "op": "param",
+                        "name": "subtotal"
+                      }
+                    ]
+                  }
+                },
+                "right": {
+                  "op": "call",
+                  "function": "calculate_tax",
+                  "args": [
+                    {
+                      "op": "sub",
+                      "left": {
+                        "op": "param",
+                        "name": "subtotal"
+                      },
+                      "right": {
+                        "op": "call",
+                        "function": "calculate_discount",
+                        "args": [
+                          {
+                            "op": "param",
+                            "name": "customer_id"
+                          },
+                          {
+                            "op": "param",
+                            "name": "subtotal"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              "right": {
+                "op": "call_import",
+                "import": "quote_shipping",
+                "args": [
+                  {
+                    "op": "param",
+                    "name": "subtotal"
+                  },
+                  {
+                    "op": "param",
+                    "name": "weight_grams"
+                  },
+                  {
+                    "op": "param",
+                    "name": "is_express"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "dispatch_order_with_lines",
+      "export": false,
+      "params": [
+        {
+          "name": "customer_id",
+          "type": "i32"
+        },
+        {
+          "name": "line1",
+          "type": "i32"
+        },
+        {
+          "name": "line2",
+          "type": "i32"
+        },
+        {
+          "name": "weight_grams",
+          "type": "i32"
+        },
+        {
+          "name": "is_express",
+          "type": "i32"
+        }
+      ],
+      "returns": "OrderResult",
+      "requirements": [
+        "LINE-001",
+        "LINE-002"
+      ],
+      "body": {
+        "op": "if",
+        "condition": {
+          "op": "or",
+          "left": {
+            "op": "lt_s",
+            "left": {
+              "op": "param",
+              "name": "line1"
+            },
+            "right": {
+              "op": "const",
+              "type": "i32",
+              "value": 0
+            }
+          },
+          "right": {
+            "op": "lt_s",
+            "left": {
+              "op": "param",
+              "name": "line2"
+            },
+            "right": {
+              "op": "const",
+              "type": "i32",
+              "value": 0
+            }
+          }
+        },
+        "then": {
+          "op": "call",
+          "function": "build_error_result",
+          "args": [
+            {
+              "op": "const",
+              "type": "i32",
+              "value": 1
+            }
+          ]
+        },
+        "else": {
+          "op": "call",
+          "function": "evaluate_shipping_and_proceed",
+          "args": [
+            {
+              "op": "param",
+              "name": "customer_id"
+            },
+            {
+              "op": "add",
+              "left": {
+                "op": "param",
+                "name": "line1"
+              },
+              "right": {
+                "op": "param",
+                "name": "line2"
+              }
+            },
+            {
+              "op": "param",
+              "name": "weight_grams"
+            },
+            {
+              "op": "param",
+              "name": "is_express"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "calculate_order",
+      "export": true,
+      "wit_interface": "order-calculator",
+      "params": [
+        {
+          "name": "customer_id",
+          "type": "i32"
+        },
+        {
+          "name": "price1",
+          "type": "i32"
+        },
+        {
+          "name": "qty1",
+          "type": "i32"
+        },
+        {
+          "name": "price2",
+          "type": "i32"
+        },
+        {
+          "name": "qty2",
+          "type": "i32"
+        },
+        {
+          "name": "weight_grams",
+          "type": "i32"
+        },
+        {
+          "name": "is_express",
+          "type": "i32"
+        }
+      ],
+      "returns": "OrderResult",
+      "requirements": [
+        "LINE-001",
+        "LINE-002",
+        "DISC-001",
+        "DISC-002",
+        "TAX-001",
+        "CREDIT-001",
+        "AUDIT-001"
+      ],
+      "body": {
+        "op": "call",
+        "function": "dispatch_order_with_lines",
+        "args": [
+          {
+            "op": "param",
+            "name": "customer_id"
+          },
+          {
+            "op": "call",
+            "function": "calculate_line_item",
+            "args": [
+              {
+                "op": "param",
+                "name": "price1"
+              },
+              {
+                "op": "param",
+                "name": "qty1"
+              }
+            ]
+          },
+          {
+            "op": "call",
+            "function": "calculate_line_item",
+            "args": [
+              {
+                "op": "param",
+                "name": "price2"
+              },
+              {
+                "op": "param",
+                "name": "qty2"
+              }
+            ]
+          },
+          {
+            "op": "param",
+            "name": "weight_grams"
+          },
+          {
+            "op": "param",
+            "name": "is_express"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -25,6 +25,8 @@ enum Commands {
         cases: PathBuf,
         #[arg(long)]
         output: PathBuf,
+        #[arg(long)]
+        link: Option<PathBuf>,
     },
 }
 
@@ -52,13 +54,16 @@ struct HostCallRecord {
 struct ParsedHostState {
     kv: HashMap<i32, i32>,
     credit_limits: HashMap<i32, i32>,
+    credit_ok: Option<bool>,
 }
 
 #[derive(Debug, Default)]
 struct HostStoreData {
     kv: HashMap<i32, i32>,
     credit_limits: HashMap<i32, i32>,
+    credit_ok: Option<bool>,
     all_calls: Vec<HostCallRecord>,
+    shipping_wasm_bytes: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -173,6 +178,12 @@ fn parse_host_state(val: Option<&YamlValue>) -> ParsedHostState {
                 }
             }
         }
+        if let Some(b) = map
+            .get(&YamlValue::String("credit_ok".to_string()))
+            .and_then(|v| v.as_bool())
+        {
+            state.credit_ok = Some(b);
+        }
     }
     state
 }
@@ -214,15 +225,35 @@ fn parse_cases(raw_yaml: &str) -> Result<Vec<TestCaseInput>, String> {
     }
 }
 
-wasmtime::component::bindgen!({
-    path: "../../wit/order.wit",
-    world: "order-processor",
-});
+mod poc004 {
+    wasmtime::component::bindgen!({
+        path: "../../wit/order.wit",
+        world: "order-processor",
+    });
+}
 
-impl kaddo::commercial::host_services::Host for HostStoreData {
+mod poc005_shipping {
+    wasmtime::component::bindgen!({
+        path: "../../wit/shipping-calculator.wit",
+        world: "shipping-component",
+    });
+}
+
+mod poc005_order {
+    wasmtime::component::bindgen!({
+        path: "../../wit/order-processor.wit",
+        world: "order-processor",
+    });
+}
+
+impl poc004::kaddo::commercial::host_services::Host for HostStoreData {
     fn check_credit(&mut self, customer_id: i32, amount: i32) -> bool {
-        let limit = *self.credit_limits.get(&customer_id).unwrap_or(&0);
-        let ok = amount <= limit;
+        let ok = if let Some(flag) = self.credit_ok {
+            flag
+        } else {
+            let limit = *self.credit_limits.get(&customer_id).unwrap_or(&0);
+            amount <= limit
+        };
         self.all_calls.push(HostCallRecord {
             import: "check_credit".to_string(),
             args: vec![serde_json::json!(customer_id), serde_json::json!(amount)],
@@ -248,11 +279,90 @@ impl kaddo::commercial::host_services::Host for HostStoreData {
     }
 }
 
-impl kaddo::commercial::types::Host for HostStoreData {}
+impl poc004::kaddo::commercial::types::Host for HostStoreData {}
 
-fn run_suite_component(wasm_bytes: &[u8], test_cases: &[TestCaseInput], start: Instant) -> Result<SuiteReport, String> {
+impl poc005_order::kaddo::commercial::host_services::Host for HostStoreData {
+    fn check_credit(&mut self, customer_id: i32, amount: i32) -> bool {
+        let ok = if let Some(flag) = self.credit_ok {
+            flag
+        } else {
+            let limit = *self.credit_limits.get(&customer_id).unwrap_or(&0);
+            amount <= limit
+        };
+        self.all_calls.push(HostCallRecord {
+            import: "check_credit".to_string(),
+            args: vec![serde_json::json!(customer_id), serde_json::json!(amount)],
+        });
+        ok
+    }
+
+    fn kv_get(&mut self, key: i32) -> i32 {
+        let val = *self.kv.get(&key).unwrap_or(&0);
+        self.all_calls.push(HostCallRecord {
+            import: "kv_get".to_string(),
+            args: vec![serde_json::json!(key)],
+        });
+        val
+    }
+
+    fn emit_audit(&mut self, event_type: i32, entity_id: i32) -> i32 {
+        self.all_calls.push(HostCallRecord {
+            import: "emit_audit".to_string(),
+            args: vec![serde_json::json!(event_type), serde_json::json!(entity_id)],
+        });
+        1
+    }
+}
+
+impl poc005_order::kaddo::commercial::types::Host for HostStoreData {}
+
+impl poc005_order::kaddo::commercial::shipping_service::Host for HostStoreData {
+    fn quote_shipping(&mut self, subtotal_cents: i32, weight_grams: i32, is_express: i32) -> i32 {
+        self.all_calls.push(HostCallRecord {
+            import: "quote_shipping".to_string(),
+            args: vec![
+                serde_json::json!(subtotal_cents),
+                serde_json::json!(weight_grams),
+                serde_json::json!(is_express),
+            ],
+        });
+
+        if let Some(ref bytes) = self.shipping_wasm_bytes {
+            let engine = Engine::default();
+            if let Ok(comp) = wasmtime::component::Component::from_binary(&engine, bytes) {
+                let mut sstore = Store::new(&engine, ());
+                let slinker = wasmtime::component::Linker::new(&engine);
+                if let Ok(shipping_inst) =
+                    poc005_shipping::ShippingComponent::instantiate(&mut sstore, &comp, &slinker)
+                {
+                    if let Ok(quote) = shipping_inst
+                        .kaddo_shipping_shipping_service()
+                        .call_quote_shipping(&mut sstore, subtotal_cents, weight_grams, is_express)
+                    {
+                        return quote;
+                    }
+                }
+            }
+        }
+        0
+    }
+}
+
+fn run_suite_component(
+    wasm_bytes: &[u8],
+    test_cases: &[TestCaseInput],
+    linked_wasm_bytes: Option<Vec<u8>>,
+    start: Instant,
+) -> Result<SuiteReport, String> {
     let engine = Engine::default();
     let component = wasmtime::component::Component::from_binary(&engine, wasm_bytes).map_err(|e| e.to_string())?;
+
+    let is_poc005_order = test_cases.iter().any(|c| {
+        (c.function == "calculate_order" || c.function == "calculate-order") && c.args.len() == 7
+    });
+    let is_poc005_shipping = test_cases.iter().any(|c| {
+        (c.function == "quote_shipping" || c.function == "quote-shipping") && c.args.len() == 3
+    });
 
     let mut passed_count = 0usize;
     let mut failed_count = 0usize;
@@ -298,31 +408,15 @@ fn run_suite_component(wasm_bytes: &[u8], test_cases: &[TestCaseInput], start: I
         let initial_store_data = HostStoreData {
             kv: parsed_host_state.kv,
             credit_limits: parsed_host_state.credit_limits,
+            credit_ok: parsed_host_state.credit_ok,
             all_calls: Vec::new(),
+            shipping_wasm_bytes: linked_wasm_bytes.clone(),
         };
 
-        let mut store = Store::new(&engine, initial_store_data);
-        let mut linker = wasmtime::component::Linker::new(&engine);
-        if let Err(e) = OrderProcessor::add_to_linker(&mut linker, |state: &mut HostStoreData| state) {
-            failed_count += 1;
-            results.push(CaseResult {
-                id: tc.id.clone(),
-                requirement: tc.requirement.clone(),
-                function: tc.function.clone(),
-                args: json_args,
-                expected: expected_json,
-                actual: None,
-                expected_host_calls: expected_calls,
-                actual_host_calls: None,
-                passed: false,
-                error: Some(format!("Failed to link component imports: {e}")),
-            });
-            continue;
-        }
-
-        let processor = match OrderProcessor::instantiate(&mut store, &component, &linker) {
-            Ok(p) => p,
-            Err(e) => {
+        let (actual_json, mut is_pass, mut err, store_calls) = if is_poc005_order {
+            let mut store = Store::new(&engine, initial_store_data);
+            let mut linker = wasmtime::component::Linker::new(&engine);
+            if let Err(e) = poc005_order::OrderProcessor::add_to_linker(&mut linker, |state: &mut HostStoreData| state) {
                 failed_count += 1;
                 results.push(CaseResult {
                     id: tc.id.clone(),
@@ -334,79 +428,232 @@ fn run_suite_component(wasm_bytes: &[u8], test_cases: &[TestCaseInput], start: I
                     expected_host_calls: expected_calls,
                     actual_host_calls: None,
                     passed: false,
-                    error: Some(format!("Failed to instantiate component: {e}")),
+                    error: Some(format!("Failed to link component imports: {e}")),
                 });
                 continue;
             }
-        };
 
-        let calc = processor.kaddo_commercial_order_calculator();
-        let (actual_json, mut is_pass, mut err) = match tc.function.as_str() {
-            "calculate_order" | "calculate-order" => {
-                if i32_args.len() != 6 {
-                    (
-                        None,
-                        false,
-                        Some(format!("calculate_order requires 6 arguments, found {}", i32_args.len())),
-                    )
-                } else {
-                    match calc.call_calculate_order(
-                        &mut store,
-                        i32_args[0],
-                        i32_args[1],
-                        i32_args[2],
-                        i32_args[3],
-                        i32_args[4],
-                        i32_args[5],
-                    ) {
-                        Ok(order) => {
-                            let mut map = serde_json::Map::new();
-                            map.insert("status_code".to_string(), serde_json::json!(order.status_code));
-                            map.insert("subtotal_cents".to_string(), serde_json::json!(order.subtotal_cents));
-                            map.insert("discount_cents".to_string(), serde_json::json!(order.discount_cents));
-                            map.insert("tax_cents".to_string(), serde_json::json!(order.tax_cents));
-                            map.insert("shipping_cents".to_string(), serde_json::json!(order.shipping_cents));
-                            map.insert("total_cents".to_string(), serde_json::json!(order.total_cents));
-                            let act_val = serde_json::Value::Object(map);
-                            let pass = act_val == expected_json;
-                            (Some(act_val), pass, None)
+            let processor = match poc005_order::OrderProcessor::instantiate(&mut store, &component, &linker) {
+                Ok(p) => p,
+                Err(e) => {
+                    failed_count += 1;
+                    results.push(CaseResult {
+                        id: tc.id.clone(),
+                        requirement: tc.requirement.clone(),
+                        function: tc.function.clone(),
+                        args: json_args,
+                        expected: expected_json,
+                        actual: None,
+                        expected_host_calls: expected_calls,
+                        actual_host_calls: None,
+                        passed: false,
+                        error: Some(format!("Failed to instantiate component: {e}")),
+                    });
+                    continue;
+                }
+            };
+
+            let calc = processor.kaddo_commercial_order_calculator();
+            let (act, pass, er) = match tc.function.as_str() {
+                "calculate_order" | "calculate-order" => {
+                    if i32_args.len() != 7 {
+                        (
+                            None,
+                            false,
+                            Some(format!("calculate_order requires 7 arguments in POC 005, found {}", i32_args.len())),
+                        )
+                    } else {
+                        match calc.call_calculate_order(
+                            &mut store,
+                            i32_args[0],
+                            i32_args[1],
+                            i32_args[2],
+                            i32_args[3],
+                            i32_args[4],
+                            i32_args[5],
+                            i32_args[6],
+                        ) {
+                            Ok(order) => {
+                                let mut map = serde_json::Map::new();
+                                map.insert("status_code".to_string(), serde_json::json!(order.status_code));
+                                map.insert("subtotal_cents".to_string(), serde_json::json!(order.subtotal_cents));
+                                map.insert("discount_cents".to_string(), serde_json::json!(order.discount_cents));
+                                map.insert("tax_cents".to_string(), serde_json::json!(order.tax_cents));
+                                map.insert("shipping_cents".to_string(), serde_json::json!(order.shipping_cents));
+                                map.insert("total_cents".to_string(), serde_json::json!(order.total_cents));
+                                let act_val = serde_json::Value::Object(map);
+                                let p = act_val == expected_json;
+                                (Some(act_val), p, None)
+                            }
+                            Err(e) => (None, false, Some(format!("Component execution trap: {e}"))),
                         }
-                        Err(e) => (None, false, Some(format!("Component execution trap: {e}"))),
                     }
                 }
-            }
-            "quote_shipping" | "quote-shipping" => {
-                if i32_args.len() != 2 {
-                    (
-                        None,
-                        false,
-                        Some(format!("quote_shipping requires 2 arguments, found {}", i32_args.len())),
-                    )
-                } else {
-                    match calc.call_quote_shipping(&mut store, i32_args[0], i32_args[1]) {
-                        Ok(q) => {
-                            let act_val = serde_json::json!(q);
-                            let pass = act_val == expected_json;
-                            (Some(act_val), pass, None)
+                other => (None, false, Some(format!("Unknown component exported function '{other}'"))),
+            };
+            (act, pass, er, store.data().all_calls.clone())
+        } else if is_poc005_shipping {
+            let mut store = Store::new(&engine, ());
+            let linker = wasmtime::component::Linker::new(&engine);
+            let processor = match poc005_shipping::ShippingComponent::instantiate(&mut store, &component, &linker) {
+                Ok(p) => p,
+                Err(e) => {
+                    failed_count += 1;
+                    results.push(CaseResult {
+                        id: tc.id.clone(),
+                        requirement: tc.requirement.clone(),
+                        function: tc.function.clone(),
+                        args: json_args,
+                        expected: expected_json,
+                        actual: None,
+                        expected_host_calls: expected_calls,
+                        actual_host_calls: None,
+                        passed: false,
+                        error: Some(format!("Failed to instantiate shipping component: {e}")),
+                    });
+                    continue;
+                }
+            };
+
+            let (act, pass, er) = match tc.function.as_str() {
+                "quote_shipping" | "quote-shipping" => {
+                    if i32_args.len() != 3 {
+                        (
+                            None,
+                            false,
+                            Some(format!("quote_shipping requires 3 arguments in POC 005, found {}", i32_args.len())),
+                        )
+                    } else {
+                        match processor
+                            .kaddo_shipping_shipping_service()
+                            .call_quote_shipping(&mut store, i32_args[0], i32_args[1], i32_args[2])
+                        {
+                            Ok(q) => {
+                                let act_val = serde_json::json!(q);
+                                let p = act_val == expected_json;
+                                (Some(act_val), p, None)
+                            }
+                            Err(e) => (None, false, Some(format!("Component execution trap: {e}"))),
                         }
-                        Err(e) => (None, false, Some(format!("Component execution trap: {e}"))),
                     }
                 }
+                other => (None, false, Some(format!("Unknown shipping exported function '{other}'"))),
+            };
+            (act, pass, er, Vec::new())
+        } else {
+            // POC 004 legacy
+            let mut store = Store::new(&engine, initial_store_data);
+            let mut linker = wasmtime::component::Linker::new(&engine);
+            if let Err(e) = poc004::OrderProcessor::add_to_linker(&mut linker, |state: &mut HostStoreData| state) {
+                failed_count += 1;
+                results.push(CaseResult {
+                    id: tc.id.clone(),
+                    requirement: tc.requirement.clone(),
+                    function: tc.function.clone(),
+                    args: json_args,
+                    expected: expected_json,
+                    actual: None,
+                    expected_host_calls: expected_calls,
+                    actual_host_calls: None,
+                    passed: false,
+                    error: Some(format!("Failed to link component imports: {e}")),
+                });
+                continue;
             }
-            other => (None, false, Some(format!("Unknown component exported function '{other}'"))),
+
+            let processor = match poc004::OrderProcessor::instantiate(&mut store, &component, &linker) {
+                Ok(p) => p,
+                Err(e) => {
+                    failed_count += 1;
+                    results.push(CaseResult {
+                        id: tc.id.clone(),
+                        requirement: tc.requirement.clone(),
+                        function: tc.function.clone(),
+                        args: json_args,
+                        expected: expected_json,
+                        actual: None,
+                        expected_host_calls: expected_calls,
+                        actual_host_calls: None,
+                        passed: false,
+                        error: Some(format!("Failed to instantiate component: {e}")),
+                    });
+                    continue;
+                }
+            };
+
+            let calc = processor.kaddo_commercial_order_calculator();
+            let (act, pass, er) = match tc.function.as_str() {
+                "calculate_order" | "calculate-order" => {
+                    if i32_args.len() != 6 {
+                        (
+                            None,
+                            false,
+                            Some(format!("calculate_order requires 6 arguments, found {}", i32_args.len())),
+                        )
+                    } else {
+                        match calc.call_calculate_order(
+                            &mut store,
+                            i32_args[0],
+                            i32_args[1],
+                            i32_args[2],
+                            i32_args[3],
+                            i32_args[4],
+                            i32_args[5],
+                        ) {
+                            Ok(order) => {
+                                let mut map = serde_json::Map::new();
+                                map.insert("status_code".to_string(), serde_json::json!(order.status_code));
+                                map.insert("subtotal_cents".to_string(), serde_json::json!(order.subtotal_cents));
+                                map.insert("discount_cents".to_string(), serde_json::json!(order.discount_cents));
+                                map.insert("tax_cents".to_string(), serde_json::json!(order.tax_cents));
+                                map.insert("shipping_cents".to_string(), serde_json::json!(order.shipping_cents));
+                                map.insert("total_cents".to_string(), serde_json::json!(order.total_cents));
+                                let act_val = serde_json::Value::Object(map);
+                                let p = act_val == expected_json;
+                                (Some(act_val), p, None)
+                            }
+                            Err(e) => (None, false, Some(format!("Component execution trap: {e}"))),
+                        }
+                    }
+                }
+                "quote_shipping" | "quote-shipping" => {
+                    if i32_args.len() != 2 {
+                        (
+                            None,
+                            false,
+                            Some(format!("quote_shipping requires 2 arguments, found {}", i32_args.len())),
+                        )
+                    } else {
+                        match calc.call_quote_shipping(&mut store, i32_args[0], i32_args[1]) {
+                            Ok(q) => {
+                                let act_val = serde_json::json!(q);
+                                let p = act_val == expected_json;
+                                (Some(act_val), p, None)
+                            }
+                            Err(e) => (None, false, Some(format!("Component execution trap: {e}"))),
+                        }
+                    }
+                }
+                other => (None, false, Some(format!("Unknown component exported function '{other}'"))),
+            };
+            (act, pass, er, store.data().all_calls.clone())
         };
 
-        let store_calls = store.data().all_calls.clone();
         let actual_matched_calls = if let Some(ref exp_calls) = expected_calls {
             let has_kv_assertion = exp_calls.iter().any(|c| c.import == "kv_get");
-            let filtered: Vec<HostCallRecord> = if has_kv_assertion {
-                store_calls
-            } else {
-                store_calls
-                    .into_iter()
-                    .filter(|c| c.import != "kv_get")
-                    .collect()
-            };
+            let has_shipping_assertion = exp_calls.iter().any(|c| c.import == "quote_shipping");
+            let filtered: Vec<HostCallRecord> = store_calls
+                .into_iter()
+                .filter(|c| {
+                    if !has_kv_assertion && c.import == "kv_get" {
+                        return false;
+                    }
+                    if !has_shipping_assertion && c.import == "quote_shipping" {
+                        return false;
+                    }
+                    true
+                })
+                .collect();
             if is_pass && &filtered != exp_calls {
                 is_pass = false;
                 err = Some(format!(
@@ -448,11 +695,20 @@ fn run_suite_component(wasm_bytes: &[u8], test_cases: &[TestCaseInput], start: I
     })
 }
 
+#[allow(dead_code)]
 fn run_suite(wasm_bytes: &[u8], test_cases: &[TestCaseInput]) -> Result<SuiteReport, String> {
+    run_suite_with_link(wasm_bytes, test_cases, None)
+}
+
+fn run_suite_with_link(
+    wasm_bytes: &[u8],
+    test_cases: &[TestCaseInput],
+    linked_wasm_bytes: Option<Vec<u8>>,
+) -> Result<SuiteReport, String> {
     let start = Instant::now();
     let is_component = wasm_bytes.starts_with(b"\0asm\x0d\0\x01\0") || wasm_bytes.starts_with(b"\0asm\r\0\x01\0");
     if is_component {
-        run_suite_component(wasm_bytes, test_cases, start)
+        run_suite_component(wasm_bytes, test_cases, linked_wasm_bytes, start)
     } else {
         run_suite_core(wasm_bytes, test_cases, start)
     }
@@ -506,7 +762,9 @@ fn run_suite_core(wasm_bytes: &[u8], test_cases: &[TestCaseInput], start: Instan
         let initial_store_data = HostStoreData {
             kv: parsed_host_state.kv,
             credit_limits: parsed_host_state.credit_limits,
+            credit_ok: parsed_host_state.credit_ok,
             all_calls: Vec::new(),
+            shipping_wasm_bytes: None,
         };
 
         let mut store = Store::new(&engine, initial_store_data);
@@ -546,8 +804,12 @@ fn run_suite_core(wasm_bytes: &[u8], test_cases: &[TestCaseInput], start: Instan
                 "host",
                 "check_credit",
                 |mut caller: Caller<'_, HostStoreData>, customer_id: i32, amount: i32| -> i32 {
-                    let limit = *caller.data().credit_limits.get(&customer_id).unwrap_or(&0);
-                    let ok = if amount <= limit { 1 } else { 0 };
+                    let ok = if let Some(flag) = caller.data().credit_ok {
+                        if flag { 1 } else { 0 }
+                    } else {
+                        let limit = *caller.data().credit_limits.get(&customer_id).unwrap_or(&0);
+                        if amount <= limit { 1 } else { 0 }
+                    };
                     caller.data_mut().all_calls.push(HostCallRecord {
                         import: "check_credit".to_string(),
                         args: vec![serde_json::json!(customer_id), serde_json::json!(amount)],
@@ -656,14 +918,19 @@ fn run_suite_core(wasm_bytes: &[u8], test_cases: &[TestCaseInput], start: Instan
                 let store_calls = store.data().all_calls.clone();
                 let actual_matched_calls = if let Some(ref exp_calls) = expected_calls {
                     let has_kv_assertion = exp_calls.iter().any(|c| c.import == "kv_get");
-                    let filtered: Vec<HostCallRecord> = if has_kv_assertion {
-                        store_calls
-                    } else {
-                        store_calls
-                            .into_iter()
-                            .filter(|c| c.import != "kv_get")
-                            .collect()
-                    };
+                    let has_shipping_assertion = exp_calls.iter().any(|c| c.import == "quote_shipping");
+                    let filtered: Vec<HostCallRecord> = store_calls
+                        .into_iter()
+                        .filter(|c| {
+                            if !has_kv_assertion && c.import == "kv_get" {
+                                return false;
+                            }
+                            if !has_shipping_assertion && c.import == "quote_shipping" {
+                                return false;
+                            }
+                            true
+                        })
+                        .collect();
                     if is_pass && &filtered != exp_calls {
                         is_pass = false;
                         err = Some(format!(
@@ -730,6 +997,7 @@ fn main() -> ExitCode {
             wasm,
             cases,
             output,
+            link,
         } => {
             let wasm_bytes = match fs::read(&wasm) {
                 Ok(b) => b,
@@ -755,7 +1023,27 @@ fn main() -> ExitCode {
                 }
             };
 
-            let report = match run_suite(&wasm_bytes, &parsed_cases) {
+            let linked_bytes = if let Some(ref lpath) = link {
+                match fs::read(lpath) {
+                    Ok(b) => Some(b),
+                    Err(e) => {
+                        eprintln!("Warning: failed to read linked WASM '{}': {e}", lpath.display());
+                        None
+                    }
+                }
+            } else {
+                let mut candidates = vec![
+                    PathBuf::from("shipping-calculator.wasm"),
+                    PathBuf::from("runs/poc005-dev-test/shipping-calculator.wasm"),
+                    PathBuf::from("runs/poc005-e1-narrative/attempt-01/shipping-calculator.wasm"),
+                ];
+                if let Some(p) = wasm.parent() {
+                    candidates.insert(0, p.join("shipping-calculator.wasm"));
+                }
+                candidates.into_iter().find_map(|p| fs::read(&p).ok())
+            };
+
+            let report = match run_suite_with_link(&wasm_bytes, &parsed_cases, linked_bytes) {
                 Ok(r) => r,
                 Err(e) => {
                     eprintln!("Failed to execute test suite: {e}");
@@ -1020,6 +1308,37 @@ cases:
             hid_report.cases.iter().filter(|c| !c.passed).collect::<Vec<_>>()
         );
         assert_eq!(hid_report.passed, hid_cases.len());
+    }
+
+    #[test]
+    fn executes_v0_5_composed_components_in_wasmtime() {
+        let shipping_str = include_str!("../../../ir/shipping-005.ir.json");
+        let shipping_ir: serde_json::Value = serde_json::from_str(shipping_str).expect("shipping-005 JSON");
+        let shipping_wasm = irtool::compile_ir_to_wasm(&shipping_ir).expect("compile shipping component");
+        assert!(
+            shipping_wasm.starts_with(b"\0asm\x0d\0\x01\0") || shipping_wasm.starts_with(b"\0asm\r\0\x01\0"),
+            "shipping must be native Component Model"
+        );
+
+        let order_str = include_str!("../../../ir/order-005.ir.json");
+        let order_ir: serde_json::Value = serde_json::from_str(order_str).expect("order-005 JSON");
+        let order_wasm = irtool::compile_ir_to_wasm(&order_ir).expect("compile order component");
+        assert!(
+            order_wasm.starts_with(b"\0asm\x0d\0\x01\0") || order_wasm.starts_with(b"\0asm\r\0\x01\0"),
+            "order must be native Component Model"
+        );
+
+        let yaml = include_str!("../../../tests/narrative-005.yaml");
+        let cases = parse_cases(yaml).expect("parse narrative-005 YAML");
+        let report = run_suite_with_link(&order_wasm, &cases, Some(shipping_wasm))
+            .expect("run suite narrative-005 with composed shipping");
+        assert_eq!(
+            report.failed,
+            0,
+            "Narrative-005 failures: {:?}",
+            report.cases.iter().filter(|c| !c.passed).collect::<Vec<_>>()
+        );
+        assert_eq!(report.passed, cases.len());
     }
 }
 

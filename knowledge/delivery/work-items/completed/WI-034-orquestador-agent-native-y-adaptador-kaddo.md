@@ -4,9 +4,9 @@ id: WI-034
 alias: KAN-POC5-WI-034
 title: Orquestador Agent-Native y adaptador Kaddo
 knowledge_level: K3
-status: ready
-implementation_status: not-started
-phase: ready
+status: completed
+implementation_status: completed
+phase: completed
 project_state: ai-assisted
 refined_by: work-item-agent
 created_at: '2026-10-16'
@@ -39,7 +39,7 @@ code:
 
 ## Acceptance Criteria
 
-- [ ] Crate `crates/orchestrator` añadido al workspace Cargo.
-- [ ] Comando de consolidación de especificación a partir de narrativa y de secuencia de Work Items.
-- [ ] Mecanismo de ciclo de corrección guiado por diagnósticos deterministas.
-- [ ] Adaptador opcional para Kaddo funcional sin acoplamiento obligatorio del compilador.
+- [x] Crate `crates/orchestrator` añadido al workspace Cargo.
+- [x] Comando de consolidación de especificación a partir de narrativa y de secuencia de Work Items.
+- [x] Mecanismo de ciclo de corrección guiado por diagnósticos deterministas.
+- [x] Adaptador opcional para Kaddo funcional sin acoplamiento obligatorio del compilador.

@@ -1,0 +1,175 @@
+cases:
+  - id: TC-NAR-501-E3
+    requirement: TAX-001
+    function: calculate_order
+    args: [101, 1000, 2, 500, 2, 1500, 0]
+    host_state:
+      kv:
+        101: 10
+      credit_ok: true
+    expected:
+      status_code: 0
+      subtotal_cents: 3000
+      discount_cents: 300
+      tax_cents: 486
+      shipping_cents: 500
+      total_cents: 3686
+    expected_host_calls:
+      - import: check_credit
+        args: [101, 3686]
+      - import: emit_audit
+        args: [100, 3686]
+
+  - id: TC-NAR-502-E3
+    requirement: TAX-001
+    function: calculate_order
+    args: [102, 2000, 1, 1000, 1, 3500, 0]
+    host_state:
+      kv:
+        102: 0
+      credit_ok: true
+    expected:
+      status_code: 0
+      subtotal_cents: 3000
+      discount_cents: 0
+      tax_cents: 540
+      shipping_cents: 800
+      total_cents: 4340
+    expected_host_calls:
+      - import: check_credit
+        args: [102, 4340]
+      - import: emit_audit
+        args: [100, 4340]
+
+  - id: TC-NAR-503-E3
+    requirement: TAX-001
+    function: calculate_order
+    args: [103, 4000, 2, 2000, 1, 6000, 1]
+    host_state:
+      kv:
+        103: 5
+      credit_ok: true
+    expected:
+      status_code: 0
+      subtotal_cents: 10000
+      discount_cents: 500
+      tax_cents: 1710
+      shipping_cents: 1800
+      total_cents: 13010
+    expected_host_calls:
+      - import: check_credit
+        args: [103, 13010]
+      - import: emit_audit
+        args: [100, 13010]
+
+  - id: TC-NAR-504-E3
+    requirement: TAX-001
+    function: calculate_order
+    args: [104, 25000, 2, 5000, 1, 4000, 0]
+    host_state:
+      kv:
+        104: 10
+      credit_ok: true
+    expected:
+      status_code: 0
+      subtotal_cents: 55000
+      discount_cents: 5500
+      tax_cents: 8910
+      shipping_cents: 0
+      total_cents: 58410
+    expected_host_calls:
+      - import: check_credit
+        args: [104, 58410]
+      - import: emit_audit
+        args: [100, 58410]
+
+  - id: TC-NAR-505-E3
+    requirement: LINE-001
+    function: calculate_order
+    args: [105, 0, 2, 500, 1, 1000, 0]
+    host_state:
+      kv: {}
+      credit_ok: true
+    expected:
+      status_code: 1
+      subtotal_cents: 0
+      discount_cents: 0
+      tax_cents: 0
+      shipping_cents: 0
+      total_cents: 0
+    expected_host_calls: []
+
+  - id: TC-NAR-506-E3
+    requirement: LINE-001
+    function: calculate_order
+    args: [106, 1000, 1, 500, 0, 1000, 0]
+    host_state:
+      kv: {}
+      credit_ok: true
+    expected:
+      status_code: 1
+      subtotal_cents: 0
+      discount_cents: 0
+      tax_cents: 0
+      shipping_cents: 0
+      total_cents: 0
+    expected_host_calls: []
+
+  - id: TC-NAR-507-E3
+    requirement: SHIP-001
+    function: calculate_order
+    args: [107, 1000, 2, 500, 2, 0, 0]
+    host_state:
+      kv:
+        107: 0
+      credit_ok: true
+    expected:
+      status_code: 2
+      subtotal_cents: 0
+      discount_cents: 0
+      tax_cents: 0
+      shipping_cents: 0
+      total_cents: 0
+    expected_host_calls: []
+
+  - id: TC-NAR-508-E3
+    requirement: CREDIT-001
+    function: calculate_order
+    args: [108, 1000, 2, 500, 2, 1500, 0]
+    host_state:
+      kv:
+        108: 10
+      credit_ok: false
+    expected:
+      status_code: 3
+      subtotal_cents: 3000
+      discount_cents: 300
+      tax_cents: 486
+      shipping_cents: 500
+      total_cents: 3686
+    expected_host_calls:
+      - import: check_credit
+        args: [108, 3686]
+      - import: emit_audit
+        args: [999, 3686]
+
+  - id: TC-NAR-509-E3
+    requirement: DISC-002
+    function: calculate_order
+    args: [109, 5000, 1, 5000, 1, 1500, 0]
+    host_state:
+      kv:
+        109: 50
+      credit_ok: true
+    expected:
+      status_code: 0
+      subtotal_cents: 10000
+      discount_cents: 2000
+      tax_cents: 1440
+      shipping_cents: 500
+      total_cents: 9940
+    expected_host_calls:
+      - import: check_credit
+        args: [109, 9940]
+      - import: emit_audit
+        args: [100, 9940]

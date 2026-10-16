@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "crates/irtool",
     "crates/runner",
+    "crates/orchestrator",
 ]
 
 [workspace.package]

@@ -1,0 +1,199 @@
+{
+  "ir_version": "0.5",
+  "spec_version": 1,
+  "wit_contract": {
+    "package": "kaddo:shipping@0.1.0",
+    "world": "shipping-component",
+    "export_interface": "shipping-service",
+    "import_interfaces": [],
+    "wit_file": "wit/shipping-calculator.wit"
+  },
+  "capabilities": [],
+  "imports": [],
+  "types": [],
+  "functions": [
+    {
+      "name": "calculate_base_tariff",
+      "export": false,
+      "params": [
+        {
+          "name": "weight_grams",
+          "type": "i32"
+        }
+      ],
+      "returns": "i32",
+      "requirements": [
+        "SHIP-003"
+      ],
+      "body": {
+        "op": "if",
+        "condition": {
+          "op": "lt_s",
+          "left": {
+            "op": "param",
+            "name": "weight_grams"
+          },
+          "right": {
+            "op": "const",
+            "type": "i32",
+            "value": 2001
+          }
+        },
+        "then": {
+          "op": "const",
+          "type": "i32",
+          "value": 500
+        },
+        "else": {
+          "op": "if",
+          "condition": {
+            "op": "lt_s",
+            "left": {
+              "op": "param",
+              "name": "weight_grams"
+            },
+            "right": {
+              "op": "const",
+              "type": "i32",
+              "value": 5001
+            }
+          },
+          "then": {
+            "op": "const",
+            "type": "i32",
+            "value": 800
+          },
+          "else": {
+            "op": "const",
+            "type": "i32",
+            "value": 1200
+          }
+        }
+      }
+    },
+    {
+      "name": "quote_shipping",
+      "export": true,
+      "wit_interface": "shipping-service",
+      "params": [
+        {
+          "name": "subtotal_cents",
+          "type": "i32"
+        },
+        {
+          "name": "weight_grams",
+          "type": "i32"
+        },
+        {
+          "name": "is_express",
+          "type": "i32"
+        }
+      ],
+      "returns": "i32",
+      "requirements": [
+        "SHIP-001",
+        "SHIP-002",
+        "SHIP-003",
+        "SHIP-004"
+      ],
+      "body": {
+        "op": "if",
+        "condition": {
+          "op": "lt_s",
+          "left": {
+            "op": "param",
+            "name": "weight_grams"
+          },
+          "right": {
+            "op": "const",
+            "type": "i32",
+            "value": 1
+          }
+        },
+        "then": {
+          "op": "const",
+          "type": "i32",
+          "value": -1
+        },
+        "else": {
+          "op": "if",
+          "condition": {
+            "op": "and",
+            "left": {
+              "op": "gte_s",
+              "left": {
+                "op": "param",
+                "name": "subtotal_cents"
+              },
+              "right": {
+                "op": "const",
+                "type": "i32",
+                "value": 50000
+              }
+            },
+            "right": {
+              "op": "eq",
+              "left": {
+                "op": "param",
+                "name": "is_express"
+              },
+              "right": {
+                "op": "const",
+                "type": "i32",
+                "value": 0
+              }
+            }
+          },
+          "then": {
+            "op": "const",
+            "type": "i32",
+            "value": 0
+          },
+          "else": {
+            "op": "if",
+            "condition": {
+              "op": "eq",
+              "left": {
+                "op": "param",
+                "name": "is_express"
+              },
+              "right": {
+                "op": "const",
+                "type": "i32",
+                "value": 1
+              }
+            },
+            "then": {
+              "op": "add",
+              "left": {
+                "op": "call",
+                "function": "calculate_base_tariff",
+                "args": [
+                  {
+                    "op": "param",
+                    "name": "weight_grams"
+                  }
+                ]
+              },
+              "right": {
+                "op": "const",
+                "type": "i32",
+                "value": 600
+              }
+            },
+            "else": {
+              "op": "call",
+              "function": "calculate_base_tariff",
+              "args": [
+                {
+                  "op": "param",
+                  "name": "weight_grams"
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}
