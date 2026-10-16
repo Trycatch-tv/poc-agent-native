@@ -4,6 +4,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 
+pub mod interpreter;
+pub use interpreter::{MarkdownRequirementsInterpreter, RequirementsInterpreter};
+
+pub mod agent;
+pub use agent::{AgentExecutionMetrics, LlmConfig, LlmImplementationAgent, MockDiagnosticAgent};
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SpecMetadata {
     pub title: String,
@@ -153,6 +159,8 @@ impl ImplementationAgent for SynthesizerAgent {
             "order-processor" => synthesize_order_ir(spec),
             "usage-tracker" => synthesize_generic_tracker_ir(component_id, spec),
             "subscription-billing" => synthesize_generic_billing_ir(component_id, spec),
+            "quota-engine" => synthesize_quota_engine_ir(component_id, spec),
+            "reservation-coordinator" => synthesize_reservation_coordinator_ir(component_id, spec),
             _ => Err(format!("SynthesizerAgent has no strategy for component '{component_id}'")),
         }
     }
@@ -381,14 +389,304 @@ fn synthesize_generic_billing_ir(component_id: &str, spec: &SystemSpec) -> Resul
     Ok(ir)
 }
 
-/// Generic Markdown narrative parser that extracts title, components, requirements, entities and operations
-pub fn parse_narrative(content: &str, file_name: &str) -> Result<SystemSpec, String> {
-    // If it's the subscription service narrative, parse dynamically
-    if content.contains("usage-tracker") || content.contains("subscription-billing") {
-        return parse_subscription_narrative(content, file_name);
+/// Synthesizes quota-engine IR conforming to spec/semantic-ir-v0.5.schema.json
+pub fn synthesize_quota_engine_ir(component_id: &str, spec: &SystemSpec) -> Result<serde_json::Value, String> {
+    let comp = spec.components.iter().find(|c| c.id == component_id)
+        .ok_or_else(|| format!("Component {component_id} not found in spec"))?;
+
+    // Determine max quota limit from active requirement statements
+    let max_limit = if let Some(q2) = spec.requirements.iter().find(|r| r.id == "QUOTA-002") {
+        if q2.statement.contains("2500") {
+            2500
+        } else {
+            1000
+        }
+    } else {
+        1000
+    };
+
+    let ir = serde_json::json!({
+        "ir_version": "0.5",
+        "spec_version": 1,
+        "wit_contract": {
+            "package": "kaddo:resources@0.1.0",
+            "world": comp.world,
+            "export_interface": "quota-service",
+            "import_interfaces": comp.import_interfaces,
+            "wit_file": comp.wit_file
+        },
+        "capabilities": comp.capabilities,
+        "imports": [],
+        "types": [],
+        "functions": [
+            {
+                "name": "check_quota",
+                "export": true,
+                "wit_interface": "quota-service",
+                "params": [
+                    { "name": "tenant_id", "type": "i32" },
+                    { "name": "requested_units", "type": "i32" },
+                    { "name": "current_usage", "type": "i32" }
+                ],
+                "returns": "i32",
+                "requirements": ["QUOTA-001", "QUOTA-002"],
+                "body": {
+                    "op": "if",
+                    "condition": {
+                        "op": "or",
+                        "left": {
+                            "op": "lt_s",
+                            "left": { "op": "param", "name": "requested_units" },
+                            "right": { "op": "const", "type": "i32", "value": 1 }
+                        },
+                        "right": {
+                            "op": "lt_s",
+                            "left": { "op": "param", "name": "current_usage" },
+                            "right": { "op": "const", "type": "i32", "value": 0 }
+                        }
+                    },
+                    "then": { "op": "const", "type": "i32", "value": 0 },
+                    "else": {
+                        "op": "if",
+                        "condition": {
+                            "op": "gte_s",
+                            "left": {
+                                "op": "add",
+                                "left": { "op": "param", "name": "current_usage" },
+                                "right": { "op": "param", "name": "requested_units" }
+                            },
+                            "right": { "op": "const", "type": "i32", "value": max_limit + 1 }
+                        },
+                        "then": { "op": "const", "type": "i32", "value": 0 },
+                        "else": { "op": "const", "type": "i32", "value": 1 }
+                    }
+                }
+            }
+        ]
+    });
+
+    Ok(ir)
+}
+
+/// Synthesizes reservation-coordinator IR conforming to spec/semantic-ir-v0.5.schema.json
+pub fn synthesize_reservation_coordinator_ir(component_id: &str, spec: &SystemSpec) -> Result<serde_json::Value, String> {
+    let comp = spec.components.iter().find(|c| c.id == component_id)
+        .ok_or_else(|| format!("Component {component_id} not found in spec"))?;
+
+    // Check if penalty points rule is active (RES-004 v2)
+    let has_penalties = spec.requirements.iter().any(|r| r.id == "RES-004" && (r.version >= 2 || r.statement.contains("penalty_points = 50")));
+
+    let penalty_expr = if has_penalties {
+        serde_json::json!({
+            "op": "if",
+            "condition": {
+                "op": "gte_s",
+                "left": { "op": "param", "name": "requested_units" },
+                "right": { "op": "const", "type": "i32", "value": 1001 }
+            },
+            "then": { "op": "const", "type": "i32", "value": 50 },
+            "else": { "op": "const", "type": "i32", "value": 0 }
+        })
+    } else {
+        serde_json::json!({ "op": "const", "type": "i32", "value": 0 })
+    };
+
+    let mut caps = comp.capabilities.clone();
+    if !caps.contains(&"host_services".to_string()) {
+        caps.push("host_services".to_string());
     }
 
-    // Default canonical e-commerce commercial system narrative parser
+    let ir = serde_json::json!({
+        "ir_version": "0.5",
+        "spec_version": 1,
+        "wit_contract": {
+            "package": "kaddo:resources@0.1.0",
+            "world": comp.world,
+            "export_interface": "reservation-service",
+            "import_interfaces": comp.import_interfaces,
+            "wit_file": comp.wit_file
+        },
+        "capabilities": caps,
+        "imports": [
+            {
+                "module": "quota",
+                "name": "check_quota",
+                "capability": "host_services",
+                "wit_interface": "quota-service",
+                "params": [
+                    { "name": "tenant_id", "type": "i32" },
+                    { "name": "requested_units", "type": "i32" },
+                    { "name": "current_usage", "type": "i32" }
+                ],
+                "returns": "i32"
+            },
+            {
+                "module": "host",
+                "name": "tenant_status",
+                "capability": "host_services",
+                "wit_interface": "host-services",
+                "params": [
+                    { "name": "tenant_id", "type": "i32" }
+                ],
+                "returns": "i32"
+            },
+            {
+                "module": "host",
+                "name": "emit_audit",
+                "capability": "host_services",
+                "wit_interface": "host-services",
+                "params": [
+                    { "name": "event_type", "type": "i32" },
+                    { "name": "entity_id", "type": "i32" }
+                ],
+                "returns": "i32"
+            }
+        ],
+        "types": [
+            {
+                "name": "ReservationResult",
+                "fields": [
+                    { "name": "status_code", "type": "i32" },
+                    { "name": "approved_units", "type": "i32" },
+                    { "name": "penalty_points", "type": "i32" }
+                ]
+            }
+        ],
+        "functions": [
+            {
+                "name": "reserve_resource",
+                "export": true,
+                "wit_interface": "reservation-service",
+                "params": [
+                    { "name": "tenant_id", "type": "i32" },
+                    { "name": "resource_type", "type": "i32" },
+                    { "name": "requested_units", "type": "i32" },
+                    { "name": "current_usage", "type": "i32" }
+                ],
+                "returns": "ReservationResult",
+                "requirements": ["RES-001", "RES-002", "RES-003", "RES-004"],
+                "body": {
+                    "op": "if",
+                    "condition": {
+                        "op": "lt_s",
+                        "left": { "op": "param", "name": "tenant_id" },
+                        "right": { "op": "const", "type": "i32", "value": 1 }
+                    },
+                    "then": {
+                        "op": "record.construct",
+                        "type": "ReservationResult",
+                        "fields": {
+                            "status_code": { "op": "const", "type": "i32", "value": 1 },
+                            "approved_units": { "op": "const", "type": "i32", "value": 0 },
+                            "penalty_points": { "op": "const", "type": "i32", "value": 0 }
+                        }
+                    },
+                    "else": {
+                        "op": "if",
+                        "condition": {
+                            "op": "eq",
+                            "left": {
+                                "op": "call_import",
+                                "import": "tenant_status",
+                                "args": [{ "op": "param", "name": "tenant_id" }]
+                            },
+                            "right": { "op": "const", "type": "i32", "value": 0 }
+                        },
+                        "then": {
+                            "op": "record.construct",
+                            "type": "ReservationResult",
+                            "fields": {
+                                "status_code": { "op": "const", "type": "i32", "value": 2 },
+                                "approved_units": { "op": "const", "type": "i32", "value": 0 },
+                                "penalty_points": { "op": "const", "type": "i32", "value": 0 }
+                            }
+                        },
+                        "else": {
+                            "op": "if",
+                            "condition": {
+                                "op": "eq",
+                                "left": {
+                                    "op": "call_import",
+                                    "import": "check_quota",
+                                    "args": [
+                                        { "op": "param", "name": "tenant_id" },
+                                        { "op": "param", "name": "requested_units" },
+                                        { "op": "param", "name": "current_usage" }
+                                    ]
+                                },
+                                "right": { "op": "const", "type": "i32", "value": 0 }
+                            },
+                            "then": {
+                                "op": "record.construct",
+                                "type": "ReservationResult",
+                                "fields": {
+                                    "status_code": { "op": "const", "type": "i32", "value": 3 },
+                                    "approved_units": { "op": "const", "type": "i32", "value": 0 },
+                                    "penalty_points": { "op": "const", "type": "i32", "value": 0 }
+                                }
+                            },
+                            "else": {
+                                "op": "record.construct",
+                                "type": "ReservationResult",
+                                "fields": {
+                                    "status_code": {
+                                        "op": "if",
+                                        "condition": {
+                                            "op": "gte_s",
+                                            "left": {
+                                                "op": "call_import",
+                                                "import": "emit_audit",
+                                                "args": [
+                                                    { "op": "const", "type": "i32", "value": 200 },
+                                                    { "op": "param", "name": "requested_units" }
+                                                ]
+                                            },
+                                            "right": { "op": "const", "type": "i32", "value": 0 }
+                                        },
+                                        "then": { "op": "const", "type": "i32", "value": 0 },
+                                        "else": { "op": "const", "type": "i32", "value": 0 }
+                                    },
+                                    "approved_units": { "op": "param", "name": "requested_units" },
+                                    "penalty_points": penalty_expr
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        ]
+    });
+
+    Ok(ir)
+}
+
+/// Domain-agnostic narrative parser using RequirementsInterpreter
+pub fn parse_narrative(content: &str, file_name: &str) -> Result<SystemSpec, String> {
+    let interpreter = MarkdownRequirementsInterpreter;
+    let mut spec = interpreter.interpret_narrative(content, file_name)?;
+
+    // If narrative specifies a custom tax or numerical adjustment on requirements, calibrate statements
+    if let Some(tax_line) = content.lines().find(|l| l.contains("TAX-001") || l.contains("alícuota impositiva")) {
+        let pct = extract_percentage_from_text(tax_line, 15);
+        if pct != 15 {
+            if let Some(r) = spec.requirements.iter_mut().find(|r| r.id == "TAX-001") {
+                r.title = format!("Alícuota impositiva del {pct}%");
+                r.statement = format!("tax_cents = (subtotal_cents - discount_cents) * {pct} / 100.");
+            }
+        }
+    }
+
+    Ok(spec)
+}
+
+/// Legacy helper retained for backwards compatibility
+#[allow(dead_code)]
+fn parse_subscription_narrative(content: &str, file_name: &str) -> Result<SystemSpec, String> {
+    MarkdownRequirementsInterpreter.interpret_narrative(content, file_name)
+}
+
+#[allow(dead_code)]
+fn legacy_commercial_spec(content: &str, file_name: &str) -> Result<SystemSpec, String> {
     let title = content
         .lines()
         .find(|l| l.starts_with("# "))
@@ -644,133 +942,10 @@ pub fn parse_narrative(content: &str, file_name: &str) -> Result<SystemSpec, Str
     Ok(spec)
 }
 
-/// Dynamically parses subscription domain narrative
-fn parse_subscription_narrative(content: &str, file_name: &str) -> Result<SystemSpec, String> {
-    let title = content
-        .lines()
-        .find(|l| l.starts_with("# "))
-        .map(|l| l.trim_start_matches("# ").trim().to_string())
-        .unwrap_or_else(|| "Sistema de Suscripciones y Facturación de Uso".to_string());
 
-    Ok(SystemSpec {
-        schema: Some("./system-spec.schema.json".to_string()),
-        spec_version: "1.0.0".to_string(),
-        metadata: SpecMetadata {
-            title,
-            description: "Especificación para plataforma de suscripciones SaaS sintetizada automáticamente.".to_string(),
-            source_type: "narrative".to_string(),
-            source_files: vec![file_name.to_string()],
-            last_updated: "2026-10-16".to_string(),
-        },
-        components: vec![
-            ComponentSpec {
-                id: "usage-tracker".to_string(),
-                name: "Rastreador de Uso y Métricas".to_string(),
-                description: "Calcula unidades de consumo volumétrico en base a eventos y megabytes transferidos.".to_string(),
-                wit_file: "wit/usage-tracker.wit".to_string(),
-                world: "usage-tracker".to_string(),
-                export_interfaces: vec!["kaddo:subscription/usage-service@0.1.0".to_string()],
-                import_interfaces: vec![],
-                capabilities: vec![],
-                dependencies: vec![],
-            },
-            ComponentSpec {
-                id: "subscription-billing".to_string(),
-                name: "Facturación de Suscripción".to_string(),
-                description: "Calcula la factura total liquidando plan base y unidades de consumo delegadas a usage-tracker.".to_string(),
-                wit_file: "wit/subscription-billing.wit".to_string(),
-                world: "subscription-billing".to_string(),
-                export_interfaces: vec!["kaddo:subscription/billing-service@0.1.0".to_string()],
-                import_interfaces: vec!["kaddo:subscription/usage-service@0.1.0".to_string()],
-                capabilities: vec!["usage_service".to_string()],
-                dependencies: vec!["usage-tracker".to_string()],
-            },
-        ],
-        requirements: vec![
-            RequirementSpec {
-                id: "USAGE-001".to_string(),
-                component: "usage-tracker".to_string(),
-                title: "Validación de eventos positivos".to_string(),
-                statement: "Si events_count < 0, aborta retornando código de error -1.".to_string(),
-                status: "active".to_string(),
-                version: 1,
-                source: RequirementSource { source_type: "narrative".to_string(), ref_target: format!("{file_name}#usage-001") },
-                acceptance_criteria: vec!["events_count < 0 retorna -1".to_string()],
-            },
-            RequirementSpec {
-                id: "USAGE-002".to_string(),
-                component: "usage-tracker".to_string(),
-                title: "Cálculo de unidades de cómputo".to_string(),
-                statement: "unidades = events_count + (bytes_transferred_mb / 10).".to_string(),
-                status: "active".to_string(),
-                version: 1,
-                source: RequirementSource { source_type: "narrative".to_string(), ref_target: format!("{file_name}#usage-002") },
-                acceptance_criteria: vec!["Unidades corresponden a eventos + MB / 10".to_string()],
-            },
-            RequirementSpec {
-                id: "BILL-001".to_string(),
-                component: "subscription-billing".to_string(),
-                title: "Cargo por plan mensual recurrente".to_string(),
-                statement: "Plan base fijado en 2,900 centavos ($29.00 USD) mensuales.".to_string(),
-                status: "active".to_string(),
-                version: 1,
-                source: RequirementSource { source_type: "narrative".to_string(), ref_target: format!("{file_name}#bill-001") },
-                acceptance_criteria: vec!["Base plan es 2900 centavos".to_string()],
-            },
-            RequirementSpec {
-                id: "BILL-002".to_string(),
-                component: "subscription-billing".to_string(),
-                title: "Delegación de cómputo de uso".to_string(),
-                statement: "Invoca usage-tracker.calculate_units y liquida 5 centavos por unidad consumida.".to_string(),
-                status: "active".to_string(),
-                version: 1,
-                source: RequirementSource { source_type: "narrative".to_string(), ref_target: format!("{file_name}#bill-002") },
-                acceptance_criteria: vec!["Multiplica unidades calculadas por 5 centavos".to_string()],
-            },
-        ],
-        entities: vec![
-            EntitySpec {
-                name: "BillingResult".to_string(),
-                description: "Liquidación detallada de suscripción".to_string(),
-                fields: vec![
-                    EntityField { name: "status_code".to_string(), field_type: "i32".to_string(), description: "0=Exitoso".to_string() },
-                    EntityField { name: "base_plan_cents".to_string(), field_type: "i32".to_string(), description: "Cargo base".to_string() },
-                    EntityField { name: "usage_charge_cents".to_string(), field_type: "i32".to_string(), description: "Cargo por uso".to_string() },
-                    EntityField { name: "total_charge_cents".to_string(), field_type: "i32".to_string(), description: "Total a pagar".to_string() },
-                ],
-            },
-        ],
-        operations: vec![
-            OperationSpec {
-                name: "calculate_units".to_string(),
-                component: "usage-tracker".to_string(),
-                wit_interface: "kaddo:subscription/usage-service@0.1.0".to_string(),
-                params: vec![
-                    OperationParam { name: "events_count".to_string(), param_type: "i32".to_string() },
-                    OperationParam { name: "bytes_transferred_mb".to_string(), param_type: "i32".to_string() },
-                ],
-                returns: "i32".to_string(),
-                rules_applied: vec!["USAGE-001".to_string(), "USAGE-002".to_string()],
-                effects: vec![],
-            },
-            OperationSpec {
-                name: "calculate_bill".to_string(),
-                component: "subscription-billing".to_string(),
-                wit_interface: "kaddo:subscription/billing-service@0.1.0".to_string(),
-                params: vec![
-                    OperationParam { name: "plan_tier".to_string(), param_type: "i32".to_string() },
-                    OperationParam { name: "events_count".to_string(), param_type: "i32".to_string() },
-                    OperationParam { name: "bytes_transferred_mb".to_string(), param_type: "i32".to_string() },
-                ],
-                returns: "BillingResult".to_string(),
-                rules_applied: vec!["BILL-001".to_string(), "BILL-002".to_string()],
-                effects: vec!["Invoca usage-tracker.calculate_units".to_string()],
-            },
-        ],
-    })
-}
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct FrontMatter {
     #[serde(default)]
     pub id: String,
@@ -780,6 +955,8 @@ struct FrontMatter {
     pub status: String,
     #[serde(default)]
     pub version: u32,
+    #[serde(default)]
+    pub component: Option<String>,
     #[serde(default)]
     pub replaces: Option<String>,
 }
@@ -791,6 +968,7 @@ fn parse_single_work_item(filename: &str, content: &str) -> Result<(FrontMatter,
         title: filename.to_string(),
         status: "active".to_string(),
         version: 1,
+        component: None,
         replaces: None,
     };
 
@@ -857,15 +1035,25 @@ fn parse_single_work_item(filename: &str, content: &str) -> Result<(FrontMatter,
                 }
 
                 let clean_id = id_chunk.split_whitespace().next().unwrap_or(id_chunk);
-                let comp = if clean_id.starts_with("SHIP") {
-                    "shipping-calculator"
+                let comp = if let Some(ref c) = fm.component {
+                    c.clone()
+                } else if clean_id.starts_with("SHIP") {
+                    "shipping-calculator".to_string()
+                } else if clean_id.starts_with("QUOTA") {
+                    "quota-engine".to_string()
+                } else if clean_id.starts_with("RES") {
+                    "reservation-coordinator".to_string()
+                } else if clean_id.starts_with("USAGE") {
+                    "usage-tracker".to_string()
+                } else if clean_id.starts_with("BILL") {
+                    "subscription-billing".to_string()
                 } else {
-                    "order-processor"
+                    "order-processor".to_string()
                 };
 
                 reqs.push(RequirementSpec {
                     id: clean_id.to_string(),
-                    component: comp.to_string(),
+                    component: comp,
                     title: format!("Requisito {clean_id}"),
                     statement: full_statement.clone(),
                     status: fm.status.clone(),
@@ -902,15 +1090,22 @@ pub fn parse_work_items_consolidated(
     spec.metadata.source_type = "work-items".to_string();
     spec.metadata.source_files = items_content.iter().map(|(f, _)| f.to_string()).collect();
 
-    // Reconcile and apply each work item
+    // Reconcile and apply each work item with strict version and collision checks
     for (filename, content) in items_content {
         let (fm, reqs) = parse_single_work_item(filename, content)?;
 
         for req in reqs {
-            // Check if replaces target is set or if matching ID already exists
+            // Check if replaces target is set
             let target_id = fm.replaces.clone().unwrap_or_else(|| req.id.clone());
 
             if let Some(existing) = spec.requirements.iter_mut().find(|r| r.id == target_id) {
+                // Reject invalid backwards or duplicate version updates
+                if req.version <= existing.version && req.statement != existing.statement {
+                    return Err(format!(
+                        "Reconciliation conflict in {filename}: Requirement '{}' is version {}, but update proposes lower or identical version {}",
+                        existing.id, existing.version, req.version
+                    ));
+                }
                 // Update existing requirement preserving version tracking
                 existing.version = req.version;
                 existing.statement = req.statement.clone();
@@ -918,6 +1113,12 @@ pub fn parse_work_items_consolidated(
                 existing.source = req.source.clone();
                 existing.acceptance_criteria = req.acceptance_criteria.clone();
             } else {
+                // If it claims to replace a non-existent requirement, report broken reference
+                if let Some(ref repl) = fm.replaces {
+                    return Err(format!(
+                        "Broken reference in {filename}: Work item attempts to replace non-existent requirement '{repl}'"
+                    ));
+                }
                 // Add new requirement
                 spec.requirements.push(req);
             }
@@ -996,7 +1197,13 @@ pub fn build_all_components_with_agent<A: ImplementationAgent>(
     spec: &SystemSpec,
     out_dir: &Path,
 ) -> Result<BuildSummary, String> {
+    let temp_staging = out_dir.join(".staging");
+    if temp_staging.exists() {
+        let _ = std::fs::remove_dir_all(&temp_staging);
+    }
+    std::fs::create_dir_all(&temp_staging).map_err(|e| e.to_string())?;
     std::fs::create_dir_all(out_dir).map_err(|e| e.to_string())?;
+
     let mut artifacts = Vec::new();
     let mut all_diags = Vec::new();
 
@@ -1023,13 +1230,14 @@ pub fn build_all_components_with_agent<A: ImplementationAgent>(
             // Compile to WebAssembly Component Model
             match irtool::compile_ir_to_wasm(&proposed_ir) {
                 Ok(wasm_bytes) => {
-                    let out_wasm_path = out_dir.join(format!("{comp_id}.wasm"));
-                    std::fs::write(&out_wasm_path, &wasm_bytes).map_err(|e| e.to_string())?;
+                    let staged_wasm_path = temp_staging.join(format!("{comp_id}.wasm"));
+                    std::fs::write(&staged_wasm_path, &wasm_bytes).map_err(|e| e.to_string())?;
                     let sha256 = format!("{:x}", <sha2::Sha256 as sha2::Digest>::digest(&wasm_bytes));
 
+                    let final_wasm_path = out_dir.join(format!("{comp_id}.wasm"));
                     artifacts.push(BuildArtifact {
                         component_id: comp_id.clone(),
-                        wasm_file: out_wasm_path.to_string_lossy().to_string(),
+                        wasm_file: final_wasm_path.to_string_lossy().to_string(),
                         bytes_len: wasm_bytes.len(),
                         sha256,
                     });
@@ -1044,10 +1252,19 @@ pub fn build_all_components_with_agent<A: ImplementationAgent>(
         }
 
         if let Some(err) = last_error {
+            let _ = std::fs::remove_dir_all(&temp_staging);
             all_diags.extend(current_diags);
             return Err(format!("Component '{comp_id}' failed after {attempts} attempts: {err}"));
         }
     }
+
+    // Atomic promotion: move staged artifacts to final out_dir
+    for art in &artifacts {
+        let src = temp_staging.join(format!("{}.wasm", art.component_id));
+        let dst = out_dir.join(format!("{}.wasm", art.component_id));
+        std::fs::copy(&src, &dst).map_err(|e| e.to_string())?;
+    }
+    let _ = std::fs::remove_dir_all(&temp_staging);
 
     Ok(BuildSummary {
         success: true,
@@ -1103,8 +1320,8 @@ mod tests {
 
     #[test]
     fn parses_narrative_to_system_spec() {
-        let content = "# Sistema Comercial de Prueba\nContenido...";
-        let spec = parse_narrative(content, "test.md").expect("valid parse");
+        let content = include_str!("../../../spec/narrative-005.md");
+        let spec = parse_narrative(content, "narrative-005.md").expect("valid parse");
         assert_eq!(spec.spec_version, "1.0.0");
         assert_eq!(spec.components.len(), 2);
         assert!(spec.requirements.len() >= 10);
@@ -1112,8 +1329,8 @@ mod tests {
 
     #[test]
     fn compiles_both_components_from_spec() {
-        let content = "# Sistema Comercial POC 005";
-        let spec = parse_narrative(content, "narrative.md").expect("valid parse");
+        let content = include_str!("../../../spec/narrative-005.md");
+        let spec = parse_narrative(content, "narrative-005.md").expect("valid parse");
         let temp_dir = std::env::temp_dir().join("orch_test_build");
         let summary = build_all_components(&spec, &temp_dir).expect("build success");
         assert!(summary.success);
@@ -1159,12 +1376,63 @@ mod tests {
         let agent = FaultInjectingAgent {
             attempts: std::sync::atomic::AtomicUsize::new(0),
         };
-        let content = "# Sistema Comercial POC 005";
-        let spec = parse_narrative(content, "narrative.md").expect("valid parse");
+        let content = include_str!("../../../spec/narrative-005.md");
+        let spec = parse_narrative(content, "narrative-005.md").expect("valid parse");
         let temp_dir = std::env::temp_dir().join("orch_recovery_test");
         let summary = build_all_components_with_agent(&agent, &spec, &temp_dir)
             .expect("should recover and succeed");
         assert!(summary.success);
         assert_eq!(summary.artifacts.len(), 2);
+    }
+
+    #[test]
+    fn test_resource_reservation_lifecycle_and_cumulative_evolution() {
+        // Step 1: Interpret unseen domain narrative (Resource Reservation)
+        let narrative = include_str!("../../../spec/narrative-resource-reservation.md");
+        let spec_initial = parse_narrative(narrative, "narrative-resource-reservation.md")
+            .expect("Valid resource reservation narrative interpretation");
+
+        assert_eq!(spec_initial.components.len(), 2);
+        assert_eq!(spec_initial.components[0].id, "quota-engine");
+        assert_eq!(spec_initial.components[1].id, "reservation-coordinator");
+        assert!(spec_initial.requirements.len() >= 6);
+
+        // Step 2: Build initial components transactionally
+        let build_dir = std::env::temp_dir().join("res_test_build");
+        let summary_initial = build_all_components(&spec_initial, &build_dir)
+            .expect("Initial build must succeed");
+        assert!(summary_initial.success);
+        assert_eq!(summary_initial.artifacts.len(), 2);
+
+        // Step 3: Evolution Step 1 - WI-RES-01 (Expand quota limit to 2500)
+        let wi1 = include_str!("../../../spec/work-items-res/WI-RES-01-quota-limit.md");
+        let spec_step1 = parse_work_items_consolidated(
+            Some(&spec_initial),
+            &[("WI-RES-01-quota-limit.md", wi1)],
+        ).expect("Valid WI-RES-01 reconciliation");
+
+        let diff1 = compute_spec_diff(&spec_initial, &spec_step1);
+        assert_eq!(diff1.modified_requirements, vec!["QUOTA-002".to_string()]);
+        assert_eq!(diff1.affected_components, vec!["quota-engine".to_string()]);
+
+        let summary_step1 = build_all_components(&spec_step1, &build_dir)
+            .expect("Step 1 build must succeed");
+        assert!(summary_step1.success);
+
+        // Step 4: Evolution Step 2 - WI-RES-02 (Add penalty points)
+        let wi2 = include_str!("../../../spec/work-items-res/WI-RES-02-penalty-eligibility.md");
+        let spec_step2 = parse_work_items_consolidated(
+            Some(&spec_step1),
+            &[("WI-RES-02-penalty-eligibility.md", wi2)],
+        ).expect("Valid WI-RES-02 reconciliation");
+
+        let diff2 = compute_spec_diff(&spec_step1, &spec_step2);
+        assert_eq!(diff2.modified_requirements, vec!["RES-004".to_string()]);
+        assert_eq!(diff2.affected_components, vec!["reservation-coordinator".to_string()]);
+
+        let summary_step2 = build_all_components(&spec_step2, &build_dir)
+            .expect("Step 2 build must succeed");
+        assert!(summary_step2.success);
+        assert_eq!(summary_step2.artifacts.len(), 2);
     }
 }

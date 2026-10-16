@@ -5,7 +5,7 @@
 El sistema procesa pedidos comerciales en línea mediante una arquitectura desacoplada basada en componentes autónomos. La solución se compone de dos subsistemas funcionales con responsabilidades claramente delimitadas:
 
 1. **Calculador de Envíos (`shipping-calculator`):** Determina el costo del flete en centavos a partir del subtotal del pedido, el peso en gramos del paquete y la modalidad de entrega (estándar o exprés).
-2. **Procesador de Órdenes (`order-calculator`):** Valida la integridad de las líneas de pedido, calcula los subtotales, aplica deducciones por fidelidad o promociones mediante consultas a catálogos externos, aplica las alícuotas impositivas vigentes, delega la cotización del envío al componente especializado de fletes, valida la solvencia crediticia del cliente y registra eventos auditables para control financiero.
+2. **Procesador de Órdenes (`order-processor`):** Valida la integridad de las líneas de pedido, calcula los subtotales, aplica deducciones por fidelidad o promociones mediante consultas a catálogos externos, aplica las alícuotas impositivas vigentes, delega la cotización del envío al componente especializado de fletes, valida la solvencia crediticia del cliente y registra eventos auditables para control financiero.
 
 Ambos componentes interactúan de manera tipada a través de contratos de interfaz estandarizados (WebAssembly Interface Types - WIT), preservando aislamiento de memoria y permitiendo su evolución independiente.
 
@@ -48,7 +48,7 @@ Calcular de forma determinista la tarifa de envío en centavos considerando el v
 
 ---
 
-## 4. Componente B: Procesador de Órdenes (`order-calculator`)
+## 4. Componente B: Procesador de Órdenes (`order-processor`)
 
 ### Responsabilidad
 Gestionar el flujo integral de liquidación de órdenes comerciales, coordinando validaciones, descuentos, impuestos, fletes y auditoría.

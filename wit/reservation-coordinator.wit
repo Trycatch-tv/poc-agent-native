@@ -1,0 +1,31 @@
+package kaddo:resources@0.1.0;
+
+interface quota-service {
+    check-quota: func(tenant-id: s32, requested-units: s32, current-usage: s32) -> s32;
+}
+
+interface host-services {
+    tenant-status: func(tenant-id: s32) -> s32;
+    emit-audit: func(event-type: s32, entity-id: s32) -> s32;
+}
+
+interface reservation-service {
+    record reservation-result {
+        status-code: s32,
+        approved-units: s32,
+        penalty-points: s32,
+    }
+
+    reserve-resource: func(
+        tenant-id: s32,
+        resource-type: s32,
+        requested-units: s32,
+        current-usage: s32
+    ) -> reservation-result;
+}
+
+world reservation-coordinator {
+    import quota-service;
+    import host-services;
+    export reservation-service;
+}

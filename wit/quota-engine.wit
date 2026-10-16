@@ -1,0 +1,9 @@
+package kaddo:resources@0.1.0;
+
+interface quota-service {
+    check-quota: func(tenant-id: s32, requested-units: s32, current-usage: s32) -> s32;
+}
+
+world quota-engine {
+    export quota-service;
+}

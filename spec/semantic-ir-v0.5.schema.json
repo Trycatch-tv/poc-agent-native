@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agent-native.io/schemas/v0.5/semantic-ir.schema.json",
+  "title": "Agent-Native Semantic IR v0.5 Formal Specification Schema",
+  "description": "Formal declarative Intermediate Representation schema for compiling business logic directly to WebAssembly Component Model with Canonical ABI.",
+  "type": "object",
+  "required": [
+    "ir_version",
+    "spec_version",
+    "wit_contract",
+    "capabilities",
+    "imports",
+    "types",
+    "functions"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "ir_version": {
+      "type": "string",
+      "const": "0.5",
+      "description": "Semantic IR version string. Must be '0.5' for WebAssembly Component Model."
+    },
+    "spec_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Schema version of this IR document (e.g. 1)."
+    },
+    "wit_contract": {
+      "type": "object",
+      "required": ["package", "world", "export_interface"],
+      "additionalProperties": false,
+      "properties": {
+        "package": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+:[a-z0-9_-]+(@[0-9]+\\.[0-9]+\\.[0-9]+)?$",
+          "description": "WIT package namespace and name, e.g. 'kaddo:commercial@0.1.0'."
+        },
+        "world": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]+$",
+          "description": "WIT world defined in package, e.g. 'order-processor'."
+        },
+        "export_interface": {
+          "type": "string",
+          "description": "WIT interface exported by this component."
+        },
+        "import_interfaces": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "WIT interfaces imported by this component."
+        },
+        "wit_file": {
+          "type": "string",
+          "description": "Path to the WIT contract file."
+        }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Infrastructure and host capabilities authorized for this component."
+    },
+    "imports": {
+      "type": "array",
+      "description": "External functions and host services imported by this component.",
+      "items": {
+        "type": "object",
+        "required": ["module", "name", "capability", "params", "returns"],
+        "additionalProperties": false,
+        "properties": {
+          "module": { "type": "string" },
+          "name": { "type": "string" },
+          "capability": { "type": "string" },
+          "wit_interface": { "type": "string" },
+          "params": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "type"],
+              "properties": {
+                "name": { "type": "string" },
+                "type": { "type": "string", "enum": ["i32", "bool"] }
+              }
+            }
+          },
+          "returns": { "type": "string", "enum": ["i32", "bool"] }
+        }
+      }
+    },
+    "types": {
+      "type": "array",
+      "description": "Domain records defined and used by functions in this component.",
+      "items": {
+        "type": "object",
+        "required": ["name", "fields"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "type"],
+              "properties": {
+                "name": { "type": "string" },
+                "type": { "type": "string", "enum": ["i32", "bool"] }
+              }
+            }
+          }
+        }
+      }
+    },
+    "functions": {
+      "type": "array",
+      "description": "Functions implementing component logic.",
+      "items": {
+        "type": "object",
+        "required": ["name", "export", "params", "returns", "body"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "export": { "type": "boolean" },
+          "wit_interface": { "type": "string" },
+          "requirements": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "params": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "type"],
+              "properties": {
+                "name": { "type": "string" },
+                "type": { "type": "string" }
+              }
+            }
+          },
+          "returns": { "type": "string" },
+          "body": {
+            "type": "object",
+            "description": "AST expression tree using allowed operators: const, param, not, add, sub, mul, div_s, eq, lt_s, gte_s, and, or, if, call, call_import, record.construct, record.get."
+          }
+        }
+      }
+    }
+  }
+}

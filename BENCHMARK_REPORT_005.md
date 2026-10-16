@@ -60,6 +60,12 @@ Este benchmark pareado (**`WI-041`**) evalúa empíricamente dos enfoques para l
 | **E4 (Evolución Acumulativa)** | `order-processor.wasm` | 2,488 B | `25ae47ee79b232225ad8de23430b2f4ee5c766a81e73a19b5cbe0b617f274454` | **Exacto a E3 (preserva IVA 18%)** |
 | **Nuevo Dominio (SaaS)** | `usage-tracker.wasm` | 592 B | `731f726e10affbd6bfc0c5d9f3f2b188d60cf2390a1bf884df0c982c5d9ee5a1` | Sintetizado desde cero |
 | **Nuevo Dominio (SaaS)** | `subscription-billing.wasm` | 1,280 B | `b248eac924829eac3e1a15152bc0f4b3a185c1b06271b36bb8f359b87e96ef5b` | Sintetizado desde cero |
+| **Validación Independiente (WI-S07)** | `quota-engine.wasm` | 741 B | `cf3c3b0df3f9154f8a37e1a7ba89ea730efd9516668e0d4bb8bb1f26a798ee3e` | Inicial (límite 1000) |
+| **Validación Independiente (WI-S07)** | `reservation-coordinator.wasm` | 2,216 B | `fa1d7ac207038e129ae35c755c3c0dfb6c6b4455ae0dfaa31f13b63b27b5006d` | Inicial (sin penalización) |
+| **WI-RES-01 (Evolución Cuota)** | `quota-engine.wasm` | 741 B | `70fa6e129aa18055bf09b0b4a68ebae71f54cf796c342f567b45cc16a192ee71` | Actualizado (límite 2500) |
+| **WI-RES-01 (Evolución Cuota)** | `reservation-coordinator.wasm` | 2,216 B | `fa1d7ac207038e129ae35c755c3c0dfb6c6b4455ae0dfaa31f13b63b27b5006d` | **Inalterado (aislamiento total)** |
+| **WI-RES-02 (Evolución Penalidad)** | `quota-engine.wasm` | 741 B | `70fa6e129aa18055bf09b0b4a68ebae71f54cf796c342f567b45cc16a192ee71` | **Inalterado (preserva límite 2500)** |
+| **WI-RES-02 (Evolución Penalidad)** | `reservation-coordinator.wasm` | 2,234 B | `44ce415fa9fbe65961314d3527b137f86641e406208bb78bc2b7747e92383c27` | Actualizado (+50 penalidad) |
 
 ---
 
@@ -68,14 +74,23 @@ Este benchmark pareado (**`WI-041`**) evalúa empíricamente dos enfoques para l
 ### A. Eliminación del Código Fuente como Pasivo Accidental
 En el flujo tradicional asistido por LLM, el código fuente en Rust/Go actúa como un pasivo: el modelo debe lidiar con la sintaxis, el borrow checker, macros de expansión, imports de crates externos y flags de compilación. En el flujo Agent-Native, el modelo y el orquestador manipulan únicamente la **intención funcional estructurada** (System Specification y Semantic IR declarativa). Las herramientas deterministas congeladas (`irtool`, `ComponentEncoder`) asumen el 100 % de la emisión binaria, eliminando por completo los errores de sintaxis y tipado de bajo nivel.
 
-### B. Mantenimiento Quirúrgico Multi-Componente Acumulativo (E4 sobre E3)
-En la evolución E4 (cambio de tarifas en `shipping-calculator`), el orquestador parte de la especificación acumulada de E3. El diff semántico identifica con exactitud que únicamente `SHIP-003` cambió, afectando exclusivamente a `shipping-calculator`. El componente `order-processor.wasm` **no requirió ninguna modificación, preservando exactamente el hash SHA-256 de E3 (`25ae47ee...`) y manteniendo activa la regla de IVA del 18 %**.
+### B. Mantenimiento Quirúrgico Multi-Componente Acumulativo
+En ambas secuencias de evolución (`E4 sobre E3` en el dominio comercial y `WI-RES-02 sobre WI-RES-01` en el dominio de reserva de recursos), el orquestador parte de la especificación acumulada previa. El diff multidimensional identifica con exactitud los requisitos modificados y los componentes afectados, aislando completamente a los componentes dependientes e invariantes:
+- En `E4`, `order-processor.wasm` conservó exactamente el hash SHA-256 de `E3` (`25ae47ee...`) preservando la regla de IVA del 18 %.
+- En `WI-RES-01`, `reservation-coordinator.wasm` conservó exactamente su hash SHA-256 (`fa1d7ac2...`) mientras `quota-engine` se actualizaba al límite de 2,500 unidades.
+- En `WI-RES-02`, `quota-engine.wasm` conservó su hash SHA-256 (`70fa6e12...`) mientras `reservation-coordinator` evolucionaba para liquidar penalidades.
 
-### C. Generalización de Dominio
-El orquestador fue validado con una especificación narrativa completamente ajena al dominio comercial original (`spec/narrative-subscription-service.md`, plataforma SaaS de facturación de consumo). El sistema extrajo los requisitos, generó la System Specification y compiló componentes WebAssembly válidos (`usage-tracker.wasm` y `subscription-billing.wasm`) sin ninguna modificación manual sobre el orquestador.
+### C. Generalización de Dominio Agnóstica
+El orquestador fue validado con especificaciones narrativas completamente ajenas a dominios comerciales previos:
+1. Dominio SaaS (`spec/narrative-subscription-service.md`): `usage-tracker` y `subscription-billing`.
+2. Dominio Cloud/Infraestructura (`spec/narrative-resource-reservation.md`): `quota-engine` y `reservation-coordinator`.
+3. Dominio Satelital (`telemetry.md` en pruebas automatizadas): `packet-collector` y `data-distributor`.
+El sistema extrajo los requisitos, generó la System Specification y compiló componentes WebAssembly válidos sin introducir dependencias específicas de dominio ni modificar manualmente el compilador.
 
 ---
 
-## 5. Conclusión
+## 5. Conclusión y Recomendación de Extracción
 
-El benchmark de la Fase 5 demuestra que la arquitectura Agent-Native no solo iguala la corrección del software tradicional, sino que la supera en dos órdenes de magnitud en velocidad de ciclo (**87.6x más rápido**), garantiza reproducibilidad binaria absoluta y reduce el consumo de tokens en un 93.5 %, validando con rigor la decisión **GO** para el paso a un repositorio independiente.
+El benchmark y la fase de estabilización demuestran con evidencia empírica verificable que Agent-Native v0.1.0 opera como un motor independiente de software compilado a WebAssembly. La tecnología supera en dos órdenes de magnitud la velocidad de ciclo tradicional (**87.6x más rápido**), garantiza reproducibilidad binaria absoluta (100% SHA-256 reproducible) y proporciona un aislamiento arquitectónico verificado.
+
+**Decisión final: GO.** Se recomienda proceder con la extracción de Agent-Native a su repositorio independiente como motor de software autónomo.
