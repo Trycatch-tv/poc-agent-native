@@ -1,0 +1,392 @@
+{
+  "passed": 9,
+  "failed": 0,
+  "total": 9,
+  "execution_ms": 6,
+  "cases": [
+    {
+      "id": "E1-003-H01",
+      "requirement": "ORD-001",
+      "function": "calculate_order",
+      "args": [
+        201,
+        1500,
+        2,
+        800,
+        -2,
+        300
+      ],
+      "expected": {
+        "discount_cents": 0,
+        "shipping_cents": 0,
+        "status_code": 1,
+        "subtotal_cents": 0,
+        "tax_cents": 0,
+        "total_cents": 0
+      },
+      "actual": {
+        "discount_cents": 0,
+        "shipping_cents": 0,
+        "status_code": 1,
+        "subtotal_cents": 0,
+        "tax_cents": 0,
+        "total_cents": 0
+      },
+      "expected_host_calls": [],
+      "actual_host_calls": [],
+      "passed": true
+    },
+    {
+      "id": "E1-003-H02",
+      "requirement": "ORD-001",
+      "function": "calculate_order",
+      "args": [
+        201,
+        1500,
+        2,
+        -50,
+        2,
+        300
+      ],
+      "expected": {
+        "discount_cents": 0,
+        "shipping_cents": 0,
+        "status_code": 1,
+        "subtotal_cents": 0,
+        "tax_cents": 0,
+        "total_cents": 0
+      },
+      "actual": {
+        "discount_cents": 0,
+        "shipping_cents": 0,
+        "status_code": 1,
+        "subtotal_cents": 0,
+        "tax_cents": 0,
+        "total_cents": 0
+      },
+      "expected_host_calls": [],
+      "actual_host_calls": [],
+      "passed": true
+    },
+    {
+      "id": "E1-003-H03",
+      "requirement": "ORD-002",
+      "function": "calculate_order",
+      "args": [
+        202,
+        2000,
+        1,
+        1000,
+        1,
+        -1
+      ],
+      "expected": {
+        "discount_cents": 0,
+        "shipping_cents": 0,
+        "status_code": 2,
+        "subtotal_cents": 0,
+        "tax_cents": 0,
+        "total_cents": 0
+      },
+      "actual": {
+        "discount_cents": 0,
+        "shipping_cents": 0,
+        "status_code": 2,
+        "subtotal_cents": 0,
+        "tax_cents": 0,
+        "total_cents": 0
+      },
+      "expected_host_calls": [],
+      "actual_host_calls": [],
+      "passed": true
+    },
+    {
+      "id": "E1-003-H04",
+      "requirement": "ORD-006",
+      "function": "calculate_order",
+      "args": [
+        999,
+        3000,
+        1,
+        2000,
+        1,
+        500
+      ],
+      "expected": {
+        "discount_cents": 0,
+        "shipping_cents": 500,
+        "status_code": 0,
+        "subtotal_cents": 5000,
+        "tax_cents": 500,
+        "total_cents": 6000
+      },
+      "actual": {
+        "discount_cents": 0,
+        "shipping_cents": 500,
+        "status_code": 0,
+        "subtotal_cents": 5000,
+        "tax_cents": 500,
+        "total_cents": 6000
+      },
+      "expected_host_calls": [
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            6000
+          ]
+        }
+      ],
+      "actual_host_calls": [
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            6000
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "E1-003-H05",
+      "requirement": "ORD-006",
+      "function": "calculate_order",
+      "args": [
+        203,
+        4000,
+        2,
+        2000,
+        1,
+        800
+      ],
+      "expected": {
+        "discount_cents": 10000,
+        "shipping_cents": 800,
+        "status_code": 0,
+        "subtotal_cents": 10000,
+        "tax_cents": 0,
+        "total_cents": 800
+      },
+      "actual": {
+        "discount_cents": 10000,
+        "shipping_cents": 800,
+        "status_code": 0,
+        "subtotal_cents": 10000,
+        "tax_cents": 0,
+        "total_cents": 800
+      },
+      "expected_host_calls": [
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            800
+          ]
+        }
+      ],
+      "actual_host_calls": [
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            800
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "E1-003-H06",
+      "requirement": "ORD-006",
+      "function": "calculate_order",
+      "args": [
+        204,
+        1200,
+        3,
+        400,
+        1,
+        0
+      ],
+      "expected": {
+        "discount_cents": 1000,
+        "shipping_cents": 0,
+        "status_code": 0,
+        "subtotal_cents": 4000,
+        "tax_cents": 300,
+        "total_cents": 3300
+      },
+      "actual": {
+        "discount_cents": 1000,
+        "shipping_cents": 0,
+        "status_code": 0,
+        "subtotal_cents": 4000,
+        "tax_cents": 300,
+        "total_cents": 3300
+      },
+      "expected_host_calls": [
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            3300
+          ]
+        }
+      ],
+      "actual_host_calls": [
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            3300
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "E1-003-H07",
+      "requirement": "ORD-006",
+      "function": "calculate_order",
+      "args": [
+        205,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "expected": {
+        "discount_cents": 0,
+        "shipping_cents": 0,
+        "status_code": 0,
+        "subtotal_cents": 0,
+        "tax_cents": 0,
+        "total_cents": 0
+      },
+      "actual": {
+        "discount_cents": 0,
+        "shipping_cents": 0,
+        "status_code": 0,
+        "subtotal_cents": 0,
+        "tax_cents": 0,
+        "total_cents": 0
+      },
+      "expected_host_calls": [
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            0
+          ]
+        }
+      ],
+      "actual_host_calls": [
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            0
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "E1-003-H08",
+      "requirement": "ORD-006",
+      "function": "calculate_order",
+      "args": [
+        206,
+        333,
+        1,
+        0,
+        0,
+        100
+      ],
+      "expected": {
+        "discount_cents": 49,
+        "shipping_cents": 100,
+        "status_code": 0,
+        "subtotal_cents": 333,
+        "tax_cents": 28,
+        "total_cents": 412
+      },
+      "actual": {
+        "discount_cents": 49,
+        "shipping_cents": 100,
+        "status_code": 0,
+        "subtotal_cents": 333,
+        "tax_cents": 28,
+        "total_cents": 412
+      },
+      "expected_host_calls": [
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            412
+          ]
+        }
+      ],
+      "actual_host_calls": [
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            412
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "E1-003-H09",
+      "requirement": "ORD-006",
+      "function": "calculate_order",
+      "args": [
+        207,
+        7500,
+        2,
+        5000,
+        3,
+        1500
+      ],
+      "expected": {
+        "discount_cents": 3600,
+        "shipping_cents": 1500,
+        "status_code": 0,
+        "subtotal_cents": 30000,
+        "tax_cents": 2640,
+        "total_cents": 30540
+      },
+      "actual": {
+        "discount_cents": 3600,
+        "shipping_cents": 1500,
+        "status_code": 0,
+        "subtotal_cents": 30000,
+        "tax_cents": 2640,
+        "total_cents": 30540
+      },
+      "expected_host_calls": [
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            30540
+          ]
+        }
+      ],
+      "actual_host_calls": [
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            30540
+          ]
+        }
+      ],
+      "passed": true
+    }
+  ]
+}

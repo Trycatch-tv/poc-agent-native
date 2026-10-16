@@ -1,0 +1,17 @@
+[
+  {
+    "code": "E_UNDECLARED_CAPABILITY",
+    "function": null,
+    "path": "$.imports[1].capability",
+    "message": "Import 'emit_audit' requires capability 'audit_log', which is not declared in root 'capabilities'.",
+    "expected": "declared capability in root 'capabilities'",
+    "found": "audit_log"
+  },
+  {
+    "code": "E_UNDECLARED_CAPABILITY",
+    "function": "build_valid_order_result",
+    "path": "$.functions[5].body.fields.status_code.condition.left.import",
+    "message": "Invocation of import 'emit_audit' requires capability 'audit_log', which is not declared in root 'capabilities'.",
+    "expected": "capability 'audit_log' in root 'capabilities'"
+  }
+]
