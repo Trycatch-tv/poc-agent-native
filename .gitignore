@@ -1,0 +1,18 @@
+# Rust / Cargo
+target/
+
+# Node / tooling
+node_modules/
+
+# Build output (keep .gitkeep placeholder)
+build/*
+!build/.gitkeep
+
+# Kaddo local operational state (not project source)
+.kaddo/admin/
+.kaddo/telemetry/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log

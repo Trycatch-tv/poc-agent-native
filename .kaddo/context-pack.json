@@ -1,0 +1,448 @@
+{
+  "version": "1",
+  "generatedAt": "2026-10-16T03:43:34.553Z",
+  "project": {
+    "name": "poc-agent-native",
+    "state": "new",
+    "mode": "poc",
+    "teamSize": "indie",
+    "structure": "monorepo",
+    "language": "Spanish"
+  },
+  "scan": {
+    "available": true,
+    "languages": [],
+    "frameworks": [],
+    "packageManagers": [],
+    "sourceDirectories": [],
+    "migrationDirectories": [],
+    "contractFiles": [],
+    "infrastructureFiles": []
+  },
+  "knowledge": {
+    "summary": "> What is true about this product right now.",
+    "roadmapSummary": "",
+    "inventoryAvailable": true,
+    "workItems": [
+      {
+        "id": "WI-001",
+        "type": "spike",
+        "title": "Contrato experimental e IR v0.1",
+        "status": "ready",
+        "lifecycle": "ready",
+        "knowledgeLevel": "K2",
+        "domains": [
+          "semantic-ir",
+          "commercial-rules-subject",
+          "experiment-evidence"
+        ],
+        "source": {
+          "type": "unknown",
+          "inferred": true,
+          "reason": "No source metadata found."
+        }
+      }
+    ],
+    "activeWorkItems": [
+      {
+        "id": "WI-001",
+        "type": "spike",
+        "title": "Contrato experimental e IR v0.1",
+        "status": "ready",
+        "lifecycle": "ready",
+        "knowledgeLevel": "K2",
+        "domains": [
+          "semantic-ir",
+          "commercial-rules-subject",
+          "experiment-evidence"
+        ],
+        "source": {
+          "type": "unknown",
+          "inferred": true,
+          "reason": "No source metadata found."
+        }
+      }
+    ],
+    "completedWorkItems": [],
+    "archivedWorkItems": [],
+    "allWorkItems": [
+      {
+        "id": "WI-001",
+        "type": "spike",
+        "title": "Contrato experimental e IR v0.1",
+        "status": "ready",
+        "lifecycle": "ready",
+        "knowledgeLevel": "K2",
+        "domains": [
+          "semantic-ir",
+          "commercial-rules-subject",
+          "experiment-evidence"
+        ],
+        "source": {
+          "type": "unknown",
+          "inferred": true,
+          "reason": "No source metadata found."
+        }
+      }
+    ],
+    "artifacts": [
+      {
+        "id": "WI-001",
+        "type": "spike",
+        "title": "Contrato experimental e IR v0.1",
+        "summary": "",
+        "codeGlobs": [
+          "spec/**",
+          "ir/**",
+          "tests/**",
+          "runs/**",
+          "build/**"
+        ]
+      }
+    ]
+  },
+  "poc": {
+    "exists": true,
+    "hypothesisDefined": true,
+    "successCriteriaCount": 16,
+    "constraintsDefined": true,
+    "nonGoalsDefined": true,
+    "conclusion": "pending"
+  },
+  "layers": [
+    {
+      "layer": "Business",
+      "status": "Missing",
+      "detected": []
+    },
+    {
+      "layer": "Product",
+      "status": "Missing",
+      "detected": []
+    },
+    {
+      "layer": "Tech",
+      "status": "Structured",
+      "detected": [
+        "current-state.md",
+        "knowledge.md"
+      ]
+    },
+    {
+      "layer": "Delivery",
+      "status": "Traceable",
+      "detected": [
+        "WI-001-contrato-experimental-e-ir-v0-1.md",
+        "poc.md"
+      ]
+    }
+  ],
+  "knowledgeQuality": {
+    "business": {
+      "status": "Missing",
+      "artifacts": {
+        "knowledge/business/business.md": "missing"
+      }
+    },
+    "product": {
+      "status": "Missing",
+      "artifacts": {
+        "knowledge/product/product.md": "missing",
+        "knowledge/product/capabilities.md": "missing"
+      }
+    },
+    "tech": {
+      "status": "Structured",
+      "artifacts": {
+        "knowledge/tech/codebase.md": "missing",
+        "knowledge/tech/current-state.md": "useful"
+      }
+    },
+    "delivery": {
+      "status": "Traceable",
+      "artifacts": {
+        "knowledge/delivery/roadmap.md": "missing"
+      }
+    }
+  },
+  "roadmap": {
+    "present": false,
+    "initiatives": 0,
+    "work_item_candidates": 0,
+    "materialized_work_items": 1,
+    "remaining_work_item_candidates": 0,
+    "candidates": 0,
+    "materialized": 1,
+    "remaining": 0
+  },
+  "phase": {
+    "phase": "Discovery",
+    "reasons": [
+      "No roadmap yet",
+      "ready: 1",
+      "Ownership coverage 100%"
+    ],
+    "recommendedAgents": [
+      "architecture-agent"
+    ],
+    "nextStep": "Document the minimal technical context for the experiment.",
+    "llmInstructions": [
+      "Use the business-agent to fill the missing base knowledge.",
+      "Do not write code."
+    ]
+  },
+  "nextStepRecommendation": {
+    "id": "poc-technical-context",
+    "phase": "POC Discovery",
+    "label": "Document the minimal technical context for the experiment.",
+    "target": "knowledge/tech/codebase.md",
+    "agent": "architecture-agent",
+    "reason": "The experiment surface and constraints are not yet sufficiently documented."
+  },
+  "deliveryState": {
+    "phase": "POC Discovery",
+    "draft_work_items": 0,
+    "refined_draft_work_items": 0,
+    "refined_draft_ids": [],
+    "ready_work_items": 1,
+    "ready_work_item_ids": [
+      "WI-001"
+    ],
+    "ready_multirepo_wi_ids": [],
+    "in_progress_work_items": 0,
+    "blocked_work_items": 0,
+    "total_work_items": 1,
+    "ownership_coverage": "1/1",
+    "remaining_work_item_candidates": 0,
+    "decision_candidates": 0,
+    "accepted_adrs": 0,
+    "adapters_installed": 0
+  },
+  "techDecisions": {
+    "status": "none",
+    "candidates": 0,
+    "adrs": 0,
+    "draft_adrs": 0,
+    "accepted_adrs": 0,
+    "candidate_list": [],
+    "candidates_source": null,
+    "candidates_legacy_location": false,
+    "candidates_both_exist": false
+  },
+  "techKnowledge": {
+    "core": {
+      "current-state.md": true,
+      "codebase.md": false
+    },
+    "decisions": {
+      "adrs": 0,
+      "dir": false
+    },
+    "discovery": {
+      "architecture-notes.md": false,
+      "decision-candidates.md": false,
+      "legacyLocation": false
+    }
+  },
+  "roadmapQuality": {
+    "initiatives": {
+      "total": 0,
+      "grounded": 0,
+      "with_related_domain": 0,
+      "with_related_capability": 0,
+      "with_source_signals": 0,
+      "needs_refinement": false,
+      "items": []
+    },
+    "work_item_candidates": {
+      "total": 0,
+      "with_source_initiative": 0,
+      "with_related_domain": 0,
+      "with_related_capability": 0
+    }
+  },
+  "installedAssets": {
+    "version": "3.127.0",
+    "agents": {
+      "total": 20,
+      "installed": 11,
+      "outdated": 0,
+      "unknown_version": 0,
+      "modified": 0
+    },
+    "skills": {
+      "total": 11,
+      "installed": 10,
+      "outdated": 0,
+      "unknown_version": 0,
+      "modified": 0
+    }
+  },
+  "workItemSummary": {
+    "total": 1,
+    "active": 1,
+    "draft": 0,
+    "ready": 1,
+    "in_progress": 0,
+    "blocked": 0,
+    "completed": 0,
+    "archived": 0,
+    "summary": "ready"
+  },
+  "deliveryMix": {
+    "spike": 1
+  },
+  "external": [],
+  "graph": null,
+  "graphHints": null,
+  "skills": [
+    "adr-writing",
+    "evidence-verification",
+    "graph-metadata-review",
+    "implementation-planning",
+    "learning-capture",
+    "legacy-risk-assessment",
+    "module-context-refinement",
+    "ownership-suggestion",
+    "poc-report-writing",
+    "work-item-refinement"
+  ],
+  "scanSignals": {
+    "auth": [],
+    "payments": [],
+    "webhooks": [],
+    "storage": [],
+    "background_jobs": [],
+    "email": [],
+    "database": [],
+    "migrations": [],
+    "api_routes": [],
+    "tests": [
+      {
+        "type": "tests",
+        "label": "No test directory detected",
+        "confidence": "high",
+        "evidence": [],
+        "recommended_review": "Confirm how this project is validated before production changes."
+      }
+    ],
+    "security": [],
+    "infrastructure": [],
+    "external_integrations": [],
+    "environment": []
+  },
+  "projectRoute": {
+    "type": "new",
+    "currentStep": "poc-technical-context",
+    "completed": 5,
+    "total": 8,
+    "progressPercent": 63,
+    "steps": [
+      {
+        "id": "enable-kaddo",
+        "label": "Enable Kaddo",
+        "status": "done",
+        "evidence": [
+          ".kaddo/config.yml"
+        ]
+      },
+      {
+        "id": "poc-artifact",
+        "label": "Create POC artifact",
+        "status": "done",
+        "evidence": [
+          "knowledge/delivery/poc.md"
+        ]
+      },
+      {
+        "id": "poc-hypothesis",
+        "label": "Define hypothesis",
+        "status": "done",
+        "evidence": [
+          "knowledge/delivery/poc.md"
+        ]
+      },
+      {
+        "id": "poc-success-criteria",
+        "label": "Define success criteria",
+        "status": "done",
+        "evidence": [
+          "knowledge/delivery/poc.md"
+        ]
+      },
+      {
+        "id": "poc-technical-context",
+        "label": "Document minimal technical context",
+        "status": "current",
+        "evidence": [
+          "knowledge/tech/current-state.md"
+        ],
+        "agent": "architecture-agent"
+      },
+      {
+        "id": "poc-resources",
+        "label": "Identify relevant resources",
+        "status": "optional",
+        "command": "kaddo resources list",
+        "reason": "Add Project Resources only when the experiment depends on external systems."
+      },
+      {
+        "id": "poc-create-experiment",
+        "label": "Create experiment Work Item",
+        "status": "done",
+        "evidence": [
+          "knowledge/delivery/work-items/"
+        ]
+      },
+      {
+        "id": "poc-evidence",
+        "label": "Capture experiment evidence",
+        "status": "next",
+        "reason": "Complete an experiment Work Item and link its evidence in the POC artifact."
+      },
+      {
+        "id": "poc-evaluate",
+        "label": "Evaluate and conclude",
+        "status": "pending",
+        "reason": "Record validated, rejected, or inconclusive from the evidence."
+      },
+      {
+        "id": "poc-final-report",
+        "label": "Generate final report (optional)",
+        "status": "optional",
+        "reason": "Available after recording a POC conclusion."
+      }
+    ]
+  },
+  "metadataHealth": {
+    "findings": [],
+    "healthy": 1,
+    "drifted": 0
+  },
+  "mappedModules": [],
+  "moduleStatuses": {},
+  "affectedModuleContexts": {},
+  "isModuleRepo": false,
+  "missing": [
+    "No roadmap baseline found."
+  ],
+  "handoff": {
+    "recommendedAgents": [
+      "architecture-agent"
+    ],
+    "nextSteps": [
+      "Document the minimal technical context for the experiment."
+    ],
+    "instructions": [
+      "Use the business-agent to fill the missing base knowledge.",
+      "Do not write code."
+    ],
+    "operatingRules": [
+      "**Never run `git commit`, `git push` or `git merge` without explicit human confirmation.**",
+      "Never push or merge automatically — ever. Suggest a Conventional Commit message and wait.",
+      "When implementing a Work Item, create a branch FIRST (per the project Git strategy, `.kaddo/git.yml`, default `feature/<id>-<slug>`). Never work directly on `main`.",
+      "After significant changes run `kaddo scan`, `kaddo owners suggest` and `kaddo guard`, and update the affected knowledge (ADR / capabilities / current-state).",
+      "Kaddo itself never calls an LLM and never runs git — every git action is the human’s."
+    ]
+  }
+}
