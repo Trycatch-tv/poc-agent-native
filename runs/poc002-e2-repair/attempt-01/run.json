@@ -1,0 +1,41 @@
+{
+  "exercise": "E2-002",
+  "phase": "repair",
+  "attempt": 1,
+  "status": "passed",
+  "timestamp": "2026-10-16T07:29:50-05:00",
+  "ir_version": "0.2",
+  "spec_version": 1,
+  "fault_injected": "E_UNKNOWN_FIELD",
+  "fault_location": "$.functions[2].body.else.fields.subtotal",
+  "injected_diagnostic_code": "E_UNKNOWN_FIELD",
+  "repair_attempts": 1,
+  "program": "ir/program-002.ir.json",
+  "artifact": "runs/poc002-e2-repair/attempt-01/program.wasm",
+  "artifact_size_bytes": 308,
+  "artifact_sha256": "f42bcb6e03c616b2891a9c4d1e060c4e141d502b01f44a326bc749d65a0d771a",
+  "diagnostics_count_post_repair": 0,
+  "public_tests": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "execution_ms": 46
+  },
+  "hidden_tests": {
+    "total": 9,
+    "passed": 9,
+    "failed": 0,
+    "execution_ms": 35
+  },
+  "toolchain_frozen": true,
+  "toolchain_hashes_match": true,
+  "success_criteria": {
+    "SC-04": true,
+    "SC-05": true,
+    "SC-12": true,
+    "SC-13": true,
+    "SC-14": true,
+    "SC-15": true,
+    "SC-16": true
+  }
+}

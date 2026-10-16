@@ -1,0 +1,17 @@
+[
+  {
+    "code": "E_UNKNOWN_FIELD",
+    "function": "calculate_order",
+    "path": "$.functions[2].body.else.fields.subtotal",
+    "message": "Unknown field 'subtotal' for record type 'OrderCalculation'.",
+    "expected": "subtotal_cents | tax_cents | shipping_cents | total_cents",
+    "found": "subtotal"
+  },
+  {
+    "code": "E_MISSING_FIELD",
+    "function": "calculate_order",
+    "path": "$.functions[2].body.else.fields.subtotal_cents",
+    "message": "Missing required field 'subtotal_cents' in constructor for record 'OrderCalculation'.",
+    "expected": "subtotal_cents: i32"
+  }
+]
