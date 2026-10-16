@@ -1,6 +1,6 @@
 {
   "ir_version": "0.4",
-  "spec_version": 2,
+  "spec_version": 3,
   "wit_contract": {
     "package": "kaddo:commercial@0.1.0",
     "world": "order-processor",
@@ -204,7 +204,7 @@
             "right": {
               "op": "const",
               "type": "i32",
-              "value": 10
+              "value": 12
             }
           },
           "right": {
@@ -427,9 +427,29 @@
                   "import": "emit_audit",
                   "args": [
                     {
-                      "op": "const",
-                      "type": "i32",
-                      "value": 100
+                      "op": "if",
+                      "condition": {
+                        "op": "gte_s",
+                        "left": {
+                          "op": "param",
+                          "name": "total"
+                        },
+                        "right": {
+                          "op": "const",
+                          "type": "i32",
+                          "value": 10000
+                        }
+                      },
+                      "then": {
+                        "op": "const",
+                        "type": "i32",
+                        "value": 999
+                      },
+                      "else": {
+                        "op": "const",
+                        "type": "i32",
+                        "value": 100
+                      }
                     },
                     {
                       "op": "param",

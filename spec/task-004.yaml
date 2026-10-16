@@ -1,5 +1,5 @@
 id: KAN-POC-004
-version: 2
+version: 3
 title: Motor de cálculo comercial con WebAssembly Component Model y contrato WIT
 description: >
   Implementar el cálculo de órdenes de compra comerciales utilizando la Semantic IR v0.4
@@ -101,7 +101,7 @@ functions:
       - id: TAX-001
         description: Si taxable_amount_cents < 0, retornar 0.
       - id: TAX-002
-        description: De lo contrario, retornar taxable_amount_cents * 10 / 100 (tasa base del 10 % en v1 y v2).
+        description: De lo contrario, retornar taxable_amount_cents * 12 / 100 (tasa base del 12 % en v3).
 
   - name: calculate_order
     export: true
@@ -134,7 +134,7 @@ functions:
       - id: ORD-005
         description: total_cents = base_imponible + tax_cents + shipping_cents.
       - id: ORD-006
-        description: Si check_credit es válido: emitir emit_audit(100, total_cents) y retornar OrderResult con status_code = 0.
+        description: Si check_credit es válido: emitir emit_audit(999, total_cents) si total_cents >= 10000 o emit_audit(100, total_cents) si < 10000, y retornar OrderResult con status_code = 0.
       - id: ORD-007
         description: Si check_credit(customer_id, total_cents) retorna 0 (crédito insuficiente), retornar OrderResult con status_code = 3 y montos en 0 sin emitir auditoría.
 

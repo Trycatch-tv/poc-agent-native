@@ -17,14 +17,14 @@ cases:
       status_code: 0
       subtotal_cents: 3000
       discount_cents: 0
-      tax_cents: 300
+      tax_cents: 360
       shipping_cents: 300
-      total_cents: 3600
+      total_cents: 3660
     expected_host_calls:
       - import: check_credit
-        args: [101, 3600]
+        args: [101, 3660]
       - import: emit_audit
-        args: [100, 3600]
+        args: [100, 3660]
 
   - id: TC-PUB-402
     description: Cliente VIP con 10 % descuento (kv=10), crédito suficiente
@@ -40,14 +40,14 @@ cases:
       status_code: 0
       subtotal_cents: 3000
       discount_cents: 300
-      tax_cents: 270
+      tax_cents: 324
       shipping_cents: 500
-      total_cents: 3470
+      total_cents: 3524
     expected_host_calls:
       - import: check_credit
-        args: [202, 3470]
+        args: [202, 3524]
       - import: emit_audit
-        args: [100, 3470]
+        args: [100, 3524]
 
   - id: TC-PUB-403
     description: Línea 1 inválida (precio negativo), debe fallar con status 1 y sin auditoría
@@ -107,7 +107,7 @@ cases:
     expected_host_calls: []
 
   - id: TC-PUB-406
-    description: Límite de crédito insuficiente (crédito = 2000, total = 3600), status 3 sin auditoría
+    description: Límite de crédito insuficiente (crédito = 2000, total = 3660), status 3 sin auditoría
     requirement: ORD-007
     function: calculate_order
     args: [505, 1500, 2, 0, 0, 300]
@@ -125,7 +125,7 @@ cases:
       total_cents: 0
     expected_host_calls:
       - import: check_credit
-        args: [505, 3600]
+        args: [505, 3660]
 
   - id: TC-PUB-407
     description: Cliente mayorista con 20 % descuento (kv=20) y crédito suficiente
@@ -141,14 +141,14 @@ cases:
       status_code: 0
       subtotal_cents: 10000
       discount_cents: 2000
-      tax_cents: 800
+      tax_cents: 960
       shipping_cents: 1000
-      total_cents: 9800
+      total_cents: 9960
     expected_host_calls:
       - import: check_credit
-        args: [606, 9800]
+        args: [606, 9960]
       - import: emit_audit
-        args: [100, 9800]
+        args: [100, 9960]
 
   - id: TC-PUB-408
     description: Cotización de envío estándar (1000g, normal)
