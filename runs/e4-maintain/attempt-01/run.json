@@ -1,0 +1,76 @@
+{
+  "schema_version": "1",
+  "experiment_id": "KADDO-AGENT-NATIVE-POC-001",
+  "exercise": "E4",
+  "attempt": 1,
+  "started_at": "2026-10-15T23:49:50-05:00",
+  "ended_at": "2026-10-15T23:51:36-05:00",
+  "git": {
+    "commit": "dc06fb1",
+    "dirty": true
+  },
+  "agent": {
+    "provider": "Google DeepMind",
+    "model": "Gemini 4 Argon (Medium)",
+    "session_id": "fb466195-32bb-4a86-9be5-ea89f1022e2e",
+    "input_tokens": null,
+    "output_tokens": null,
+    "cost": null
+  },
+  "inputs": {
+    "spec_sha256": "5f557f7eda6d83baec247bf1b490fcfbed789c9b2cb3c406c4c263b4819a9a90",
+    "ir_before_sha256": "fe14251a90893f3c92dea24a5a5c32965cf1568dddc782d1ce59bc2ee8cfa090",
+    "ir_after_sha256": "65a6a061f998b895864914b7618cfa0298aced3a99473f253ed829ddb64c03be"
+  },
+  "toolchain": {
+    "rustc": "rustc 1.85.0 (4d91de4e4 2025-02-17)",
+    "wasmtime": "27.0.0",
+    "wasm_tools": "wasmparser/wasmprinter 0.221.3",
+    "verifier_sha256": "05b0d4c4d8bd85b5fcd7cbcfafa92dccb9b57d0a240464d50a5c874452604d0e",
+    "compiler_sha256": "05b0d4c4d8bd85b5fcd7cbcfafa92dccb9b57d0a240464d50a5c874452604d0e",
+    "runner_sha256": "808cf7f6a6b88aedb141a2d09d75d999d3f36b8824aa1837b19113fb9963782c",
+    "freeze_commit": "ba7399d"
+  },
+  "results": {
+    "ir_valid": true,
+    "wasm_valid": true,
+    "reproducible_compilations_3_of_3": true,
+    "public_tests": {
+      "passed": 12,
+      "failed": 0,
+      "total": 12
+    },
+    "hidden_tests": {
+      "passed": 18,
+      "failed": 0,
+      "total": 18
+    },
+    "repair_attempts": 0,
+    "manual_ir_edits": 0,
+    "human_clarifications": 0,
+    "backend_modified_since_freeze": false,
+    "wasm_size_bytes": 134,
+    "verify_ms": 11,
+    "compile_ms": 14,
+    "test_ms": 28
+  },
+  "artifacts": {
+    "spec": "spec.snapshot.yaml",
+    "ir_before": "ir.before.json",
+    "ir_after": "ir.after.json",
+    "diagnostics": "diagnostics.json",
+    "public_tests": "public-tests.json",
+    "hidden_tests": "hidden-tests.json",
+    "wasm": "program.wasm",
+    "wat": "program.wat",
+    "sha256": "artifact.sha256",
+    "diff": "diff.patch",
+    "agent_summary": "agent-summary.md",
+    "toolchain": "toolchain.json"
+  },
+  "outcome": "passed",
+  "notes": [
+    "E4 updated calculate_shipping policy in ir/program.ir.json (spec_version: 3, threshold 5000 -> 4000, fee 500 -> 600) while leaving calculate_discount completely untouched.",
+    "Passed on attempt 1 with 0 diagnostics, 12/12 public tests (6 updated shipping + 6 discount regression), 18/18 hidden tests (9 updated shipping + 9 discount regression), 3/3 consecutive reproducible WASM compilations (sha256=947620fe23636397ba820b7cadf673e95fb3e09f68591bd0b54bfc8183d0a450), and 0 modifications to the frozen toolchain (SC-08..SC-16)."
+  ]
+}

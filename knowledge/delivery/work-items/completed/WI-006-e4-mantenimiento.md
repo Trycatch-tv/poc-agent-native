@@ -4,11 +4,14 @@ id: WI-006
 alias: KAN-POC-WI-006
 title: E4 mantenimiento
 knowledge_level: K2
-status: draft
+status: completed
+implementation_status: completed
 phase: now
 project_state: ai-assisted
 refined_by: work-item-agent
 created_at: '2026-10-16'
+ready_at: '2026-10-16'
+completed_at: '2026-10-16'
 domains:
   - semantic-ir
   - commercial-rules-subject
@@ -86,12 +89,12 @@ _Expected value:_ Completar la serie experimental `E1`–`E4` con evidencia audi
 
 ## Acceptance Criteria
 
-- [ ] `spec/task.yaml` está actualizado a `version: 3` con la nueva política de `calculate_shipping` (`>= 4000 -> 0`, `< 4000 -> 600`) y `calculate_discount` sin cambios.
-- [ ] `ir/program.ir.json` (`spec_version: 3`) modifica únicamente `calculate_shipping` preservando intacta `calculate_discount` y pasa `irtool verify` con `0` diagnósticos (`diagnostics.json = []`).
-- [ ] El módulo `program.wasm` compilado pasa `irtool validate` y aprueba el `100 %` de las pruebas públicas actualizadas + regresión de descuento y el `100 %` de las pruebas reservadas de `E4` (**SC-08**, **SC-10**).
-- [ ] Compilar el mismo `ir/program.ir.json` dos veces en el mismo entorno produce exactamente el mismo hash SHA-256 (**SC-11**).
-- [ ] Los hashes SHA-256 de `irtool` y `runner` coinciden exactamente con `runs/toolchain-freeze.sha256` (`backend_modified_since_freeze: false`, **SC-09**).
-- [ ] **End-to-end:** Existen todos los artefactos obligatorios de `E4` en `runs/e4-maintain/attempt-01/` (`run.json`, `toolchain.json`, `spec.snapshot.yaml`, `ir.before.json`, `ir.after.json`, `diagnostics.json`, `public-tests.json`, `hidden-tests.json`, `program.wasm`, `program.wat`, `artifact.sha256`, `diff.patch`, `agent-summary.md`) (**SC-14**).
+- [x] `spec/task.yaml` está actualizado a `version: 3` con la nueva política de `calculate_shipping` (`>= 4000 -> 0`, `< 4000 -> 600`) y `calculate_discount` sin cambios.
+- [x] `ir/program.ir.json` (`spec_version: 3`) modifica únicamente `calculate_shipping` preservando intacta `calculate_discount` y pasa `irtool verify` con `0` diagnósticos (`diagnostics.json = []`).
+- [x] El módulo `program.wasm` compilado pasa `irtool validate` y aprueba el `100 %` de las pruebas públicas actualizadas + regresión de descuento y el `100 %` de las pruebas reservadas de `E4` (**SC-08**, **SC-10**).
+- [x] Compilar el mismo `ir/program.ir.json` dos veces en el mismo entorno produce exactamente el mismo hash SHA-256 (**SC-11**).
+- [x] Los hashes SHA-256 de `irtool` y `runner` coinciden exactamente con `runs/toolchain-freeze.sha256` (`backend_modified_since_freeze: false`, **SC-09**).
+- [x] **End-to-end:** Existen todos los artefactos obligatorios de `E4` en `runs/e4-maintain/attempt-01/` (`run.json`, `toolchain.json`, `spec.snapshot.yaml`, `ir.before.json`, `ir.after.json`, `diagnostics.json`, `public-tests.json`, `hidden-tests.json`, `program.wasm`, `program.wat`, `artifact.sha256`, `diff.patch`, `agent-summary.md`) (**SC-14**).
 
 ## Validation
 

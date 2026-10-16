@@ -1,6 +1,6 @@
 {
   "ir_version": "0.1",
-  "spec_version": 2,
+  "spec_version": 3,
   "functions": [
     {
       "name": "calculate_shipping",
@@ -47,7 +47,7 @@
             "right": {
               "op": "const",
               "type": "i32",
-              "value": 5000
+              "value": 4000
             }
           },
           "then": {
@@ -58,7 +58,7 @@
           "else": {
             "op": "const",
             "type": "i32",
-            "value": 500
+            "value": 600
           }
         }
       }

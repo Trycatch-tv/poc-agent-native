@@ -405,15 +405,15 @@ Los siguientes checks se evalúan con evidencia almacenada en `runs/`.
 - [x] **SC-05 — E2 reparación:** el agente repara E2 en máximo `2` intentos y recupera `100 %` de las pruebas E1.
 - [x] **SC-06 — E3 extensión:** E3 añade `calculate_discount` y obtiene `100 %` de pruebas nuevas + `100 %` de regresión.
 - [x] **SC-07 — E3 estabilidad de toolchain:** E3 no modifica verifier, compiler ni runner; sus hashes coinciden con el freeze point de E1.
-- [ ] **SC-08 — E4 mantenimiento:** E4 implementa la nueva política y obtiene `100 %` de pruebas actualizadas + `100 %` de regresión de descuento.
-- [ ] **SC-09 — E4 estabilidad de toolchain:** E4 no modifica verifier, compiler ni runner.
-- [ ] **SC-10 — Validez WASM:** todo artefacto considerado exitoso pasa `wasm-tools validate`.
-- [ ] **SC-11 — Reproducibilidad:** para la IR final de E4, `3/3` compilaciones consecutivas con la misma toolchain producen el mismo SHA-256 de `program.wasm`.
-- [ ] **SC-12 — Fuente de verdad:** no se realizan ediciones manuales a WAT ni WASM durante E1–E4.
-- [ ] **SC-13 — Aislamiento de negocio:** no existe una segunda implementación de las reglas E1–E4 en Rust/JS/TS/Python/Go dentro del pipeline Agent-Native.
-- [ ] **SC-14 — Evidencia completa:** E1, E2, E3 y E4 tienen al menos un `run.json`, snapshots de entradas/salidas, resultados de pruebas y hashes.
-- [ ] **SC-15 — Trazabilidad:** cada función de IR referencia al menos un requirement ID vigente y el runner puede asociar cada caso público con su requirement/función.
-- [ ] **SC-16 — Cero bypass:** ningún ejercicio se declara exitoso modificando pruebas esperadas, relajando el verifier o alterando la especificación para acomodar la salida generada.
+- [x] **SC-08 — E4 mantenimiento:** E4 implementa la nueva política y obtiene `100 %` de pruebas actualizadas + `100 %` de regresión de descuento.
+- [x] **SC-09 — E4 estabilidad de toolchain:** E4 no modifica verifier, compiler ni runner.
+- [x] **SC-10 — Validez WASM:** todo artefacto considerado exitoso pasa `wasm-tools validate`.
+- [x] **SC-11 — Reproducibilidad:** para la IR final de E4, `3/3` compilaciones consecutivas con la misma toolchain producen el mismo SHA-256 de `program.wasm`.
+- [x] **SC-12 — Fuente de verdad:** no se realizan ediciones manuales a WAT ni WASM durante E1–E4.
+- [x] **SC-13 — Aislamiento de negocio:** no existe una segunda implementación de las reglas E1–E4 en Rust/JS/TS/Python/Go dentro del pipeline Agent-Native.
+- [x] **SC-14 — Evidencia completa:** E1, E2, E3 y E4 tienen al menos un `run.json`, snapshots de entradas/salidas, resultados de pruebas y hashes.
+- [x] **SC-15 — Trazabilidad:** cada función de IR referencia al menos un requirement ID vigente y el runner puede asociar cada caso público con su requirement/función.
+- [x] **SC-16 — Cero bypass:** ningún ejercicio se declara exitoso modificando pruebas esperadas, relajando el verifier o alterando la especificación para acomodar la salida generada.
 
 ### Señales exploratorias, no gates
 

@@ -1,5 +1,5 @@
 id: KAN-POC-001
-version: 2
+version: 3
 title: Motor mínimo de reglas comerciales
 description: >
   Implementar las funciones descritas aquí usando exclusivamente la Semantic IR
@@ -16,9 +16,9 @@ exports:
       - id: SHIP-001
         description: Si subtotal_cents es negativo, devolver -1.
       - id: SHIP-002
-        description: Si subtotal_cents es mayor o igual a 5000, devolver 0.
+        description: Si subtotal_cents es mayor o igual a 4000, devolver 0.
       - id: SHIP-003
-        description: En cualquier otro caso, devolver 500.
+        description: En cualquier otro caso (subtotal_cents < 4000), devolver 600.
   - name: calculate_discount
     params:
       - name: subtotal_cents
@@ -36,27 +36,27 @@ exports:
 
 acceptance:
   public:
-    - id: SHIP-P01
+    - id: E4-P01
       function: calculate_shipping
       args: [-1]
       expected: -1
-    - id: SHIP-P02
+    - id: SHIP-P02-V3
       function: calculate_shipping
       args: [0]
-      expected: 500
-    - id: SHIP-P03
+      expected: 600
+    - id: E4-P02
       function: calculate_shipping
-      args: [4999]
-      expected: 500
-    - id: SHIP-P04
+      args: [3999]
+      expected: 600
+    - id: E4-P03
       function: calculate_shipping
-      args: [5000]
+      args: [4000]
       expected: 0
-    - id: SHIP-P05
+    - id: E4-P04
       function: calculate_shipping
-      args: [5001]
+      args: [4500]
       expected: 0
-    - id: SHIP-P06
+    - id: SHIP-P06-V3
       function: calculate_shipping
       args: [2147483647]
       expected: 0
@@ -72,11 +72,11 @@ acceptance:
       function: calculate_discount
       args: [99, true]
       expected: 9
-    - id: E3-P04
+    - id: E4-P05
       function: calculate_discount
       args: [100, true]
       expected: 10
-    - id: E3-P05
+    - id: E4-P06
       function: calculate_discount
       args: [100, false]
       expected: 0
