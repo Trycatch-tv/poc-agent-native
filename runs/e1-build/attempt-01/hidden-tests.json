@@ -1,0 +1,12 @@
+{
+  "suite": "KAN-POC-001-HIDDEN-E1",
+  "passed": 9,
+  "failed": 0,
+  "total": 9,
+  "execution_ms": 17,
+  "partitions_covered": [
+    "negative_int_min_and_mid",
+    "zero_and_positive_below_threshold",
+    "above_threshold_and_large_positive"
+  ]
+}

@@ -1,0 +1,48 @@
+id: KAN-POC-001
+version: 1
+title: Motor mínimo de reglas comerciales
+description: >
+  Implementar las funciones descritas aquí usando exclusivamente la Semantic IR
+  definida por el experimento. El agente no debe implementar la lógica de negocio
+  en Rust, JavaScript, TypeScript, Python, Go u otro lenguaje fuente tradicional.
+
+exports:
+  - name: calculate_shipping
+    params:
+      - name: subtotal_cents
+        type: i32
+    returns: i32
+    requirements:
+      - id: SHIP-001
+        description: Si subtotal_cents es negativo, devolver -1.
+      - id: SHIP-002
+        description: Si subtotal_cents es mayor o igual a 5000, devolver 0.
+      - id: SHIP-003
+        description: En cualquier otro caso, devolver 500.
+
+acceptance:
+  public:
+    - id: SHIP-P01
+      function: calculate_shipping
+      args: [-1]
+      expected: -1
+    - id: SHIP-P02
+      function: calculate_shipping
+      args: [0]
+      expected: 500
+    - id: SHIP-P03
+      function: calculate_shipping
+      args: [4999]
+      expected: 500
+    - id: SHIP-P04
+      function: calculate_shipping
+      args: [5000]
+      expected: 0
+    - id: SHIP-P05
+      function: calculate_shipping
+      args: [5001]
+      expected: 0
+    - id: SHIP-P06
+      function: calculate_shipping
+      args: [2147483647]
+      expected: 0

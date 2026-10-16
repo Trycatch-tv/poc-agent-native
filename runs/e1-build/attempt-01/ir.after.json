@@ -1,0 +1,67 @@
+{
+  "ir_version": "0.1",
+  "spec_version": 1,
+  "functions": [
+    {
+      "name": "calculate_shipping",
+      "export": true,
+      "params": [
+        {
+          "name": "subtotal_cents",
+          "type": "i32"
+        }
+      ],
+      "returns": "i32",
+      "requirements": [
+        "SHIP-001",
+        "SHIP-002",
+        "SHIP-003"
+      ],
+      "body": {
+        "op": "if",
+        "condition": {
+          "op": "lt_s",
+          "left": {
+            "op": "param",
+            "name": "subtotal_cents"
+          },
+          "right": {
+            "op": "const",
+            "type": "i32",
+            "value": 0
+          }
+        },
+        "then": {
+          "op": "const",
+          "type": "i32",
+          "value": -1
+        },
+        "else": {
+          "op": "if",
+          "condition": {
+            "op": "gte_s",
+            "left": {
+              "op": "param",
+              "name": "subtotal_cents"
+            },
+            "right": {
+              "op": "const",
+              "type": "i32",
+              "value": 5000
+            }
+          },
+          "then": {
+            "op": "const",
+            "type": "i32",
+            "value": 0
+          },
+          "else": {
+            "op": "const",
+            "type": "i32",
+            "value": 500
+          }
+        }
+      }
+    }
+  ]
+}

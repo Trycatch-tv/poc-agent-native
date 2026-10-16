@@ -1,0 +1,24 @@
+{
+  "ir_version": "0.1",
+  "spec_version": 1,
+  "functions": [
+    {
+      "name": "identity",
+      "export": true,
+      "params": [
+        {
+          "name": "value",
+          "type": "i32"
+        }
+      ],
+      "returns": "i32",
+      "requirements": [
+        "SMOKE-001"
+      ],
+      "body": {
+        "op": "param",
+        "name": "value"
+      }
+    }
+  ]
+}

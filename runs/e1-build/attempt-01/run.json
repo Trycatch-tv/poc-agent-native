@@ -1,0 +1,74 @@
+{
+  "schema_version": "1",
+  "experiment_id": "KADDO-AGENT-NATIVE-POC-001",
+  "exercise": "E1",
+  "attempt": 1,
+  "started_at": "2026-10-15T23:12:00-05:00",
+  "ended_at": "2026-10-15T23:13:35-05:00",
+  "git": {
+    "commit": "fb0be5c",
+    "dirty": true
+  },
+  "agent": {
+    "provider": "Google DeepMind",
+    "model": "Gemini 4 Argon (Medium)",
+    "session_id": "fb466195-32bb-4a86-9be5-ea89f1022e2e",
+    "input_tokens": null,
+    "output_tokens": null,
+    "cost": null
+  },
+  "inputs": {
+    "spec_sha256": "f3f2834f214f4ed1dd79c7032d4521b6530f67e9225c240d21b05322931a94ab",
+    "ir_before_sha256": "49150d4237dad0655b6eb0636a1b0f0c6228a92315ddb177f08bce2fb6d4cff3",
+    "ir_after_sha256": "953f73aca2c344b8dc167f73f4b14c53fb660ca37a79adcd29e2ac765a3df3e4"
+  },
+  "toolchain": {
+    "rustc": "rustc 1.85.0 (4d91de4e4 2025-02-17)",
+    "wasmtime": "27.0.0",
+    "wasm_tools": "wasmparser/wasmprinter 0.221.3",
+    "verifier_sha256": "05b0d4c4d8bd85b5fcd7cbcfafa92dccb9b57d0a240464d50a5c874452604d0e",
+    "compiler_sha256": "05b0d4c4d8bd85b5fcd7cbcfafa92dccb9b57d0a240464d50a5c874452604d0e",
+    "runner_sha256": "808cf7f6a6b88aedb141a2d09d75d999d3f36b8824aa1837b19113fb9963782c",
+    "freeze_commit": "fb0be5c"
+  },
+  "results": {
+    "ir_valid": true,
+    "wasm_valid": true,
+    "public_tests": {
+      "passed": 6,
+      "failed": 0,
+      "total": 6
+    },
+    "hidden_tests": {
+      "passed": 9,
+      "failed": 0,
+      "total": 9
+    },
+    "repair_attempts": 0,
+    "manual_ir_edits": 0,
+    "human_clarifications": 0,
+    "backend_modified_since_freeze": false,
+    "wasm_size_bytes": 76,
+    "verify_ms": 12,
+    "compile_ms": 15,
+    "test_ms": 16
+  },
+  "artifacts": {
+    "spec": "spec.snapshot.yaml",
+    "ir_before": "ir.before.json",
+    "ir_after": "ir.after.json",
+    "diagnostics": "diagnostics.json",
+    "public_tests": "public-tests.json",
+    "hidden_tests": "hidden-tests.json",
+    "wasm": "program.wasm",
+    "wat": "program.wat",
+    "sha256": "artifact.sha256",
+    "diff": "diff.patch",
+    "agent_summary": "agent-summary.md",
+    "toolchain": "toolchain.json"
+  },
+  "outcome": "passed",
+  "notes": [
+    "E1 built calculate_shipping in Semantic IR v0.1 on the first attempt with 0 diagnostics and 100% public (6/6) and hidden (9/9) tests passed."
+  ]
+}

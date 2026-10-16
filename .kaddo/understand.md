@@ -19,11 +19,11 @@
 
 ## Delivery State
 
-- Draft Work Items: 0
+- Draft Work Items: 1
 - Ready Work Items: 0
 - In-progress Work Items: 0
 - Blocked Work Items: 0
-- Ownership coverage: 2/2
+- Ownership coverage: 4/4
 - Remaining Work Item candidates: 0
 - Technical decision candidates: 0
 - Accepted ADRs: 0
@@ -45,6 +45,10 @@ Current:
 - id: poc-technical-context
 - agent: architecture-agent
 - reason: The experiment surface and constraints are not yet sufficiently documented.
+
+## Active Work Items
+
+- WI-004 [spike] draft — E2 reparación controlada
 
 ## Context Pack
 

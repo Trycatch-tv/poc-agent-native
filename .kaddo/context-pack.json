@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "generatedAt": "2026-10-16T04:07:22.110Z",
+  "generatedAt": "2026-10-16T04:24:57.445Z",
   "project": {
     "name": "poc-agent-native",
     "state": "new",
@@ -23,8 +23,46 @@
     "summary": "> What is true about this product right now.",
     "roadmapSummary": "",
     "inventoryAvailable": true,
-    "workItems": [],
-    "activeWorkItems": [],
+    "workItems": [
+      {
+        "id": "WI-004",
+        "type": "spike",
+        "title": "E2 reparación controlada",
+        "status": "draft",
+        "lifecycle": "draft",
+        "knowledgeLevel": "K2",
+        "domains": [
+          "semantic-ir",
+          "deterministic-toolchain",
+          "experiment-evidence"
+        ],
+        "source": {
+          "type": "unknown",
+          "inferred": true,
+          "reason": "No source metadata found."
+        }
+      }
+    ],
+    "activeWorkItems": [
+      {
+        "id": "WI-004",
+        "type": "spike",
+        "title": "E2 reparación controlada",
+        "status": "draft",
+        "lifecycle": "draft",
+        "knowledgeLevel": "K2",
+        "domains": [
+          "semantic-ir",
+          "deterministic-toolchain",
+          "experiment-evidence"
+        ],
+        "source": {
+          "type": "unknown",
+          "inferred": true,
+          "reason": "No source metadata found."
+        }
+      }
+    ],
     "completedWorkItems": [
       {
         "id": "WI-001",
@@ -57,6 +95,28 @@
         "domains": [
           "deterministic-toolchain",
           "semantic-ir",
+          "experiment-evidence"
+        ],
+        "source": {
+          "type": "unknown",
+          "inferred": true,
+          "reason": "No source metadata found."
+        },
+        "implementationStatus": "completed",
+        "validationStatus": "not-assessed",
+        "releaseStatus": "not-assessed"
+      },
+      {
+        "id": "WI-003",
+        "type": "spike",
+        "title": "E1 construcción y freeze",
+        "status": "completed",
+        "lifecycle": "completed",
+        "knowledgeLevel": "K2",
+        "domains": [
+          "semantic-ir",
+          "commercial-rules-subject",
+          "deterministic-toolchain",
           "experiment-evidence"
         ],
         "source": {
@@ -112,6 +172,46 @@
         "implementationStatus": "completed",
         "validationStatus": "not-assessed",
         "releaseStatus": "not-assessed"
+      },
+      {
+        "id": "WI-003",
+        "type": "spike",
+        "title": "E1 construcción y freeze",
+        "status": "completed",
+        "lifecycle": "completed",
+        "knowledgeLevel": "K2",
+        "domains": [
+          "semantic-ir",
+          "commercial-rules-subject",
+          "deterministic-toolchain",
+          "experiment-evidence"
+        ],
+        "source": {
+          "type": "unknown",
+          "inferred": true,
+          "reason": "No source metadata found."
+        },
+        "implementationStatus": "completed",
+        "validationStatus": "not-assessed",
+        "releaseStatus": "not-assessed"
+      },
+      {
+        "id": "WI-004",
+        "type": "spike",
+        "title": "E2 reparación controlada",
+        "status": "draft",
+        "lifecycle": "draft",
+        "knowledgeLevel": "K2",
+        "domains": [
+          "semantic-ir",
+          "deterministic-toolchain",
+          "experiment-evidence"
+        ],
+        "source": {
+          "type": "unknown",
+          "inferred": true,
+          "reason": "No source metadata found."
+        }
       }
     ],
     "artifacts": [
@@ -140,6 +240,27 @@
           "compiler/**",
           "runner/**",
           "tests/**"
+        ]
+      },
+      {
+        "id": "WI-003",
+        "type": "spike",
+        "title": "E1 construcción y freeze",
+        "summary": "",
+        "codeGlobs": [
+          "ir/program.ir.json",
+          "runs/e1-build/**",
+          "runs/toolchain-freeze.sha256"
+        ]
+      },
+      {
+        "id": "WI-004",
+        "type": "spike",
+        "title": "E2 reparación controlada",
+        "summary": "",
+        "codeGlobs": [
+          "ir/program.ir.json",
+          "runs/e2-repair/**"
         ]
       }
     ]
@@ -177,6 +298,8 @@
       "detected": [
         "WI-001-contrato-experimental-e-ir-v0-1.md",
         "WI-002-verifier-compiler-directo-a-wasm-y-runner.md",
+        "WI-003-e1-construccion-y-freeze.md",
+        "WI-004-e2-reparacion-controlada.md",
         "poc.md"
       ]
     }
@@ -213,16 +336,17 @@
     "present": false,
     "initiatives": 0,
     "work_item_candidates": 0,
-    "materialized_work_items": 2,
+    "materialized_work_items": 4,
     "remaining_work_item_candidates": 0,
     "candidates": 0,
-    "materialized": 2,
+    "materialized": 4,
     "remaining": 0
   },
   "phase": {
     "phase": "Discovery",
     "reasons": [
       "No roadmap yet",
+      "draft: 1",
       "Ownership coverage 100%"
     ],
     "recommendedAgents": [
@@ -244,16 +368,18 @@
   },
   "deliveryState": {
     "phase": "POC Discovery",
-    "draft_work_items": 0,
-    "refined_draft_work_items": 0,
-    "refined_draft_ids": [],
+    "draft_work_items": 1,
+    "refined_draft_work_items": 1,
+    "refined_draft_ids": [
+      "WI-004"
+    ],
     "ready_work_items": 0,
     "ready_work_item_ids": [],
     "ready_multirepo_wi_ids": [],
     "in_progress_work_items": 0,
     "blocked_work_items": 0,
-    "total_work_items": 2,
-    "ownership_coverage": "2/2",
+    "total_work_items": 4,
+    "ownership_coverage": "4/4",
     "remaining_work_item_candidates": 0,
     "decision_candidates": 0,
     "accepted_adrs": 0,
@@ -320,17 +446,19 @@
     }
   },
   "workItemSummary": {
-    "total": 2,
-    "active": 0,
-    "draft": 0,
+    "total": 4,
+    "active": 1,
+    "draft": 1,
     "ready": 0,
     "in_progress": 0,
     "blocked": 0,
-    "completed": 2,
+    "completed": 3,
     "archived": 0,
-    "summary": "completed-only"
+    "summary": "draft-only"
   },
-  "deliveryMix": {},
+  "deliveryMix": {
+    "spike": 1
+  },
   "external": [],
   "graph": null,
   "graphHints": null,

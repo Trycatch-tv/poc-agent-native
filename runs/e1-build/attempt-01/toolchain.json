@@ -1,0 +1,14 @@
+{
+  "rustc": "rustc 1.85.0 (4d91de4e4 2025-02-17)",
+  "cargo": "cargo 1.85.0 (d73d2caf9 2024-12-31)",
+  "wasmtime": "27.0.0",
+  "wasm_encoder": "0.221.3",
+  "wasmparser": "0.221.3",
+  "wasmprinter": "0.221.3",
+  "irtool_exe_sha256": "05b0d4c4d8bd85b5fcd7cbcfafa92dccb9b57d0a240464d50a5c874452604d0e",
+  "runner_exe_sha256": "808cf7f6a6b88aedb141a2d09d75d999d3f36b8824aa1837b19113fb9963782c",
+  "irtool_lib_rs_sha256": "1d04d306646c05ed3b5b31cc85ce9efe1282978c31586fd61788588b10d50799",
+  "irtool_main_rs_sha256": "573d0ab72e13530cdfaa61ca5d49a71136af2f5c364963ad6f8ba550373a1c40",
+  "runner_main_rs_sha256": "262c63b8cafc326dd934eb2728586e8b90eec05fbc18948a43d745184709b70b",
+  "freeze_baseline_commit": "fb0be5c"
+}

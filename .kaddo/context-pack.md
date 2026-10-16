@@ -35,6 +35,7 @@ Phase: Discovery
 Reason:
 
 - No roadmap yet
+- draft: 1
 - Ownership coverage 100%
 
 Recommended next: architecture-agent
@@ -44,10 +45,10 @@ Next step: Document the minimal technical context for the experiment.
 ## Delivery State
 
 - Phase: POC Discovery
-- Draft Work Items: 0
+- Draft Work Items: 1
 - Ready Work Items: 0
 - In-progress Work Items: 0
-- Ownership coverage: 2/2
+- Ownership coverage: 4/4
 - Remaining Work Item candidates: 0
 
 ## Next Step Recommendation
@@ -83,6 +84,8 @@ Knowledge maturity — Business: Missing · Product: Missing · Tech: Structured
 ### Delivery — Traceable
 - ✓ WI-001-contrato-experimental-e-ir-v0-1.md
 - ✓ WI-002-verifier-compiler-directo-a-wasm-y-runner.md
+- ✓ WI-003-e1-construccion-y-freeze.md
+- ✓ WI-004-e2-reparacion-controlada.md
 - ✓ poc.md
 
 ## Technical Inventory
@@ -101,12 +104,20 @@ Knowledge maturity — Business: Missing · Product: Missing · Tech: Structured
 
 ## Active Work Items
 
-No active work items found.
+- WI-004 [spike] [K2] (draft) — E2 reparación controlada · domains: semantic-ir, deterministic-toolchain, experiment-evidence
+
+## Delivery Mix
+
+Active Work Items by type:
+
+- Spikes: 1
 
 ## Artifacts and Ownership
 
 - WI-001 [spike] owns: spec/**, ir/**, tests/**, runs/**, build/**
 - WI-002 [spike] owns: Cargo.toml, Cargo.lock, crates/**, compiler/**, runner/**, tests/**
+- WI-003 [spike] owns: ir/program.ir.json, runs/e1-build/**, runs/toolchain-freeze.sha256
+- WI-004 [spike] owns: ir/program.ir.json, runs/e2-repair/**
 
 ## Skills
 
