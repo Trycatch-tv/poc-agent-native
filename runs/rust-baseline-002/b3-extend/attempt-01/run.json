@@ -1,0 +1,28 @@
+{
+  "exercise": "B3-002",
+  "baseline": "rust-wasm32-unknown-unknown",
+  "phase": "extension",
+  "attempt": 1,
+  "status": "passed",
+  "timestamp": "2026-10-16T08:06:00-05:00",
+  "spec_version": 2,
+  "source_file": "crates/baseline-rust-002/src/lib.rs",
+  "artifact": "runs/rust-baseline-002/b3-extend/attempt-01/program.wasm",
+  "artifact_size_bytes": 400,
+  "artifact_sha256": "2fab20ba777d254061af13dfa49952982517a0a05c5c90ea81afbf0922beee56",
+  "check_ms": 151,
+  "build_release_ms": 273,
+  "total_toolchain_ms": 424,
+  "public_tests": {
+    "total": 12,
+    "passed": 12,
+    "failed": 0,
+    "execution_ms": 11
+  },
+  "hidden_tests": {
+    "total": 18,
+    "passed": 18,
+    "failed": 0,
+    "execution_ms": 11
+  }
+}

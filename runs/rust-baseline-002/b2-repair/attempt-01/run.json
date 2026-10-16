@@ -1,0 +1,29 @@
+{
+  "exercise": "B2-002",
+  "baseline": "rust-wasm32-unknown-unknown",
+  "phase": "repair",
+  "attempt": 1,
+  "status": "passed",
+  "timestamp": "2026-10-16T08:03:00-05:00",
+  "spec_version": 1,
+  "fault_injected": "unknown field `subtotal` on struct `OrderCalculation`",
+  "diagnostic_bytes_rustc": 5418,
+  "diagnostic_bytes_irtool": 593,
+  "diagnostic_ratio": 9.14,
+  "repair_attempts": 1,
+  "artifact": "runs/rust-baseline-002/b2-repair/attempt-01/program.wasm",
+  "artifact_size_bytes": 286,
+  "artifact_sha256": "87c8b80bc17b44f3a0392d4ca8e3aa20f057f557beffb1edee41430c12225831",
+  "public_tests": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "execution_ms": 10
+  },
+  "hidden_tests": {
+    "total": 9,
+    "passed": 9,
+    "failed": 0,
+    "execution_ms": 9
+  }
+}

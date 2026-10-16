@@ -1,0 +1,233 @@
+{
+  "passed": 9,
+  "failed": 0,
+  "total": 9,
+  "execution_ms": 9,
+  "cases": [
+    {
+      "id": "E1-002-H01",
+      "requirement": "ORD-004",
+      "function": "calculate_order",
+      "args": [
+        0,
+        10,
+        0,
+        5,
+        100
+      ],
+      "expected": {
+        "shipping_cents": 100,
+        "subtotal_cents": 0,
+        "tax_cents": 0,
+        "total_cents": 100
+      },
+      "actual": {
+        "shipping_cents": 100,
+        "subtotal_cents": 0,
+        "tax_cents": 0,
+        "total_cents": 100
+      },
+      "passed": true
+    },
+    {
+      "id": "E1-002-H02",
+      "requirement": "ORD-004",
+      "function": "calculate_order",
+      "args": [
+        100,
+        0,
+        200,
+        0,
+        0
+      ],
+      "expected": {
+        "shipping_cents": 0,
+        "subtotal_cents": 0,
+        "tax_cents": 0,
+        "total_cents": 0
+      },
+      "actual": {
+        "shipping_cents": 0,
+        "subtotal_cents": 0,
+        "tax_cents": 0,
+        "total_cents": 0
+      },
+      "passed": true
+    },
+    {
+      "id": "E1-002-H03",
+      "requirement": "ORD-001",
+      "function": "calculate_order",
+      "args": [
+        -500,
+        -2,
+        100,
+        1,
+        0
+      ],
+      "expected": {
+        "shipping_cents": -1,
+        "subtotal_cents": -1,
+        "tax_cents": -1,
+        "total_cents": -1
+      },
+      "actual": {
+        "shipping_cents": -1,
+        "subtotal_cents": -1,
+        "tax_cents": -1,
+        "total_cents": -1
+      },
+      "passed": true
+    },
+    {
+      "id": "E1-002-H04",
+      "requirement": "ORD-001",
+      "function": "calculate_order",
+      "args": [
+        100,
+        1,
+        -50,
+        2,
+        200
+      ],
+      "expected": {
+        "shipping_cents": -1,
+        "subtotal_cents": -1,
+        "tax_cents": -1,
+        "total_cents": -1
+      },
+      "actual": {
+        "shipping_cents": -1,
+        "subtotal_cents": -1,
+        "tax_cents": -1,
+        "total_cents": -1
+      },
+      "passed": true
+    },
+    {
+      "id": "E1-002-H05",
+      "requirement": "ORD-001",
+      "function": "calculate_order",
+      "args": [
+        100,
+        1,
+        100,
+        1,
+        -1
+      ],
+      "expected": {
+        "shipping_cents": -1,
+        "subtotal_cents": -1,
+        "tax_cents": -1,
+        "total_cents": -1
+      },
+      "actual": {
+        "shipping_cents": -1,
+        "subtotal_cents": -1,
+        "tax_cents": -1,
+        "total_cents": -1
+      },
+      "passed": true
+    },
+    {
+      "id": "E1-002-H06",
+      "requirement": "ORD-004",
+      "function": "calculate_order",
+      "args": [
+        999,
+        1,
+        1,
+        1,
+        500
+      ],
+      "expected": {
+        "shipping_cents": 500,
+        "subtotal_cents": 1000,
+        "tax_cents": 100,
+        "total_cents": 1600
+      },
+      "actual": {
+        "shipping_cents": 500,
+        "subtotal_cents": 1000,
+        "tax_cents": 100,
+        "total_cents": 1600
+      },
+      "passed": true
+    },
+    {
+      "id": "E1-002-H07",
+      "requirement": "ORD-004",
+      "function": "calculate_order",
+      "args": [
+        1234,
+        2,
+        5678,
+        1,
+        350
+      ],
+      "expected": {
+        "shipping_cents": 350,
+        "subtotal_cents": 8146,
+        "tax_cents": 814,
+        "total_cents": 9310
+      },
+      "actual": {
+        "shipping_cents": 350,
+        "subtotal_cents": 8146,
+        "tax_cents": 814,
+        "total_cents": 9310
+      },
+      "passed": true
+    },
+    {
+      "id": "E1-002-H08",
+      "requirement": "ORD-004",
+      "function": "calculate_order",
+      "args": [
+        25000,
+        4,
+        10000,
+        2,
+        5000
+      ],
+      "expected": {
+        "shipping_cents": 5000,
+        "subtotal_cents": 120000,
+        "tax_cents": 12000,
+        "total_cents": 137000
+      },
+      "actual": {
+        "shipping_cents": 5000,
+        "subtotal_cents": 120000,
+        "tax_cents": 12000,
+        "total_cents": 137000
+      },
+      "passed": true
+    },
+    {
+      "id": "E1-002-H09",
+      "requirement": "ORD-004",
+      "function": "calculate_order",
+      "args": [
+        5,
+        1,
+        4,
+        1,
+        0
+      ],
+      "expected": {
+        "shipping_cents": 0,
+        "subtotal_cents": 9,
+        "tax_cents": 0,
+        "total_cents": 9
+      },
+      "actual": {
+        "shipping_cents": 0,
+        "subtotal_cents": 9,
+        "tax_cents": 0,
+        "total_cents": 9
+      },
+      "passed": true
+    }
+  ]
+}

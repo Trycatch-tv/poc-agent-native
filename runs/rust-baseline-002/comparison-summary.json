@@ -1,0 +1,107 @@
+{
+  "benchmark": "KAN-POC2-WI-016",
+  "title": "Agent-Native IR v0.2 vs Baseline Rust (wasm32-unknown-unknown)",
+  "date": "2026-10-16",
+  "toolchain": {
+    "agent_native": {
+      "verifier": "irtool verify",
+      "compiler": "irtool compile",
+      "runner": "runner test (Wasmtime 27.0.0)",
+      "freeze_hash_irtool": "959ca4f87127d36799c1bddad2af2cf260006711d03c6a8fd4f58fdcaf581f2d",
+      "freeze_hash_runner": "feda31350f81dcd8beca79f31a15b1e6932cd8fb9ab9a7266b775e8845795a5b"
+    },
+    "baseline_rust": {
+      "compiler": "rustc 1.93.0-nightly (77a493bf6 2024-11-20)",
+      "cargo": "cargo 1.93.0-nightly (b00cfaf 2024-11-19)",
+      "target": "wasm32-unknown-unknown",
+      "profile": "release (opt-level=z, lto=true, strip=symbols)",
+      "runner": "runner test (Wasmtime 27.0.0)"
+    }
+  },
+  "comparisons": [
+    {
+      "exercise": "E1 vs B1 (Construction)",
+      "agent_native": {
+        "verify_ms": 11,
+        "compile_ms": 12,
+        "total_ms": 23,
+        "wasm_size_bytes": 308,
+        "public_passed": "6/6",
+        "hidden_passed": "9/9"
+      },
+      "baseline_rust": {
+        "check_ms": 148,
+        "compile_ms": 84,
+        "clean_compile_ms": 379,
+        "total_ms": 232,
+        "wasm_size_bytes": 286,
+        "public_passed": "6/6",
+        "hidden_passed": "9/9"
+      },
+      "toolchain_speedup": 10.09
+    },
+    {
+      "exercise": "E2 vs B2 (Fault Repair)",
+      "agent_native": {
+        "diagnostic_format": "JSONPath structured",
+        "diagnostic_bytes": 593,
+        "repair_attempts": 1,
+        "rebuild_ms": 23
+      },
+      "baseline_rust": {
+        "diagnostic_format": "rustc json message stream",
+        "diagnostic_bytes": 5418,
+        "repair_attempts": 1,
+        "rebuild_ms": 210
+      },
+      "diagnostic_compactness_ratio": 9.14,
+      "rebuild_speedup": 9.13
+    },
+    {
+      "exercise": "E3 vs B3 (Extension)",
+      "agent_native": {
+        "verify_ms": 11,
+        "compile_ms": 13,
+        "total_ms": 24,
+        "wasm_size_bytes": 459,
+        "public_passed": "12/12",
+        "hidden_passed": "18/18",
+        "backend_frozen": true
+      },
+      "baseline_rust": {
+        "check_ms": 151,
+        "compile_ms": 273,
+        "total_ms": 424,
+        "wasm_size_bytes": 400,
+        "public_passed": "12/12",
+        "hidden_passed": "18/18",
+        "backend_frozen": false
+      },
+      "toolchain_speedup": 17.67
+    },
+    {
+      "exercise": "E4 vs B4 (Maintenance)",
+      "agent_native": {
+        "verify_ms": 11,
+        "compile_ms": 12,
+        "total_ms": 23,
+        "wasm_size_bytes": 459,
+        "diff_lines": 2,
+        "public_passed": "12/12",
+        "hidden_passed": "18/18",
+        "reproducible_builds": "3/3"
+      },
+      "baseline_rust": {
+        "check_ms": 181,
+        "compile_ms": 251,
+        "total_ms": 432,
+        "wasm_size_bytes": 400,
+        "diff_lines": 1,
+        "public_passed": "12/12",
+        "hidden_passed": "18/18",
+        "reproducible_builds": "3/3"
+      },
+      "toolchain_speedup": 18.78
+    }
+  ]
+}
