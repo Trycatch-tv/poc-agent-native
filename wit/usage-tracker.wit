@@ -1,0 +1,12 @@
+package kaddo:subscription@0.1.0;
+
+interface usage-service {
+    calculate-units: func(
+        events-count: s32,
+        bytes-transferred-mb: s32
+    ) -> s32;
+}
+
+world usage-tracker {
+    export usage-service;
+}

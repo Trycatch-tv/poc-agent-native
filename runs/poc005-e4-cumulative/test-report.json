@@ -1,0 +1,485 @@
+{
+  "passed": 9,
+  "failed": 0,
+  "total": 9,
+  "execution_ms": 184,
+  "cases": [
+    {
+      "id": "TC-NAR-501-E4",
+      "requirement": "SHIP-003",
+      "function": "calculate_order",
+      "args": [
+        101,
+        1000,
+        2,
+        500,
+        2,
+        1500,
+        0
+      ],
+      "expected": {
+        "discount_cents": 300,
+        "shipping_cents": 550,
+        "status_code": 0,
+        "subtotal_cents": 3000,
+        "tax_cents": 486,
+        "total_cents": 3736
+      },
+      "actual": {
+        "discount_cents": 300,
+        "shipping_cents": 550,
+        "status_code": 0,
+        "subtotal_cents": 3000,
+        "tax_cents": 486,
+        "total_cents": 3736
+      },
+      "expected_host_calls": [
+        {
+          "import": "check_credit",
+          "args": [
+            101,
+            3736
+          ]
+        },
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            3736
+          ]
+        }
+      ],
+      "actual_host_calls": [
+        {
+          "import": "check_credit",
+          "args": [
+            101,
+            3736
+          ]
+        },
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            3736
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "TC-NAR-502-E4",
+      "requirement": "SHIP-003",
+      "function": "calculate_order",
+      "args": [
+        102,
+        2000,
+        1,
+        1000,
+        1,
+        3500,
+        0
+      ],
+      "expected": {
+        "discount_cents": 0,
+        "shipping_cents": 850,
+        "status_code": 0,
+        "subtotal_cents": 3000,
+        "tax_cents": 540,
+        "total_cents": 4390
+      },
+      "actual": {
+        "discount_cents": 0,
+        "shipping_cents": 850,
+        "status_code": 0,
+        "subtotal_cents": 3000,
+        "tax_cents": 540,
+        "total_cents": 4390
+      },
+      "expected_host_calls": [
+        {
+          "import": "check_credit",
+          "args": [
+            102,
+            4390
+          ]
+        },
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            4390
+          ]
+        }
+      ],
+      "actual_host_calls": [
+        {
+          "import": "check_credit",
+          "args": [
+            102,
+            4390
+          ]
+        },
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            4390
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "TC-NAR-503-E4",
+      "requirement": "SHIP-004",
+      "function": "calculate_order",
+      "args": [
+        103,
+        4000,
+        2,
+        2000,
+        1,
+        6000,
+        1
+      ],
+      "expected": {
+        "discount_cents": 500,
+        "shipping_cents": 1800,
+        "status_code": 0,
+        "subtotal_cents": 10000,
+        "tax_cents": 1710,
+        "total_cents": 13010
+      },
+      "actual": {
+        "discount_cents": 500,
+        "shipping_cents": 1800,
+        "status_code": 0,
+        "subtotal_cents": 10000,
+        "tax_cents": 1710,
+        "total_cents": 13010
+      },
+      "expected_host_calls": [
+        {
+          "import": "check_credit",
+          "args": [
+            103,
+            13010
+          ]
+        },
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            13010
+          ]
+        }
+      ],
+      "actual_host_calls": [
+        {
+          "import": "check_credit",
+          "args": [
+            103,
+            13010
+          ]
+        },
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            13010
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "TC-NAR-504-E4",
+      "requirement": "SHIP-002",
+      "function": "calculate_order",
+      "args": [
+        104,
+        25000,
+        2,
+        5000,
+        1,
+        4000,
+        0
+      ],
+      "expected": {
+        "discount_cents": 5500,
+        "shipping_cents": 0,
+        "status_code": 0,
+        "subtotal_cents": 55000,
+        "tax_cents": 8910,
+        "total_cents": 58410
+      },
+      "actual": {
+        "discount_cents": 5500,
+        "shipping_cents": 0,
+        "status_code": 0,
+        "subtotal_cents": 55000,
+        "tax_cents": 8910,
+        "total_cents": 58410
+      },
+      "expected_host_calls": [
+        {
+          "import": "check_credit",
+          "args": [
+            104,
+            58410
+          ]
+        },
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            58410
+          ]
+        }
+      ],
+      "actual_host_calls": [
+        {
+          "import": "check_credit",
+          "args": [
+            104,
+            58410
+          ]
+        },
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            58410
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "TC-NAR-505-E4",
+      "requirement": "LINE-001",
+      "function": "calculate_order",
+      "args": [
+        105,
+        0,
+        2,
+        500,
+        1,
+        1000,
+        0
+      ],
+      "expected": {
+        "discount_cents": 0,
+        "shipping_cents": 0,
+        "status_code": 1,
+        "subtotal_cents": 0,
+        "tax_cents": 0,
+        "total_cents": 0
+      },
+      "actual": {
+        "discount_cents": 0,
+        "shipping_cents": 0,
+        "status_code": 1,
+        "subtotal_cents": 0,
+        "tax_cents": 0,
+        "total_cents": 0
+      },
+      "expected_host_calls": [],
+      "actual_host_calls": [],
+      "passed": true
+    },
+    {
+      "id": "TC-NAR-506-E4",
+      "requirement": "LINE-001",
+      "function": "calculate_order",
+      "args": [
+        106,
+        1000,
+        1,
+        500,
+        0,
+        1000,
+        0
+      ],
+      "expected": {
+        "discount_cents": 0,
+        "shipping_cents": 0,
+        "status_code": 1,
+        "subtotal_cents": 0,
+        "tax_cents": 0,
+        "total_cents": 0
+      },
+      "actual": {
+        "discount_cents": 0,
+        "shipping_cents": 0,
+        "status_code": 1,
+        "subtotal_cents": 0,
+        "tax_cents": 0,
+        "total_cents": 0
+      },
+      "expected_host_calls": [],
+      "actual_host_calls": [],
+      "passed": true
+    },
+    {
+      "id": "TC-NAR-507-E4",
+      "requirement": "SHIP-001",
+      "function": "calculate_order",
+      "args": [
+        107,
+        1000,
+        2,
+        500,
+        2,
+        0,
+        0
+      ],
+      "expected": {
+        "discount_cents": 0,
+        "shipping_cents": 0,
+        "status_code": 2,
+        "subtotal_cents": 0,
+        "tax_cents": 0,
+        "total_cents": 0
+      },
+      "actual": {
+        "discount_cents": 0,
+        "shipping_cents": 0,
+        "status_code": 2,
+        "subtotal_cents": 0,
+        "tax_cents": 0,
+        "total_cents": 0
+      },
+      "expected_host_calls": [],
+      "actual_host_calls": [],
+      "passed": true
+    },
+    {
+      "id": "TC-NAR-508-E4",
+      "requirement": "CREDIT-001",
+      "function": "calculate_order",
+      "args": [
+        108,
+        1000,
+        2,
+        500,
+        2,
+        1500,
+        0
+      ],
+      "expected": {
+        "discount_cents": 300,
+        "shipping_cents": 550,
+        "status_code": 3,
+        "subtotal_cents": 3000,
+        "tax_cents": 486,
+        "total_cents": 3736
+      },
+      "actual": {
+        "discount_cents": 300,
+        "shipping_cents": 550,
+        "status_code": 3,
+        "subtotal_cents": 3000,
+        "tax_cents": 486,
+        "total_cents": 3736
+      },
+      "expected_host_calls": [
+        {
+          "import": "check_credit",
+          "args": [
+            108,
+            3736
+          ]
+        },
+        {
+          "import": "emit_audit",
+          "args": [
+            999,
+            3736
+          ]
+        }
+      ],
+      "actual_host_calls": [
+        {
+          "import": "check_credit",
+          "args": [
+            108,
+            3736
+          ]
+        },
+        {
+          "import": "emit_audit",
+          "args": [
+            999,
+            3736
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "TC-NAR-509-E4",
+      "requirement": "DISC-002",
+      "function": "calculate_order",
+      "args": [
+        109,
+        5000,
+        1,
+        5000,
+        1,
+        1500,
+        0
+      ],
+      "expected": {
+        "discount_cents": 2000,
+        "shipping_cents": 550,
+        "status_code": 0,
+        "subtotal_cents": 10000,
+        "tax_cents": 1440,
+        "total_cents": 9990
+      },
+      "actual": {
+        "discount_cents": 2000,
+        "shipping_cents": 550,
+        "status_code": 0,
+        "subtotal_cents": 10000,
+        "tax_cents": 1440,
+        "total_cents": 9990
+      },
+      "expected_host_calls": [
+        {
+          "import": "check_credit",
+          "args": [
+            109,
+            9990
+          ]
+        },
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            9990
+          ]
+        }
+      ],
+      "actual_host_calls": [
+        {
+          "import": "check_credit",
+          "args": [
+            109,
+            9990
+          ]
+        },
+        {
+          "import": "emit_audit",
+          "args": [
+            100,
+            9990
+          ]
+        }
+      ],
+      "passed": true
+    }
+  ]
+}

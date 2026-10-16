@@ -1,0 +1,28 @@
+package kaddo:subscription@0.1.0;
+
+interface usage-service {
+    calculate-units: func(
+        events-count: s32,
+        bytes-transferred-mb: s32
+    ) -> s32;
+}
+
+interface billing-service {
+    record billing-result {
+        status-code: s32,
+        base-plan-cents: s32,
+        usage-charge-cents: s32,
+        total-charge-cents: s32,
+    }
+
+    calculate-bill: func(
+        plan-tier: s32,
+        events-count: s32,
+        bytes-transferred-mb: s32
+    ) -> billing-result;
+}
+
+world subscription-billing {
+    import usage-service;
+    export billing-service;
+}

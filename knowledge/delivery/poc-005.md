@@ -19,7 +19,7 @@ initiative: KADDO-AGENT-NATIVE-POC-005
 > - [POC 002 Validada (GO)](knowledge/delivery/poc-002.md) | [Reporte Final POC 002](knowledge/delivery/poc-report-v003.md) | [Benchmark 002](BENCHMARK_REPORT_002.md)
 > - [POC 003 Validada (GO)](knowledge/delivery/poc-003.md) | [Reporte Final POC 003](knowledge/delivery/poc-report-v004.md) | [Benchmark 003](BENCHMARK_REPORT_003.md)
 > - [POC 004 Validada (GO)](knowledge/delivery/poc-004.md) | [Reporte Final POC 004](knowledge/delivery/poc-report-v006.md) | [Benchmark 004](BENCHMARK_REPORT_004.md)
-> - [Reporte Final POC 005](knowledge/delivery/poc-report-v007.md) | [Benchmark 005](BENCHMARK_REPORT_005.md)
+> - [Reporte Final POC 005](knowledge/delivery/poc-report-v008.md) | [Benchmark 005](BENCHMARK_REPORT_005.md)
 >
 > **Naturaleza:** POC de investigación técnica, empírica, falsable y reproducible.
 >

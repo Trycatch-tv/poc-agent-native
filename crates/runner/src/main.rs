@@ -327,24 +327,21 @@ impl poc005_order::kaddo::commercial::shipping_service::Host for HostStoreData {
             ],
         });
 
-        if let Some(ref bytes) = self.shipping_wasm_bytes {
-            let engine = Engine::default();
-            if let Ok(comp) = wasmtime::component::Component::from_binary(&engine, bytes) {
-                let mut sstore = Store::new(&engine, ());
-                let slinker = wasmtime::component::Linker::new(&engine);
-                if let Ok(shipping_inst) =
-                    poc005_shipping::ShippingComponent::instantiate(&mut sstore, &comp, &slinker)
-                {
-                    if let Ok(quote) = shipping_inst
-                        .kaddo_shipping_shipping_service()
-                        .call_quote_shipping(&mut sstore, subtotal_cents, weight_grams, is_express)
-                    {
-                        return quote;
-                    }
-                }
-            }
-        }
-        0
+        let bytes = self
+            .shipping_wasm_bytes
+            .as_ref()
+            .expect("Dependency 'shipping-calculator' component must be provided for order execution");
+        let engine = Engine::default();
+        let comp = wasmtime::component::Component::from_binary(&engine, bytes)
+            .expect("Valid shipping-calculator component binary required");
+        let mut sstore = Store::new(&engine, ());
+        let slinker = wasmtime::component::Linker::new(&engine);
+        let shipping_inst = poc005_shipping::ShippingComponent::instantiate(&mut sstore, &comp, &slinker)
+            .expect("Failed to instantiate shipping-calculator component");
+        shipping_inst
+            .kaddo_shipping_shipping_service()
+            .call_quote_shipping(&mut sstore, subtotal_cents, weight_grams, is_express)
+            .expect("Failed to execute shipping-calculator.quote_shipping")
     }
 }
 

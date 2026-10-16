@@ -18,6 +18,9 @@ enum Commands {
         #[arg(long)]
         work_items_dir: Option<PathBuf>,
 
+        #[arg(long)]
+        base_spec: Option<PathBuf>,
+
         #[arg(short, long)]
         output: PathBuf,
 
@@ -55,6 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Spec {
             narrative,
             work_items_dir,
+            base_spec,
             output,
             kaddo,
         } => {
@@ -63,6 +67,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 println!("[orchestrator] Running in Standalone Mode");
             }
+
+            let base_spec_obj = if let Some(ref b_path) = base_spec {
+                let content = std::fs::read_to_string(b_path)?;
+                let parsed: orchestrator::SystemSpec = serde_json::from_str(&content)?;
+                Some(parsed)
+            } else {
+                None
+            };
 
             let spec = if let Some(n_path) = narrative {
                 let content = std::fs::read_to_string(&n_path)?;
@@ -80,7 +92,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
                 let items_ref: Vec<(&str, &str)> = items.iter().map(|(f, c)| (f.as_str(), c.as_str())).collect();
-                orchestrator::parse_work_items(&items_ref)
+                orchestrator::parse_work_items_consolidated(base_spec_obj.as_ref(), &items_ref)
                     .map_err(|e| format!("Error parsing work items: {e}"))?
             } else {
                 return Err("Either --narrative or --work-items-dir must be provided".into());

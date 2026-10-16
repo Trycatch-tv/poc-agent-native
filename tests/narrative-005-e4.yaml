@@ -11,14 +11,14 @@ cases:
       status_code: 0
       subtotal_cents: 3000
       discount_cents: 300
-      tax_cents: 405
+      tax_cents: 486
       shipping_cents: 550
-      total_cents: 3655
+      total_cents: 3736
     expected_host_calls:
       - import: check_credit
-        args: [101, 3655]
+        args: [101, 3736]
       - import: emit_audit
-        args: [100, 3655]
+        args: [100, 3736]
 
   - id: TC-NAR-502-E4
     requirement: SHIP-003
@@ -32,14 +32,14 @@ cases:
       status_code: 0
       subtotal_cents: 3000
       discount_cents: 0
-      tax_cents: 450
+      tax_cents: 540
       shipping_cents: 850
-      total_cents: 4300
+      total_cents: 4390
     expected_host_calls:
       - import: check_credit
-        args: [102, 4300]
+        args: [102, 4390]
       - import: emit_audit
-        args: [100, 4300]
+        args: [100, 4390]
 
   - id: TC-NAR-503-E4
     requirement: SHIP-004
@@ -53,14 +53,14 @@ cases:
       status_code: 0
       subtotal_cents: 10000
       discount_cents: 500
-      tax_cents: 1425
+      tax_cents: 1710
       shipping_cents: 1800
-      total_cents: 12725
+      total_cents: 13010
     expected_host_calls:
       - import: check_credit
-        args: [103, 12725]
+        args: [103, 13010]
       - import: emit_audit
-        args: [100, 12725]
+        args: [100, 13010]
 
   - id: TC-NAR-504-E4
     requirement: SHIP-002
@@ -74,14 +74,14 @@ cases:
       status_code: 0
       subtotal_cents: 55000
       discount_cents: 5500
-      tax_cents: 7425
+      tax_cents: 8910
       shipping_cents: 0
-      total_cents: 56925
+      total_cents: 58410
     expected_host_calls:
       - import: check_credit
-        args: [104, 56925]
+        args: [104, 58410]
       - import: emit_audit
-        args: [100, 56925]
+        args: [100, 58410]
 
   - id: TC-NAR-505-E4
     requirement: LINE-001
@@ -144,14 +144,14 @@ cases:
       status_code: 3
       subtotal_cents: 3000
       discount_cents: 300
-      tax_cents: 405
+      tax_cents: 486
       shipping_cents: 550
-      total_cents: 3655
+      total_cents: 3736
     expected_host_calls:
       - import: check_credit
-        args: [108, 3655]
+        args: [108, 3736]
       - import: emit_audit
-        args: [999, 3655]
+        args: [999, 3736]
 
   - id: TC-NAR-509-E4
     requirement: DISC-002
@@ -165,11 +165,11 @@ cases:
       status_code: 0
       subtotal_cents: 10000
       discount_cents: 2000
-      tax_cents: 1200
+      tax_cents: 1440
       shipping_cents: 550
-      total_cents: 9750
+      total_cents: 9990
     expected_host_calls:
       - import: check_credit
-        args: [109, 9750]
+        args: [109, 9990]
       - import: emit_audit
-        args: [100, 9750]
+        args: [100, 9990]

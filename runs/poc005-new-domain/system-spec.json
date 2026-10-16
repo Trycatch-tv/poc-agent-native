@@ -1,0 +1,187 @@
+{
+  "$schema": "./system-spec.schema.json",
+  "spec_version": "1.0.0",
+  "metadata": {
+    "title": "Especificación Narrativa de la Plataforma de Suscripciones SaaS",
+    "description": "Especificación para plataforma de suscripciones SaaS sintetizada automáticamente.",
+    "source_type": "narrative",
+    "source_files": [
+      "narrative-subscription-service.md"
+    ],
+    "last_updated": "2026-10-16"
+  },
+  "components": [
+    {
+      "id": "usage-tracker",
+      "name": "Rastreador de Uso y Métricas",
+      "description": "Calcula unidades de consumo volumétrico en base a eventos y megabytes transferidos.",
+      "wit_file": "wit/usage-tracker.wit",
+      "world": "usage-tracker",
+      "export_interfaces": [
+        "kaddo:subscription/usage-service@0.1.0"
+      ],
+      "import_interfaces": [],
+      "capabilities": [],
+      "dependencies": []
+    },
+    {
+      "id": "subscription-billing",
+      "name": "Facturación de Suscripción",
+      "description": "Calcula la factura total liquidando plan base y unidades de consumo delegadas a usage-tracker.",
+      "wit_file": "wit/subscription-billing.wit",
+      "world": "subscription-billing",
+      "export_interfaces": [
+        "kaddo:subscription/billing-service@0.1.0"
+      ],
+      "import_interfaces": [
+        "kaddo:subscription/usage-service@0.1.0"
+      ],
+      "capabilities": [
+        "usage_service"
+      ],
+      "dependencies": [
+        "usage-tracker"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "USAGE-001",
+      "component": "usage-tracker",
+      "title": "Validación de eventos positivos",
+      "statement": "Si events_count < 0, aborta retornando código de error -1.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref_target": "narrative-subscription-service.md#usage-001"
+      },
+      "acceptance_criteria": [
+        "events_count < 0 retorna -1"
+      ]
+    },
+    {
+      "id": "USAGE-002",
+      "component": "usage-tracker",
+      "title": "Cálculo de unidades de cómputo",
+      "statement": "unidades = events_count + (bytes_transferred_mb / 10).",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref_target": "narrative-subscription-service.md#usage-002"
+      },
+      "acceptance_criteria": [
+        "Unidades corresponden a eventos + MB / 10"
+      ]
+    },
+    {
+      "id": "BILL-001",
+      "component": "subscription-billing",
+      "title": "Cargo por plan mensual recurrente",
+      "statement": "Plan base fijado en 2,900 centavos ($29.00 USD) mensuales.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref_target": "narrative-subscription-service.md#bill-001"
+      },
+      "acceptance_criteria": [
+        "Base plan es 2900 centavos"
+      ]
+    },
+    {
+      "id": "BILL-002",
+      "component": "subscription-billing",
+      "title": "Delegación de cómputo de uso",
+      "statement": "Invoca usage-tracker.calculate_units y liquida 5 centavos por unidad consumida.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref_target": "narrative-subscription-service.md#bill-002"
+      },
+      "acceptance_criteria": [
+        "Multiplica unidades calculadas por 5 centavos"
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "name": "BillingResult",
+      "description": "Liquidación detallada de suscripción",
+      "fields": [
+        {
+          "name": "status_code",
+          "type": "i32",
+          "description": "0=Exitoso"
+        },
+        {
+          "name": "base_plan_cents",
+          "type": "i32",
+          "description": "Cargo base"
+        },
+        {
+          "name": "usage_charge_cents",
+          "type": "i32",
+          "description": "Cargo por uso"
+        },
+        {
+          "name": "total_charge_cents",
+          "type": "i32",
+          "description": "Total a pagar"
+        }
+      ]
+    }
+  ],
+  "operations": [
+    {
+      "name": "calculate_units",
+      "component": "usage-tracker",
+      "wit_interface": "kaddo:subscription/usage-service@0.1.0",
+      "params": [
+        {
+          "name": "events_count",
+          "type": "i32"
+        },
+        {
+          "name": "bytes_transferred_mb",
+          "type": "i32"
+        }
+      ],
+      "returns": "i32",
+      "rules_applied": [
+        "USAGE-001",
+        "USAGE-002"
+      ],
+      "effects": []
+    },
+    {
+      "name": "calculate_bill",
+      "component": "subscription-billing",
+      "wit_interface": "kaddo:subscription/billing-service@0.1.0",
+      "params": [
+        {
+          "name": "plan_tier",
+          "type": "i32"
+        },
+        {
+          "name": "events_count",
+          "type": "i32"
+        },
+        {
+          "name": "bytes_transferred_mb",
+          "type": "i32"
+        }
+      ],
+      "returns": "BillingResult",
+      "rules_applied": [
+        "BILL-001",
+        "BILL-002"
+      ],
+      "effects": [
+        "Invoca usage-tracker.calculate_units"
+      ]
+    }
+  ]
+}

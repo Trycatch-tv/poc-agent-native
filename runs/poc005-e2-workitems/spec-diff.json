@@ -1,0 +1,28 @@
+{
+  "added_requirements": [
+    "COMP-001",
+    "ORD-001",
+    "AUD-001",
+    "WIT-001",
+    "WIT-002"
+  ],
+  "modified_requirements": [
+    "SHIP-002",
+    "CREDIT-001",
+    "SHIP-004",
+    "TAX-001",
+    "DISC-001",
+    "SHIP-001",
+    "SHIP-003",
+    "LINE-001",
+    "DISC-002"
+  ],
+  "deprecated_requirements": [],
+  "affected_components": [
+    "shipping-calculator",
+    "order-processor"
+  ],
+  "modified_operations": [],
+  "modified_entities": [],
+  "modified_contracts": []
+}
