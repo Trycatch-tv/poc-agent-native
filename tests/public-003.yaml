@@ -1,5 +1,5 @@
 suite: KAN-POC-003-PUBLIC
-spec_version: 2
+spec_version: 3
 cases:
   - id: E1-003-P01
     requirement: ORD-001
@@ -68,14 +68,14 @@ cases:
       status_code: 0
       subtotal_cents: 2500
       discount_cents: 500
-      tax_cents: 200
+      tax_cents: 240
       shipping_cents: 500
-      total_cents: 2700
+      total_cents: 2740
     expected_host_calls:
       - import: check_credit
-        args: [101, 2700]
+        args: [101, 2740]
       - import: emit_audit
-        args: [100, 2700]
+        args: [100, 2740]
 
   - id: E1-003-P05
     requirement: ORD-006
@@ -90,14 +90,14 @@ cases:
       status_code: 0
       subtotal_cents: 5000
       discount_cents: 0
-      tax_cents: 500
+      tax_cents: 600
       shipping_cents: 0
-      total_cents: 5500
+      total_cents: 5600
     expected_host_calls:
       - import: check_credit
-        args: [102, 5500]
+        args: [102, 5600]
       - import: emit_audit
-        args: [100, 5500]
+        args: [100, 5600]
 
   - id: E1-003-P06
     requirement: ORD-006
@@ -112,14 +112,14 @@ cases:
       status_code: 0
       subtotal_cents: 40000
       discount_cents: 20000
-      tax_cents: 2000
+      tax_cents: 2400
       shipping_cents: 1000
-      total_cents: 23000
+      total_cents: 23400
     expected_host_calls:
       - import: check_credit
-        args: [103, 23000]
+        args: [103, 23400]
       - import: emit_audit
-        args: [100, 23000]
+        args: [999, 23400]
 
   - id: E3-003-P07
     requirement: ORD-007
@@ -139,4 +139,4 @@ cases:
       total_cents: 0
     expected_host_calls:
       - import: check_credit
-        args: [104, 2700]
+        args: [104, 2740]

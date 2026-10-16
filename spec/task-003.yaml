@@ -1,12 +1,12 @@
 id: KAN-POC-003
-version: 2
+version: 3
 title: Motor de cálculo comercial con Capability ABI (KV Store, Audit Log y Credit Service)
 description: >
   Implementar el cálculo de órdenes de compra comerciales utilizando la Semantic IR v0.3.
   El programa debe declarar y utilizar capabilities de host para:
   1. Consultar el descuento del cliente desde un almacén clave-valor (kv_store.kv_get).
   2. Verificar la solvencia del cliente ante un servicio de crédito de host (credit_service.check_credit).
-  3. Emitir eventos de auditoría ante transacciones válidas (audit_log.emit_audit).
+  3. Emitir eventos de auditoría diferenciados ante transacciones válidas (audit_log.emit_audit con 999 para alto valor >= 10000, o 100 para estándar).
   4. Descomponer la lógica en subfunciones internas y retornar el registro OrderResult en memoria lineal.
 
 capabilities:
@@ -90,7 +90,7 @@ functions:
       - id: TAX-001
         description: Si taxable_amount_cents < 0, retornar 0.
       - id: TAX-002
-        description: De lo contrario, retornar taxable_amount_cents * 10 / 100 (tasa estándar 10 %).
+        description: De lo contrario, retornar taxable_amount_cents * 12 / 100 (tasa actualizada al 12 %).
 
   - name: calculate_order
     export: true
@@ -120,6 +120,6 @@ functions:
       - id: ORD-005
         description: total_cents = base_imponible + tax_cents + shipping_cents.
       - id: ORD-006
-        description: Si check_credit es válido, invocar emit_audit(100, total_cents) y retornar OrderResult con status_code = 0.
+        description: Si check_credit es válido: si total_cents >= 10000 emitir emit_audit(999, total_cents); si no, emitir emit_audit(100, total_cents). Retornar OrderResult con status_code = 0.
       - id: ORD-007
         description: Si check_credit(customer_id, total_cents) retorna 0 (crédito insuficiente), retornar OrderResult con status_code = 3 y montos en 0 sin emitir auditoría.

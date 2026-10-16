@@ -1,5 +1,5 @@
 suite: KAN-POC-003-HIDDEN
-spec_version: 2
+spec_version: 3
 cases:
   - id: E1-003-H01
     requirement: ORD-001
@@ -67,14 +67,14 @@ cases:
       status_code: 0
       subtotal_cents: 5000
       discount_cents: 0
-      tax_cents: 500
+      tax_cents: 600
       shipping_cents: 500
-      total_cents: 6000
+      total_cents: 6100
     expected_host_calls:
       - import: check_credit
-        args: [999, 6000]
+        args: [999, 6100]
       - import: emit_audit
-        args: [100, 6000]
+        args: [100, 6100]
 
   - id: E1-003-H05
     requirement: ORD-006
@@ -111,14 +111,14 @@ cases:
       status_code: 0
       subtotal_cents: 4000
       discount_cents: 1000
-      tax_cents: 300
+      tax_cents: 360
       shipping_cents: 0
-      total_cents: 3300
+      total_cents: 3360
     expected_host_calls:
       - import: check_credit
-        args: [204, 3300]
+        args: [204, 3360]
       - import: emit_audit
-        args: [100, 3300]
+        args: [100, 3360]
 
   - id: E1-003-H07
     requirement: ORD-006
@@ -155,14 +155,14 @@ cases:
       status_code: 0
       subtotal_cents: 333
       discount_cents: 49
-      tax_cents: 28
+      tax_cents: 34
       shipping_cents: 100
-      total_cents: 412
+      total_cents: 418
     expected_host_calls:
       - import: check_credit
-        args: [206, 412]
+        args: [206, 418]
       - import: emit_audit
-        args: [100, 412]
+        args: [100, 418]
 
   - id: E1-003-H09
     requirement: ORD-006
@@ -177,14 +177,14 @@ cases:
       status_code: 0
       subtotal_cents: 30000
       discount_cents: 3600
-      tax_cents: 2640
+      tax_cents: 3168
       shipping_cents: 1500
-      total_cents: 30540
+      total_cents: 31068
     expected_host_calls:
       - import: check_credit
-        args: [207, 30540]
+        args: [207, 31068]
       - import: emit_audit
-        args: [100, 30540]
+        args: [999, 31068]
 
   - id: E3-003-H10
     requirement: ORD-007
@@ -204,4 +204,4 @@ cases:
       total_cents: 0
     expected_host_calls:
       - import: check_credit
-        args: [208, 6000]
+        args: [208, 6100]

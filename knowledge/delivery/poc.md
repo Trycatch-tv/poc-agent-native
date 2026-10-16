@@ -88,9 +88,9 @@ El problema a resolver en esta **POC 003** es concebir y validar un **Capability
 - [x] **SC-06:** Extensión funcional `E3-003` con consumo de nueva capability de host completada en <= 3 intentos (logrado en intento 1).
 - [x] **SC-07:** Inmutabilidad del backend en `E3-003`: 0 cambios en el backend congelado (mismos hashes de toolchain).
 - [x] **SC-08:** Preservación de regresión en `E3-003`: 100 % de pruebas de suites previas y ampliadas aprobadas (59/59 casos totales).
-- [ ] **SC-09:** Inmutabilidad del backend en `E4-003`: 0 cambios en el backend congelado.
-- [ ] **SC-10:** Aprobación de mantenimiento modular en `E4-003`: 100 % de pruebas aprobadas con diff localizado.
-- [x] **SC-11:** Reproducibilidad binaria exacta: 3/3 builds deterministas producen el mismo SHA-256 de `.wasm` (`637ee58cf943616fa80db2d87abb53a22ec04755a7ba001b3fbd7e79ad003be7`).
+- [x] **SC-09:** Inmutabilidad del backend en `E4-003`: 0 cambios en el backend congelado.
+- [x] **SC-10:** Aprobación de mantenimiento modular en `E4-003`: 100 % de pruebas aprobadas con diff localizado (17/17 casos aprobados).
+- [x] **SC-11:** Reproducibilidad binaria exacta: 3/3 builds deterministas producen el mismo SHA-256 de `.wasm` (`637ee58cf943616fa80db2d87abb53a22ec04755a7ba001b3fbd7e79ad003be7` en E1/E2, `bf2021f69c6d122a3bb08630c21e7fd7471b64434f806fed5cdea4b2b99fb887` en E4).
 - [x] **SC-12:** Integridad de roles (agente): 0 líneas de WAT o WASM editadas por el agente.
 - [x] **SC-13:** Integridad del estado de software: Semantic IR v0.3 es el único artefacto modificado por el agente.
 - [x] **SC-14:** Compacidad diagnóstica: salida de diagnóstico JSON estructurada con JSONPath accionable < 600 bytes.
@@ -106,7 +106,7 @@ El problema a resolver en esta **POC 003** es concebir y validar un **Capability
 | **`WI-019`** | spike | E1-003 Construcción con Capabilities y Freeze | `completed` | Implementación de cálculo de orden con consulta de inventario/descuento en host KV y emisión de auditoría, 100 % pass rate y sellado de `poc-003-e1-freeze`. |
 | **`WI-020`** | spike | E2-003 Reparación controlada guiada por Capability diagnostics | `completed` | Inyección de violación de autorización de capability (`E_UNDECLARED_CAPABILITY`), rechazo determinista y reparación en 1 intento. |
 | **`WI-021`** | spike | E3-003 Extensión funcional con nueva regla de host | `completed` | Integración de consulta de límite de crédito de cliente en host sobre backend congelado. |
-| **`WI-022`** | spike | E4-003 Mantenimiento modularizado y auditabilidad | `draft` | Actualización localizada de regla comercial y eventos de auditoría con diff conciso y reproducibilidad 3/3. |
+| **`WI-022`** | spike | E4-003 Mantenimiento modularizado y auditabilidad | `completed` | Actualización localizada de regla comercial y eventos de auditoría con diff conciso y reproducibilidad 3/3. |
 | **`WI-023`** | chore | Análisis, matriz SC y conclusión POC 003 | `draft` | Evaluación de `SC-01` a `SC-16`, reporte final `poc-report-v004.md`, decisión Kaddo (`GO / PIVOT / STOP`). |
 | **`WI-024`** | spike opcional | Benchmark pareado POC-003 vs Rust con Host Imports | `draft` | Comparación cuantitativa: Semantic IR v0.3 vs `Rust` (`extern "C"` imports a host Wasmtime). |
 
