@@ -1,0 +1,16 @@
+suite: SMOKE-V2-TEST
+spec_version: 1
+cases:
+  - id: SMOKE2-01
+    requirement: SMOKE2-001
+    function: make_point_sum
+    args: [10, 20]
+    expected:
+      sum: 30
+
+  - id: SMOKE2-02
+    requirement: SMOKE2-001
+    function: make_point_sum
+    args: [100, -25]
+    expected:
+      sum: 75
