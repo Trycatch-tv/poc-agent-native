@@ -552,6 +552,22 @@ runs/
 | M19 | Human clarifications | entero | observación |
 | M20 | Diagnostic count | entero por código | observación |
 
+### Resultados consolidados (`E1`–`E4`)
+
+| Ejercicio | Work Item | Intento | `ir_valid` (`M03`) | `wasm_valid` (`M04`) | Tests públicos (`M01`) | Tests reservados (`M02`) | `repair_attempts` (`M05`) | Ediciones manuales (`M06`) | Modificación backend post-freeze (`M07`) | Tamaño `.wasm` (`M16`) | SHA-256 `program.wasm` | Evidencia |
+|---|---|---:|---|---|---|---|---:|---:|---:|---:|---|---|
+| **E1 — Construcción y freeze** | `WI-003` | `1` | `true` (`0` diags) | `true` | `6/6` (`100 %`) | `9/9` (`100 %`) | `0` | `0` | N/A (freeze baseline) | `76 B` | `026cbbc30f6252a535cab1b1608df265f7641ff0ef5aae1b22fd36e8e3dee505` | `runs/e1-build/attempt-01/run.json` |
+| **E2 — Reparación controlada** | `WI-004` | `1` | Rechazo inyectado (`E_UNKNOWN_PARAM`) → `true` (`0` diags) | `true` | `6/6` (`100 %`) | `9/9` (`100 %`) | `1` (`<= 2`) | `0` | `0` (`false`) | `76 B` | `026cbbc30f6252a535cab1b1608df265f7641ff0ef5aae1b22fd36e8e3dee505` | `runs/e2-repair/attempt-01/run.json` |
+| **E3 — Extensión funcional** | `WI-005` | `1` | `true` (`0` diags) | `true` | `12/12` (`100 %`) | `18/18` (`100 %`) | `0` | `0` | `0` (`false`) | `134 B` | `e9450f963e606588e4c01c7b2860e1735598dd0f040ed221a62f11de42211e02` | `runs/e3-extend/attempt-01/run.json` |
+| **E4 — Mantenimiento** | `WI-006` | `1` | `true` (`0` diags) | `true` | `12/12` (`100 %`) | `18/18` (`100 %`) | `0` | `0` | `0` (`false`) | `134 B` | `947620fe23636397ba820b7cadf673e95fb3e09f68591bd0b54bfc8183d0a450` (`3/3` builds idénticos, `M08`) | `runs/e4-maintain/attempt-01/run.json` |
+
+Resumen de métricas observacionales adicionales (`M08`–`M20`):
+- **`M08` (Reproducible builds en E4):** `3/3` compilaciones consecutivas idénticas (`947620fe23636397ba820b7cadf673e95fb3e09f68591bd0b54bfc8183d0a450`).
+- **`M13` / `M14` / `M15` (Tiempos de toolchain):** `verify_ms ≈ 11–12 ms`, `compile_ms ≈ 14–15 ms`, `test_ms ≈ 16–33 ms` por suite.
+- **`M17` / `M18` (Tamaño y localidad de IR):** `ir/program.ir.json` pasó de `67` líneas (`1336` bytes, 1 función en `E1`/`E2`) a `138` líneas (`2652` bytes, 2 funciones en `E3`/`E4`); el mantenimiento de `E4` modificó únicamente `3` líneas (`spec_version`, umbral `4000` y tarifa `600`).
+- **`M19` (Human clarifications durante `E1`–`E4`):** `0`.
+- **`M20` (Diagnostic count):** `1` diagnóstico determinista esperado en la inyección de `E2` (`E_UNKNOWN_PARAM` en `$.functions[0].body.condition.left`); `0` diagnósticos en las versiones finales de `E1`–`E4`.
+
 ### Formato de `run.json`
 
 ```json
@@ -1143,9 +1159,9 @@ En E2–E4 cualquier cambio al backend se registra como desviación. No debe ocu
 
 ## Conclusion
 
-**Status: pending**
+**Status: validated**
 
-La conclusión canónica de Kaddo se mantendrá en `pending` hasta terminar la evaluación de los criterios.
+La hipótesis principal **H1** y sus cuatro subhipótesis (**H1-A**, **H1-B**, **H1-C** y **H1-D**) han sido **validadas empíricamente** con **`16/16` Success Criteria (`SC-01`–`SC-16`) cumplidos** y evidencia completa y reproducible en `runs/`.
 
 ### Regla de decisión
 
@@ -1157,36 +1173,46 @@ La conclusión canónica de Kaddo se mantendrá en `pending` hasta terminar la e
 
 ### Preguntas obligatorias para cerrar
 
-1. ¿E1 pudo construirse sin una implementación tradicional paralela de negocio?
-2. ¿Los diagnósticos de E2 fueron accionables para el agente?
-3. ¿E3 y E4 ocurrieron sin cambiar el backend congelado?
-4. ¿Los cambios de IR fueron localizables y explicables?
-5. ¿Las pruebas reservadas detectaron alguna diferencia frente a las públicas?
-6. ¿El mismo IR produjo binarios reproducibles?
-7. ¿Qué parte consumió más complejidad: especificación, IR, verifier, compiler o interacción del agente?
-8. ¿Qué tuvimos que diseñar «para humanos» que también resultó útil para el agente?
-9. ¿La Semantic IR redujo ambigüedad o simplemente trasladó complejidad?
-10. ¿Qué evidencia justificaría una POC 002?
+1. **¿E1 pudo construirse sin una implementación tradicional paralela de negocio?**
+   Sí (`SC-01`, `SC-02`, `SC-13`). `calculate_shipping` se construyó directamente en `ir/program.ir.json` y se compiló a `program.wasm` (`76 bytes`) sin escribir lógica de shipping en Rust, JS, TS, Python ni WAT.
+2. **¿Los diagnósticos de E2 fueron accionables para el agente?**
+   Sí (`SC-04`, `SC-05`). El defecto sembrado (`"name": "subtotal"`) fue rechazado con `exit code = 1` y diagnóstico estructurado (`code: "E_UNKNOWN_PARAM"`, `path: "$.functions[0].body.condition.left"`, `expected: "subtotal_cents"`, `found: "subtotal"`), permitiendo reparar la IR en `1` intento y recuperar el mismo `.wasm` bit a bit.
+3. **¿E3 y E4 ocurrieron sin cambiar el backend congelado?**
+   Sí (`SC-07`, `SC-09`). Los hashes SHA-256 de `target/debug/irtool.exe` (`05b0d4c4...`) y `target/debug/runner.exe` (`808cf7f6...`) permanecieron idénticos a `runs/toolchain-freeze.sha256` desde el tag `poc-e1-freeze`.
+4. **¿Los cambios de IR fueron localizables y explicables?**
+   Sí (`M18`). En `E2` el diff fue de 1 línea; en `E3` se agregó únicamente el objeto de función `calculate_discount` sin tocar `calculate_shipping`; en `E4` el diff fue de 3 líneas (`spec_version: 2 -> 3`, `5000 -> 4000`, `500 -> 600`).
+5. **¿Las pruebas reservadas detectaron alguna diferencia frente a las públicas?**
+   No hubo discrepancias ni sobreajuste a los casos públicos: el `100 %` de los casos reservados (`9/9` en `E1`/`E2` y `18/18` en `E3`/`E4`, incluyendo extremos `i32::MIN`, `i32::MAX` y bordes de división entera) aprobó en el primer intento.
+6. **¿El mismo IR produjo binarios reproducibles?**
+   Sí (`SC-11`, `M08`). `E1` y `E2` (tras la reparación) produjeron exactamente el mismo hash (`026cbbc30f6252a535cab1b1608df265f7641ff0ef5aae1b22fd36e8e3dee505`), y `3/3` compilaciones consecutivas de `E4` produjeron `947620fe23636397ba820b7cadf673e95fb3e09f68591bd0b54bfc8183d0a450`.
+7. **¿Qué parte consumió más complejidad: especificación, IR, verifier, compiler o interacción del agente?**
+   La construcción inicial del verifier semántico y del lowering determinista `IR → WASM` en `crates/irtool` (`WI-002`) concentró la mayor complejidad de ingeniería; una vez congelado en `E1`, la interacción del agente sobre la IR en `E1`–`E4` fue trivial, rápida (`< 35 ms` de tooling por ciclo) y libre de errores de sintaxis.
+8. **¿Qué tuvimos que diseñar «para humanos» que también resultó útil para el agente?**
+   Las rutas JSONPath explícitas (`$.functions[0].body.condition.left`), los campos `expected`/`found` en `diagnostics.json`, la tabla explícita de tipado de operadores (como `eq` polimórfico sobre `i32` y `bool`) y los IDs de requisitos (`SHIP-*`, `DISC-*`) beneficiaron tanto la auditoría humana como la precisión del agente.
+9. **¿La Semantic IR redujo ambigüedad o simplemente trasladó complejidad?**
+   Trasladó la complejidad accidental una sola vez hacia el toolchain determinista (`irtool`), reduciendo drásticamente la ambigüedad en cada cambio posterior de reglas de negocio (`E2`, `E3`, `E4`), donde el espacio de búsqueda del agente quedó restringido a un AST tipado de 14 operadores sin efectos secundarios.
+10. **¿Qué evidencia justificaría una POC 002?**
+    La aprobación de `16/16` criterios (`SC-01`–`SC-16`), `0` ediciones manuales humanas, `0` modificaciones al backend tras el freeze y `100 %` en pruebas públicas y reservadas justifican avanzar a la Fase 2: (a) benchmark pareado contra el baseline `Rust → wasm32-unknown-unknown` (`KAN-POC-WI-008`) y (b) `POC 002` con llamadas entre funciones, estructuras de datos compuestas y errores tipados.
 
 ### Resultado a registrar al terminar
 
 ```text
-Status: pending | validated | rejected | inconclusive
+Status: validated
 
-Decision: GO | PIVOT | STOP
+Decision: GO
 
 Evidence summary:
-- E1:
-- E2:
-- E3:
-- E4:
-- Success criteria passed:
-- Success criteria failed:
-- Major limitation:
-- Main learning:
+- E1: calculate_shipping construido en IR v0.1 en 1 intento (0 diagnósticos, 76 bytes WASM, 6/6 públicas, 9/9 reservadas); freeze sellado en poc-e1-freeze.
+- E2: Defecto sembrado E_UNKNOWN_PARAM rechazado determinísticamente (exit 1, $.functions[0].body.condition.left) y reparado por el agente en 1 intento (6/6 públicas, 9/9 reservadas, mismo SHA-256 WASM).
+- E3: Extensión con calculate_discount(i32, bool) -> i32 en 1 intento sin tocar el backend congelado (134 bytes WASM, 12/12 públicas, 18/18 reservadas).
+- E4: Mantenimiento localizado de calculate_shipping (umbral 4000, tarifa 600) en 3 líneas de diff sin tocar calculate_discount ni el backend (12/12 públicas, 18/18 reservadas, 3/3 builds idénticos).
+- Success criteria passed: 16/16 (SC-01 a SC-16)
+- Success criteria failed: 0/16
+- Major limitation: IR v0.1 está deliberadamente acotada a funciones escalares puras (i32, bool) sin estructuras compuestas, llamadas entre funciones ni I/O.
+- Main learning: Congelar la complejidad de emisión WASM y verificación semántica en un micro-toolchain determinista permite al agente construir, reparar, extender y mantener lógica de negocio con diffs mínimos, cero ambigüedad sintáctica y reproducibilidad binaria exacta.
 
 Recommendation:
-<decisión concreta y siguiente experimento, si aplica>
+Decision GO (validated). Proceder con dos líneas separadas: (1) ejecutar el benchmark comparativo pareado Agent-Native IR→WASM vs Rust→WASM (KAN-POC-WI-008) con repetición estadística, y (2) diseñar Kaddo Agent-Native POC 002 incorporando tipos compuestos (records/enums), llamadas entre funciones internas y errores de dominio tipados antes de explorar un Capability ABI.
 ```
 
 ### Investigación posterior propuesta

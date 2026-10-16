@@ -42,3 +42,13 @@ El experimento se divide en tres subsistemas explícitos:
 - **Alcance técnico acotado (IR v0.1):** Funciones puras sin I/O, sin imports de host, sin memoria lineal dinámica, sin WASI ni servicios externos (bases de datos, HTTP, Kafka, filesystem).
 - **Reproducibilidad determinista:** Tres compilaciones consecutivas de la misma IR con la misma toolchain deben producir exactamente el mismo hash SHA-256 de `program.wasm` (**SC-11**).
 
+## Validated outcome (`KADDO-AGENT-NATIVE-POC-001`)
+
+- **Status:** `validated` (`Decision: GO`).
+- **Success Criteria:** `16/16` (`SC-01`–`SC-16`) cumplidos y respaldados en `runs/e1-build/`, `runs/e2-repair/`, `runs/e3-extend/` y `runs/e4-maintain/`.
+- **Evidencia clave:**
+  - `E1`: Construcción de `calculate_shipping` en IR v0.1 en 1 intento (`0` diagnósticos, `76 B` `.wasm`, `6/6` públicas, `9/9` reservadas) y congelamiento de toolchain (`poc-e1-freeze`, `runs/toolchain-freeze.sha256`).
+  - `E2`: Rechazo determinista de defecto inyectado (`E_UNKNOWN_PARAM` en `$.functions[0].body.condition.left`) y reparación autónoma en 1 intento recuperando el mismo `.wasm` bit a bit.
+  - `E3`: Extensión funcional con `calculate_discount(i32, bool) -> i32` en 1 intento sin modificar el backend congelado (`134 B` `.wasm`, `12/12` públicas, `18/18` reservadas).
+  - `E4`: Mantenimiento localizado de `calculate_shipping` (`>= 4000 -> 0`, `< 4000 -> 600`) en 3 líneas de diff sin tocar `calculate_discount` ni el backend (`12/12` públicas, `18/18` reservadas, `3/3` compilaciones consecutivas con idéntico SHA-256).
+
