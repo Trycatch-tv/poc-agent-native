@@ -1,0 +1,38 @@
+---
+type: spike
+id: WI-037
+alias: KAN-POC5-WI-037
+title: E2-005 Construcción desde Work Items equivalentes
+knowledge_level: K2
+status: draft
+implementation_status: not-started
+phase: draft
+project_state: ai-assisted
+refined_by: work-item-agent
+created_at: '2026-10-16'
+domains:
+  - orchestrator
+  - system-spec
+  - semantic-ir
+  - deterministic-toolchain
+code:
+  - runs/poc005-e2-workitems/**
+---
+
+# WI-037 (KAN-POC5-WI-037) — E2-005 Construcción desde Work Items equivalentes
+
+## Outcome
+
+- **Actor:** Agente y orquestador en ejercicio E2-005.
+- **Target behavior:**
+  - En un entorno de ejecución aislado, suministrar al orquestador una secuencia de Work Items que represente funcionalmente la misma aplicación construida en E1.
+  - El orquestador consolida los Work Items en la System Specification, coordina la generación de IR y compila los componentes WASM.
+  - Ejecutar la misma suite de pruebas externa y contratos WIT de E1.
+  - Demostrar equivalencia funcional estricta (100 % pass rate en las mismas pruebas) comprobando que dos formas de entrada (narrativa única vs secuencia de Work Items) convergen al mismo comportamiento verificado.
+- **Observable completion:** Artefactos completos en `runs/poc005-e2-workitems/attempt-01/`, 100 % pass rate y reporte comparativo de equivalencia funcional.
+
+## Acceptance Criteria
+
+- [ ] Secuencia de Work Items procesada por el orquestador consolidando la especificación.
+- [ ] 100 % pass rate en las mismas pruebas públicas y reservadas de E1.
+- [ ] Validación de SC-01 (equivalencia funcional confirmada).

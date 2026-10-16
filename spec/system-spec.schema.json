@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kaddo.io/schemas/agent-native/system-spec.schema.json",
+  "title": "Agent-Native System Specification Schema",
+  "description": "Formal schema for consolidated system specifications representing active requirements, components, contracts and domain entities in Agent-Native POC 005.",
+  "type": "object",
+  "required": [
+    "spec_version",
+    "metadata",
+    "components",
+    "requirements",
+    "entities",
+    "operations"
+  ],
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "description": "Version of the specification format (e.g. '1.0.0')."
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["title", "description", "source_type"],
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "source_type": {
+          "type": "string",
+          "enum": ["narrative", "work-items", "hybrid"]
+        },
+        "source_files": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "last_updated": { "type": "string" }
+      }
+    },
+    "components": {
+      "type": "array",
+      "description": "WebAssembly Components participating in the system application.",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "wit_file", "world"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique identifier for the component (e.g. 'shipping-calculator')."
+          },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "wit_file": {
+            "type": "string",
+            "description": "Relative path to the WIT contract file."
+          },
+          "world": {
+            "type": "string",
+            "description": "WIT world implemented by this component."
+          },
+          "export_interfaces": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "import_interfaces": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "capabilities": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "dependencies": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Component IDs that this component directly depends on."
+          }
+        }
+      }
+    },
+    "requirements": {
+      "type": "array",
+      "description": "Traceable functional requirements of the system with lifecycle state.",
+      "items": {
+        "type": "object",
+        "required": ["id", "component", "statement", "status"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Z]+-[A-Z0-9_-]+$",
+            "description": "Stable requirement ID (e.g. 'SHIP-001', 'LINE-001')."
+          },
+          "component": {
+            "type": "string",
+            "description": "Component ID responsible for this requirement."
+          },
+          "title": { "type": "string" },
+          "statement": { "type": "string" },
+          "status": {
+            "type": "string",
+            "enum": ["active", "modified", "deprecated", "replaced"]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 1
+          },
+          "source": {
+            "type": "object",
+            "required": ["type", "ref"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["narrative", "work-item"]
+              },
+              "ref": {
+                "type": "string",
+                "description": "Source location or work item ID."
+              }
+            }
+          },
+          "acceptance_criteria": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "entities": {
+      "type": "array",
+      "description": "Domain data types and structures exchanged within and between components.",
+      "items": {
+        "type": "object",
+        "required": ["name", "fields"],
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "type"],
+              "properties": {
+                "name": { "type": "string" },
+                "type": { "type": "string" },
+                "description": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "operations": {
+      "type": "array",
+      "description": "Callable operations defined across component interfaces.",
+      "items": {
+        "type": "object",
+        "required": ["name", "component", "wit_interface", "params", "returns"],
+        "properties": {
+          "name": { "type": "string" },
+          "component": { "type": "string" },
+          "wit_interface": { "type": "string" },
+          "params": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "type"],
+              "properties": {
+                "name": { "type": "string" },
+                "type": { "type": "string" }
+              }
+            }
+          },
+          "returns": { "type": "string" },
+          "rules_applied": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "effects": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

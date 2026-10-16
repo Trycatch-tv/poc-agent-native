@@ -1,170 +1,212 @@
 ---
 type: poc
-status: completed
-conclusion: validated
-decision: GO
+status: in-progress
+conclusion: pending
+decision: pending
 generated_by: kaddo-init
 template_version: 1
 project_state: ai-assisted
 refined_by: work-item-agent
-initiative: KADDO-AGENT-NATIVE-POC-004
+initiative: KADDO-AGENT-NATIVE-POC-005
 ---
 
-# Kaddo Agent-Native POC 004 — WebAssembly Component Model, Interfaces WIT Estandarizadas y Canonical ABI en Semantic IR v0.4
+# Kaddo Agent-Native POC 005 — De la narrativa al software ejecutable
 
-> **Artefacto canónico:** `knowledge/delivery/poc.md`
+> **Artefacto canónico activo:** `knowledge/delivery/poc.md` (espejado en `knowledge/delivery/poc-005.md`)
 >
 > **Referencias históricas previas:**
 > - [POC 001 Validada (GO)](knowledge/delivery/poc-001.md) | [Reporte Final POC 001](knowledge/delivery/poc-report-v001.md) | [Benchmark 001](BENCHMARK_REPORT.md)
 > - [POC 002 Validada (GO)](knowledge/delivery/poc-002.md) | [Reporte Final POC 002](knowledge/delivery/poc-report-v003.md) | [Benchmark 002](BENCHMARK_REPORT_002.md)
 > - [POC 003 Validada (GO)](knowledge/delivery/poc-003.md) | [Reporte Final POC 003](knowledge/delivery/poc-report-v004.md) | [Benchmark 003](BENCHMARK_REPORT_003.md)
->
-> **Pregunta de investigación:** ¿puede un agente de IA diseñar, evolucionar y componer lógica comercial en Semantic IR v0.4 a partir de especificaciones de interfaz estandarizadas en **WIT** (WebAssembly Interface Types), mientras una micro-toolchain determinista verifica la compatibilidad de firmas de interfaz, realiza el empaquetado como **WebAssembly Component** (conforme a Canonical ABI) y ejecuta pruebas en el runtime de componentes de Wasmtime, manteniendo el backend estrictamente congelado tras `E1-004` sin sacrificar latencias sub-60ms ni compacidad diagnóstica?
+> - [POC 004 Validada (GO)](knowledge/delivery/poc-004.md) | [Reporte Final POC 004](knowledge/delivery/poc-report-v006.md) | [Benchmark 004](BENCHMARK_REPORT_004.md)
 >
 > **Naturaleza:** POC de investigación técnica, empírica, falsable y reproducible.
 >
-> **Modalidad:** Kaddo POC Mode (Fase 4).
+> **Modalidad:** Kaddo POC Mode (Fase 5).
 
-## Problem
+**Subtítulo:** Orquestación de desarrollo, especificación consolidada, evolución incremental y composición de componentes WebAssembly.
 
-En las fases anteriores (`POC 001` a `POC 003`), se consolidó un micro-toolchain determinista capaz de compilar lógica pura, gestionar memoria lineal mediante bump allocation y enlazar imports declarativos con auditoría de efectos secundarios en WebAssembly Core.
+**Estado:** En ejecución (`in-progress`).
 
-No obstante, WebAssembly Core adolece de una limitación de diseño fundamental para ecosistemas agent-native y microservicios modernos:
-1. **Límite de tipos primitivos planos:** Core WASM sólo transporta escalares (`i32`, `i64`, `f32`, `f64`). Cualquier estructura compuesta o variante de error exige pactar offsets ad-hoc en memoria lineal compartida.
-2. **Falta de encapsulamiento de memoria:** Si dos módulos colaboran en Core WASM, deben compartir el mismo espacio de direccionamiento lineal o implementar copias manuales complejas y propensas a corrupción.
-3. **Ausencia de un estándar universal de interfaces:** Sin un lenguaje de definición de interfaces agnóstico (IDL), el agente no puede integrarse limpiamente con componentes escritos en otros lenguajes (Rust, Go, Python) ni asegurar interoperabilidad estricta.
+## 1. Descripción general
 
-El **WebAssembly Component Model** y su lenguaje de interfaz **WIT** resuelven esta brecha:
-- Las interfaces de imports y exports se declaran con tipos de alto nivel (`record`, `variant`, `enum`, `list`, `result<T, E>`).
-- Los componentes poseen memoria lineal completamente aislada (encapsulamiento seguro).
-- La comunicación se normaliza mediante el **Canonical ABI** (`canon lift` y `canon lower`).
+La POC 005 busca validar si Agent-Native puede evolucionar desde un motor experimental de Semantic IR hacia un sistema capaz de construir y mantener software a partir de especificaciones narrativas, sin exigir que las personas escriban o modifiquen directamente la representación intermedia.
 
-El problema a resolver en esta **POC 004** es determinar si la Semantic IR puede elevar su semántica a **v0.4** para ligarse directamente a contratos **WIT**, verificando compatibilidad de tipos de interfaz y emitiendo un **WebAssembly Component** funcional que se ejecute en `wasmtime::component`, garantizando inmutabilidad post-freeze del compilador y preservando las ventajas de latencia ultra-baja y diagnósticos estructurados.
+El experimento incorporará un **orquestador de desarrollo** que interprete una narrativa funcional completa o una secuencia de Work Items, consolide los requisitos vigentes del sistema y coordine a los agentes encargados de generar o modificar la Semantic IR. El resultado deberá verificarse y compilarse mediante la toolchain determinista desarrollada en las POC anteriores, produciendo componentes WebAssembly ejecutables y trazables.
 
-## Hypothesis
+La POC también deberá comprobar que Agent-Native funciona como tecnología independiente de Kaddo. Para ello, se validará un modo standalone que pueda consumir especificaciones directamente, junto con un mecanismo de integración opcional que permita aprovechar el conocimiento y los Work Items de Kaddo. Ambos caminos utilizarán el mismo motor y deberán preservar los contratos, pruebas y comportamiento funcional del software.
 
-### Hipótesis principal
+## 2. Pregunta de investigación
 
-> **H4.** Dada una especificación de contrato comercial en interfaces WIT estandarizadas, un agente de IA puede generar, reparar, extender y mantener programas en Semantic IR v0.4 que implementen e importen dichas interfaces, mientras el micro-toolchain determinista verifica compatibilidad estática con el contrato WIT, empaqueta el artefacto como WebAssembly Component estándar y valida suites de integración en Wasmtime Component Runtime con backend congelado tras `E1-004`, manteniendo tiempos de ciclo < 60 ms y diagnósticos estructurados < 500 bytes.
+¿Puede un orquestador Agent-Native construir, modificar y mantener una aplicación a partir de una narrativa funcional completa o de múltiples Work Items incrementales, consolidando los requisitos en una especificación vigente y generando componentes WebAssembly interoperables, sin intervención humana directa sobre la Semantic IR ni dependencia obligatoria de Kaddo?
 
-### Subhipótesis
+## 3. Hipótesis principal
 
-| ID | Hipótesis | Evidencia favorable | Evidencia desfavorable |
-|---|---|---|---|
-| **H4-A** | El agente puede implementar contratos de interfaz WIT (`export interface`) y consumir dependencias (`import interface`) en IR v0.4. | `E1-004` supera verificación estática y 100 % de pruebas en Wasmtime Component Runtime en <= 3 intentos. | El agente no logra mapear tipos WIT o excede el límite de intentos. |
-| **H4-B** | Discordancias entre la IR v0.4 y el contrato WIT son detectadas determinísticamente por el verificador con JSONPath exacto. | `E2-004` detecta desalineación de tipo en campo de interfaz WIT (`E_WIT_TYPE_MISMATCH` / `E_UNKNOWN_EXPORT_INTERFACE`), reportando ruta precisa y siendo reparada en <= 2 intentos. | El verificador omite la comprobación WIT o emite mensajes de error no accionables. |
-| **H4-C** | Nuevas interfaces o tipos variantes en WIT pueden integrarse a la IR con el backend del compilador congelado. | `E3-004` incorpora un nuevo método de interfaz WIT (`quote-shipping`) sin requerir parches a los binarios de toolchain sellados en `E1-004`. | La incorporación de nuevas firmas WIT exige recompilar `irtool`. |
-| **H4-D** | El empaquetado de componentes preserva la reproducibilidad binaria exacta bit a bit. | 3 compilaciones sucesivas de la misma IR v0.4 generan componentes WASM con idéntico hash SHA-256. | El proceso de Canonical ABI o encoding de componentes introduce metadatos no reproducibles. |
-| **H4-E** | El Component Runtime de Wasmtime ejecuta componentes Agent-Native sin sobrecarga desmedida. | La latencia de ejecución en Wasmtime Component Runtime se mantiene en < 15 ms para suites de prueba completas. | La instanciación de componentes degrada severamente el tiempo de test. |
+Dada una descripción funcional suficientemente precisa de un sistema, un orquestador Agent-Native puede interpretar su intención, generar una especificación estructurada, coordinar la construcción de su Semantic IR y producir componentes WebAssembly ejecutables mediante herramientas deterministas.
 
-## Constraints
+Posteriormente, ante modificaciones narrativas o nuevos Work Items, el orquestador puede identificar los elementos afectados, actualizar la especificación vigente y modificar la IR preservando las funcionalidades anteriores mediante pruebas de regresión, trazabilidad y control de contratos.
 
-- Los contratos de interfaces de imports y exports se definen en archivos estándar `.wit`.
-- La Semantic IR v0.4 referencia explícitamente los paquetes e interfaces WIT declarados.
-- El micro-toolchain genera artefactos que cumplen con la especificación de WebAssembly Component Model (custom section `component-type:order-processor` con metadatos WIT serializados e inspección de interfaces).
-- La toolchain (`irtool` y `runner`) se congela tras culminar `E1-004` y sus hashes criptográficos se custodian en `runs/toolchain-freeze-poc004.sha256`.
-- El agente nunca edita archivos WAT ni binarios `.wasm` directamente.
-- Todas las aserciones de prueba en `runner` se ejecutan contra la interfaz exportada del componente en Wasmtime.
+Esta capacidad deberá funcionar tanto de manera independiente como mediante una integración opcional con Kaddo, sin introducir lógica comercial específica dentro del compilador ni requerir cambios en la toolchain para cada modificación de negocio.
 
-## Non-goals
+## 4. Alcance funcional
 
-1. **No composición dinámica en runtime (no WASI dynamic plugin host):** El enlace de componentes se valida en tiempo de prueba sobre interfaces estáticas.
-2. **No asincronía / WASI 0.3 async streams:** Todas las funciones de interfaz WIT son invocaciones síncronas en esta fase.
-3. **No runtime de recolección de basura compleja (Wasm GC):** El modelo de memoria lineal interna encapsulada del componente sigue basándose en gestión lineal determinista.
+### A. Construcción desde una narrativa única
 
-## Scenario
+El sistema deberá aceptar un documento Markdown que describa el comportamiento esperado de una aplicación. La narrativa podrá incluir procesos, operaciones, reglas comerciales, entidades, restricciones, dependencias y criterios de aceptación expresados en lenguaje natural.
 
-### Alcance técnico de la Semantic IR v0.4
+El orquestador deberá interpretar el documento, identificar los requisitos funcionales y transformarlos en una especificación estructurada que pueda verificarse antes de generar la IR. Las decisiones ambiguas o incompletas deberán quedar identificadas explícitamente, evitando que el agente invente silenciosamente comportamientos no definidos.
 
-| Categoría | Elementos soportados en v0.4 | Novedad frente a v0.3 |
-|---|---|---|
-| **Definición de Interfaces WIT** | Archivos `wit/*.wit` con `package`, `interface`, `record`, `variant`, `func` | **Nuevo en v0.4** |
-| **Vinculación a Contratos WIT** | Declaración `wit_contract: { package, world, export_interface, import_interfaces }` | **Nuevo en v0.4** |
-| **WebAssembly Component Packaging** | Emisión de binario WebAssembly Component ejecutable en Wasmtime con sección `component-type` | **Nuevo en v0.4** |
-| **Canonical ABI Mapping** | Normalización de pasaje de parámetros estructurados a través del límite del componente | **Nuevo en v0.4** |
-| **Declaración de Capabilities** | Bloque raíz `capabilities` validado contra las interfaces importadas | Reforzado |
-| **Composición modular interna** | `call` a subfunciones internas | Heredado de v0.2/v0.3 |
-| **Errores de dominio tipados** | Variantes tipadas de error mapeadas a contratos estructurados en WIT | **Reforzado en v0.4** |
+La experiencia buscada es que una persona pueda describir qué debe hacer un sistema sin necesitar conocimientos de Semantic IR, WIT o WebAssembly.
 
-## Success Criteria
+### B. Construcción incremental desde múltiples Work Items
 
-- [x] **SC-01:** Construcción inicial `E1-004` completada por el agente en <= 3 intentos (1 intento) a partir de la especificación WIT v1-004.
-- [x] **SC-02:** Corrección funcional `E1-004`: 100 % de pruebas públicas y reservadas aprobadas en Wasmtime Component Runtime (17/17 casos).
-- [x] **SC-03:** Congelamiento de toolchain sellado: Hashes SHA-256 de `irtool` y `runner` registrados en `runs/toolchain-freeze-poc004.sha256` y tag git `poc-004-e1-freeze`.
-- [x] **SC-04:** Detección determinista de desalineación con interfaz WIT en `E2-004`: rechazo con exit code 1 y diagnóstico JSONPath explícito (`E_UNKNOWN_EXPORT_INTERFACE`, `$.functions[9].wit_interface`).
-- [x] **SC-05:** Reparación controlada `E2-004`: reparado por el agente en <= 2 intentos (1 intento) recuperando 100 % pass rate y paridad SHA-256 del componente (`b7c0a8c822b6f50f85c1151c1812f6f47b9d5c133a39ab32fb5dc01ddb1fab89`).
-- [x] **SC-06:** Extensión funcional `E3-004` con nueva interface o función en WIT (`quote-shipping`) completada en <= 3 intentos (1 intento).
-- [x] **SC-07:** Inmutabilidad del backend en `E3-004`: 0 cambios en el backend congelado (mismos hashes de toolchain).
-- [x] **SC-08:** Preservación de regresión en `E3-004`: 100 % de pruebas de suites previas y ampliadas aprobadas (21/21 casos totales).
-- [x] **SC-09:** Inmutabilidad del backend en `E4-004`: 0 cambios en el backend congelado.
-- [x] **SC-10:** Aprobación de mantenimiento modular en `E4-004`: 100 % de pruebas aprobadas con diff localizado en subfunciones internas (21/21 casos aprobados).
-- [x] **SC-11:** Reproducibilidad binaria exacta: 3/3 builds deterministas producen el mismo SHA-256 del componente `.wasm` (`b7c0a8...` en E1/E2, `af059e...` en E3, `98fa91...` en E4).
-- [x] **SC-12:** Integridad de roles (agente): 0 líneas de WAT o WASM editadas por el agente.
-- [x] **SC-13:** Integridad del estado de software: Semantic IR v0.4 es el único artefacto de lógica modificado por el agente.
-- [x] **SC-14:** Compacidad diagnóstica: salida de diagnóstico JSON estructurada con JSONPath accionable < 600 bytes (366 bytes).
-- [x] **SC-15:** Latencia del bucle determinista: `verify` + `compile/package` < 60 ms (~6 ms).
-- [x] **SC-16:** Validación estricta de WebAssembly Component: el artefacto es un WebAssembly Component nativo estándar (magic `\0asm\x0d\0\x01\0`), implementa Canonical ABI (`canon lift` y `canon lower`) mediante `ComponentEncoder` y se ejecuta en runtime `wasmtime::component::Component` y `wasmtime::component::Linker` con pasaje y levantamiento tipado de `OrderResult`.
+El sistema deberá aceptar una secuencia de Work Items que describan la construcción inicial y la evolución de una misma aplicación. Cada Work Item podrá incorporar funcionalidades, modificar reglas existentes, corregir defectos o retirar comportamientos que hayan dejado de ser válidos.
 
-## Work Items Plan (Fase 4)
+Los Work Items no se concatenarán directamente para producir el programa. El orquestador deberá interpretar sus relaciones, identificar requisitos vigentes y obsoletos, resolver contradicciones mediante decisiones explícitas y actualizar una **System Specification** versionada que represente el estado funcional esperado del software.
+
+La Semantic IR deberá evolucionar a partir de esa especificación consolidada, preservando la trazabilidad de cada elemento hacia los requisitos y Work Items que justificaron su creación o modificación.
+
+### C. Especificación consolidada del sistema
+
+Se introducirá un artefacto denominado provisionalmente **System Specification**, cuya responsabilidad será representar los requisitos funcionales vigentes, las operaciones, los tipos, los contratos de interfaz, las dependencias y los criterios de aceptación del software.
+
+El actual `task.yaml` podrá evolucionar hacia un contrato derivado de esta especificación. No deberá convertirse en una segunda fuente de verdad mantenida manualmente, sino en una representación estructurada y reproducible que el motor pueda consumir para implementar cambios específicos.
+
+La especificación consolidada deberá mantener identificadores estables de requisitos, referencias a sus fuentes y versiones, permitiendo distinguir entre comportamiento vigente, modificado, reemplazado y retirado.
+
+### D. Orquestador Agent-Native
+
+Se desarrollará un orquestador independiente que coordine el ciclo entre la intención funcional y la generación del software. Su responsabilidad será preparar contexto, interpretar cambios, generar o actualizar especificaciones, solicitar la construcción de IR, ejecutar verificaciones y administrar los ciclos de corrección.
+
+El orquestador deberá gestionar los diagnósticos producidos por el verificador y proporcionar al agente información suficiente para corregir errores sin modificar manualmente el código WebAssembly. También deberá identificar qué elementos han cambiado y ejecutar pruebas de aceptación y regresión sobre el comportamiento afectado y sus dependencias.
+
+Se diferenciará explícitamente la orquestación del proceso de desarrollo de la composición de componentes durante la ejecución. El orquestador no deberá implementar internamente un nuevo compilador ni asumir las responsabilidades del runtime.
+
+### E. Composición de componentes WebAssembly
+
+Se validará la construcción y ejecución de una aplicación mínima compuesta por al menos dos componentes WebAssembly con responsabilidades independientes. Los componentes deberán comunicar sus capacidades mediante contratos WIT explícitos y utilizar el WebAssembly Component Model nativo validado en la POC 004.
+
+El escenario deberá demostrar que una operación definida en un componente puede ser consumida por otro, preservando el contrato tipado y la separación de responsabilidades. El host y el runtime podrán proporcionar infraestructura y capacidades externas, pero no deberán incorporar implementaciones alternativas de las reglas comerciales como mecanismo para superar limitaciones del motor.
+
+La composición deberá ser estática y reproducible durante esta fase. No se requiere implementar descubrimiento dinámico, registro federado ni una plataforma completa de microservicios.
+
+### F. Modo standalone e integración opcional con Kaddo
+
+Agent-Native deberá funcionar independientemente de Kaddo, aceptando una narrativa o especificación desde el sistema de archivos y produciendo los artefactos necesarios para verificar, compilar y ejecutar el software.
+
+Adicionalmente, se validará un adaptador mínimo que permita consumir documentos de conocimiento y Work Items de un proyecto Kaddo. Esta integración deberá traducir el contexto necesario hacia los contratos del orquestador y recuperar la evidencia generada, sin introducir dependencias obligatorias del motor respecto del core de Kaddo.
+
+La POC deberá comprobar que ambas modalidades utilizan la misma Semantic IR y la misma toolchain, diferenciándose únicamente en la procedencia y preparación del contexto. No forma parte de esta fase implementar la experiencia definitiva en el Admin, el CLI o el MCP de Kaddo.
+
+### G. Trazabilidad y evidencia reproducible
+
+Cada proceso de construcción y modificación deberá conservar la relación entre la narrativa o Work Items de origen, la System Specification, las modificaciones de Semantic IR, los contratos WIT, los resultados de verificación y los componentes WASM generados.
+
+Se registrarán los diagnósticos, las pruebas públicas y reservadas, las modificaciones realizadas y los hashes de los artefactos. También se medirá el proceso completo de desarrollo, incluyendo intentos del agente, duración total y modificaciones del motor, diferenciándolo del tiempo de verificación y compilación determinista.
+
+El objetivo es poder explicar qué cambió, por qué cambió, qué parte del software resultó afectada y qué evidencia demuestra que el comportamiento esperado se conserva.
+
+## 5. Escenario experimental
+
+Se utilizará una aplicación comercial acotada, aprovechando el dominio de órdenes de compra, descuentos, impuestos, crédito y auditoría desarrollado durante las POC anteriores.
+
+La aplicación se dividirá en al menos dos componentes funcionales: uno encargado del cálculo comercial (`order-calculator`) y otro de las reglas de validación o cotización de envíos (`shipping-calculator`). Sus responsabilidades deberán quedar expresadas en contratos WIT independientes, de manera que el escenario permita comprobar una interacción real entre componentes.
+
+Se ejecutarán cuatro ejercicios principales:
+
+- **E1 — Construcción desde narrativa:** El agente recibe una descripción completa del sistema (`spec/narrative-005.md`) y construye la System Specification, la IR y los componentes WebAssembly necesarios. Se verifica el comportamiento funcional y se establece una versión base reproducible y freeze de toolchain.
+- **E2 — Construcción desde Work Items:** En un entorno aislado, el agente recibe una secuencia equivalente de Work Items y construye la misma aplicación. Se compara el comportamiento mediante las mismas pruebas y contratos externos, sin exigir que la IR o los binarios resultantes sean idénticos.
+- **E3 — Evolución incremental:** Se modifica una regla comercial y se incorpora una nueva capacidad mediante un Work Item. El orquestador debe actualizar la especificación vigente, localizar los elementos afectados, modificar la IR existente y comprobar que las funcionalidades no relacionadas continúan funcionando.
+- **E4 — Composición y mantenimiento:** Se ejecuta la aplicación mediante al menos dos componentes WebAssembly conectados por contratos WIT. Posteriormente se modifica una funcionalidad de uno de ellos, verificando la compatibilidad de interfaces, las pruebas de integración, la reproducibilidad y la ausencia de cambios innecesarios en el otro componente.
+
+Validaciones transversales:
+- Ejecución en modo standalone puro y con adaptador Kaddo.
+- Recuperación ante defectos controlados mediante diagnósticos deterministas.
+
+## 6. Success Criteria (Criterios de éxito principales)
+
+- [ ] **SC-01:** Equivalencia funcional: La narrativa única (E1) y la secuencia equivalente de Work Items (E2) producen aplicaciones funcionalmente equivalentes, verificadas mediante contratos WIT y suites de pruebas comunes.
+- [ ] **SC-02:** Consolidación de especificación: El orquestador genera una System Specification consolidada sin contradicciones no resueltas, conservando procedencia y versiones de los requisitos.
+- [ ] **SC-03:** Evolución sin intervención manual: Las modificaciones incrementales (E3/E4) se implementan sin edición manual humana de Semantic IR, WAT ni WASM, y sin reconstrucciones innecesarias del programa.
+- [ ] **SC-04:** WebAssembly Components nativos interoperables: Los componentes generados son WebAssembly Components nativos válidos (`0x0d` magic), ejecutables en Wasmtime y capaces de interoperar entre sí mediante interfaces WIT reales.
+- [ ] **SC-05:** Aprobación de suites de pruebas: La solución supera el 100 % de las pruebas de aceptación, integración y regresión (incluyendo suites reservadas independientes del agente).
+- [ ] **SC-06:** Dualidad Standalone e Integración Kaddo: El motor ejecuta el mismo flujo en modo standalone y mediante la integración opcional con Kaddo con resultados y artefactos idénticos.
+- [ ] **SC-07:** Trazabilidad integral de extremo a extremo: Se conserva la trazabilidad desde la narrativa o Work Item hasta la System Specification, IR, componente ejecutable y resultados de prueba.
+- [ ] **SC-08:** Inmutabilidad de la Toolchain: Los cambios de negocio que utilicen capacidades ya soportadas no requieren modificar el verificador, compilador ni runtime tras el freeze de E1.
+- [ ] **SC-09:** Medición del ciclo de desarrollo completo: Se registra evidencia suficiente para reproducir ejecuciones y comparar costos y tiempos del proceso completo de desarrollo (intentos de agente, orquestación, compilación y pruebas).
+- [ ] **SC-10:** Desacoplamiento dinámico de contratos WIT: Los contratos WIT se cargan y resuelven desde el proyecto experimental sin depender de interfaces comerciales incorporadas de forma fija en el código de `irtool` o `runner`.
+
+## 7. Restricciones y exclusiones
+
+La POC continuará dentro del repositorio experimental `poc-agent-native`, reutilizando las capacidades de las versiones anteriores y conservando sus pruebas de regresión. Su finalidad será validar la arquitectura y sus contratos antes de extraer un producto independiente.
+
+No se incluye en esta fase desarrollar un lenguaje de propósito general, implementar un backend HTTP de producción, incorporar una base de datos real, crear un registro federado de componentes ni resolver todas las capacidades de networking, concurrencia, asincronía y seguridad operacional.
+
+Tampoco se incluye trasladar el compilador al monorepo de Kaddo, publicar los paquetes definitivos de Agent-Native, desarrollar una interfaz visual completa ni consolidar el producto comercial. Esas actividades corresponderán a una fase posterior de extracción, estabilización e integración.
+
+## 8. Arquitectura objetivo
+
+El flujo conceptual será:
+
+```text
+                 FUENTES DE INTENCIÓN
+              ┌──────────────────────┐
+              │ Narrativa completa   │
+              │        o             │
+              │ Work Items de Kaddo  │
+              └──────────┬───────────┘
+                         │
+                         ▼
+              Agent-Native Orchestrator
+                         │
+                         ▼
+                System Specification
+                         │
+                         ▼
+               Agente de implementación
+                         │
+                         ▼
+                    Semantic IR
+                         │
+                         ▼
+              Verificador determinista
+                         │
+                         ▼
+              Compilador / Component Model
+                         │
+                         ▼
+               WebAssembly Components
+                         │
+                         ▼
+               Runtime / Composición
+                         │
+                         ▼
+               Pruebas y evidencias
+                         │
+                         └──► Retroalimentación
+                              y trazabilidad
+```
+
+La intención y la narrativa permanecerán separadas de la representación implementada. El orquestador coordinará la evolución del conocimiento y del software, mientras la toolchain determinista será responsable de verificar y generar los componentes ejecutables.
+
+## 9. Plan de Work Items (Fase 5)
 
 | ID | Tipo | Título | Estado | Entregables principales |
 |---|---|---|---|---|
-| **`WI-025`** | spike | Contrato experimental, Interfaces WIT y Semantic IR v0.4 | `completed` | Definición de interfaz `wit/order.wit`, esquema `ir/ir.schema.v4.json`, especificación `spec/task-004.yaml` (v1) y suite inicial `tests/public-004.yaml`. |
-| **`WI-026`** | spike | Verifier v0.4 + Component Packaging / Canonical ABI + Runner Component Linker | `completed` | Soporte en `irtool` para compilar Semantic IR v0.4 a WebAssembly Component nativo con Canonical ABI (`wit_component::ComponentEncoder`); soporte en `runner` para ejecutar componentes mediante `wasmtime::component::Component` y `wasmtime::component::Linker`. |
-| **`WI-027`** | spike | E1-004 Construcción de Componente con Interfaces WIT y Freeze | `completed` | Construcción de `ir/program-004.ir.json`, verificación contra WIT, emisión de componente WASM nativo, 100 % pass rate y sellado de `poc-004-e1-freeze`. |
-| **`WI-028`** | spike | E2-004 Reparación controlada guiada por WIT diagnostics | `completed` | Inyección de desalineación contra la interfaz WIT (`E_UNKNOWN_EXPORT_INTERFACE`), rechazo determinista y reparación en 1 intento. |
-| **`WI-029`** | spike | E3-004 Extensión funcional con interfaces y variantes ricas en WIT | `completed` | Extensión de especificación WIT con nueva operación (`quote-shipping`) y validación sobre backend congelado. |
-| **`WI-030`** | spike | E4-004 Mantenimiento modularizado y composición interoperable | `completed` | Mantenimiento localizado de reglas comerciales preservando la interfaz WIT y reproducibilidad 3/3. |
-| **`WI-031`** | chore | Análisis, matriz SC y conclusión POC 004 | `completed` | Evaluación de `SC-01` a `SC-16` estrictamente confirmados (16/16), reporte final `poc-report-v006.md` y decisión canónica Kaddo. |
-| **`WI-032`** | spike opcional | Benchmark pareado POC-004 vs Rust `cargo component` | `completed` | Comparación cuantitativa: Semantic IR v0.4 vs Rust (`wasm32-unknown-unknown`) con metadatos WIT; publicado en `BENCHMARK_REPORT_004.md`. |
+| **`WI-033`** | spike | Contrato experimental, esquema System Specification y narrativa base | `completed` | Esquema `system-spec.schema.json`, narrativa funcional `spec/narrative-005.md`, contratos WIT multi-componente y suites de pruebas de referencia. |
+| **`WI-034`** | spike | Orquestador Agent-Native y adaptador Kaddo | `ready` | Crate `crates/orchestrator` con ingestor narrativo, consolidador de System Specification, gestor de diagnósticos y adaptador standalone / Kaddo. |
+| **`WI-035`** | spike | Component Model Linker multi-componente en Runner | `draft` | Soporte en `runner` para componer, enlazar e instanciar múltiples WebAssembly Components dependientes en Wasmtime. |
+| **`WI-036`** | spike | E1-005 Construcción desde narrativa única y freeze | `draft` | Ejecución de E1: narrativa -> System Specification -> Semantic IR -> componentes WASM nativos -> 100 % pass rate y sellado de toolchain freeze. |
+| **`WI-037`** | spike | E2-005 Construcción desde Work Items equivalentes | `draft` | Ejecución de E2: secuencia de Work Items -> System Specification -> componentes WASM -> validación de paridad funcional con E1. |
+| **`WI-038`** | spike | E3-005 Evolución incremental guiada por nuevo Work Item | `draft` | Ejecución de E3: nuevo Work Item -> actualización de System Specification -> diff de IR -> regresión 100 % con backend congelado. |
+| **`WI-039`** | spike | E4-005 Composición multi-componente y mantenimiento localizado | `draft` | Ejecución de E4: modificación en un componente manteniendo intacto el otro, compatibilidad WIT y reproducibilidad 3/3. |
+| **`WI-040`** | chore | Validación dual (Standalone/Kaddo), análisis y conclusión POC 005 | `draft` | Validación transversal, matriz SC-01 a SC-10, reporte final de POC 005 y decisión GO/PIVOT/STOP. |
+| **`WI-041`** | spike opcional | Benchmark del ciclo de vida completo: Agent-Native vs Tradicional | `draft` | Medición cuantitativa del tiempo y esfuerzo de ciclo completo de desarrollo en `BENCHMARK_REPORT_005.md`. |
 
-## Conclusion Rule
+## 10. Resultado esperado y transición posterior
 
-- **GO (`validated`):** Se cumplen `SC-01` a `SC-16`. Justifica avanzar a la Fase 5 (**POC 005**: Orquestación y composición multi-componente agent-native con Component Model Linker y registro federado).
-- **PIVOT (`inconclusive`):** Los componentes WebAssembly son ejecutables pero la complejidad del Canonical ABI degrada la velocidad de feedback de la toolchain por encima de los 100 ms.
-- **STOP (`rejected`):** El agente no logra mapear conceptos de interfaz WIT en Semantic IR v0.4 o la emisión de componentes no puede mantenerse determinista y congelada.
+Al finalizar la POC 005 se espera disponer de un prototipo reproducible de Agent-Native capaz de construir software desde una narrativa y evolucionarlo mediante cambios incrementales, utilizando componentes WebAssembly interoperables y un motor independiente de Kaddo.
 
-## Toolchain Freeze Custody
+La validación deberá permitir identificar los contratos reutilizables del compilador, la Semantic IR, el runtime y el orquestador, así como los límites entre las responsabilidades del motor y las del ecosistema Kaddo.
 
-Los ejecutables del micro-toolchain en modo Release con soporte nativo de Canonical ABI y Component Model fueron congelados tras concluir la validación estricta de `SC-16`:
-
-- `target/release/irtool.exe`: `119c28092705c46306e13ffca641542bcaa09ab2d1e0d4d4a2021c98b2bcfa22`
-- `target/release/runner.exe`: `85ac2f654c685f9652d85d7a23a622852956e2a878020f95b9500ad8a7f096b8`
-- `runs/program-004.wasm`: `9fa30aa5ec9e725bbed5863106cc7ac05c96cffc911cb5859d6f375380912d0b`
-- Custodiados en: `runs/toolchain-freeze-poc004.sha256` y tag git `v0.34.0-wi-032-canonical-abi`.
-
-## Evaluation and Answers to Core Questions
-
-1. **¿Puede el agente implementar y consumir interfaces WIT estandarizadas en Semantic IR v0.4?**
-   Sí (`SC-01`, `SC-02`, `SC-12`, `SC-13`). El agente mapeó con éxito la interfaz exportada `kaddo:commercial/order-calculator` (`calculate-order`, `quote-shipping`) y las dependencias importadas `host-services` (`kv-get`, `check-credit`, `emit-audit`) en `ir/program-004.ir.json`, logrando 100 % de aprobación en suites públicas y reservadas sin tocar WAT ni WASM.
-
-2. **¿Fueron las desalineaciones con las interfaces WIT detectadas determinísticamente?**
-   Sí (`SC-04`, `SC-05`, `SC-14`). Al inyectar una interfaz no declarada en `E2-004`, la toolchain congelada emitió determinísticamente el error `E_UNKNOWN_EXPORT_INTERFACE` con JSONPath exacto (`$.functions[9].wit_interface`) en un reporte estructurado de tan solo 366 bytes. El agente reparó la discordancia en 1 solo intento recuperando la paridad binaria exacta (`b7c0a8...`).
-
-3. **¿Se mantuvo el backend del compilador 100 % congelado ante extensiones y mantenimiento de interfaces?**
-   Sí (`SC-03`, `SC-07`, `SC-09`). En `E3-004` (adición del método WIT `quote-shipping`) y en `E4-004` (alícuota fiscal 12 % y evento 999), ni `irtool` ni `runner` requirieron una sola modificación de código ni recompilación. Los hashes en `runs/toolchain-freeze-poc004.sha256` permanecieron idénticos.
-
-4. **¿El empaquetado de componentes cumple con la reproducibilidad binaria exacta?**
-   Sí (`SC-11`). 3/3 builds independientes en `E1-004`, `E3-004` y `E4-004` produjeron exactamente el mismo hash SHA-256 de componente WASM nativo (`0x0001000d`) con su sección personalizada de tipo de componente WIT y adaptadores de Canonical ABI incrustados.
-
-5. **¿Se conservó la ventaja de latencia y compacidad diagnóstica de la arquitectura Agent-Native?**
-   Sí (`SC-14`, `SC-15`, `SC-16`). La latencia combinada de verificación y empaquetado de componente fue de ~6 ms, y el runner ejecutó suites de 21 casos en Wasmtime en 4 ms.
-
-## Conclusion
-
-Status: validated
-
-Decision: GO
-
-Evidence summary:
-- E1-004: Construcción autónoma de componente WebAssembly nativo con contrato WIT en 1 intento (2,506 bytes, 7/7 públicas, 10/10 reservadas). Freeze sellado en `runs/toolchain-freeze-poc004.sha256`.
-- E2-004: Discordancia de interfaz WIT (`E_UNKNOWN_EXPORT_INTERFACE`) detectada con código de salida 1 y diagnóstico de 366 bytes; reparada en 1 intento restaurando paridad SHA-256 bit a bit.
-- E3-004: Extensión funcional incorporando método WIT `quote-shipping` completada en 1 intento con 0 cambios al backend congelado (9/9 públicas, 12/12 reservadas; 21/21 total).
-- E4-004: Mantenimiento modularizado (alícuota fiscal 12 % y evento 999) con diff quirúrgico en subfunciones internas y reproducibilidad 3/3 (21/21 pruebas aprobadas).
-- SC-16 Validación estricta: WebAssembly Component nativo con Canonical ABI (`canon lift` y `canon lower`) ejecutado en `wasmtime::component::Component` y `wasmtime::component::Linker`.
-- Success criteria passed: 16/16 (SC-01 a SC-16, estrictamente validados).
-- Success criteria failed: 0/16.
-- Inmutabilidad de Toolchain: 100 % confirmada en `runs/toolchain-freeze-poc004.sha256`.
-
-Recommendation:
-Decisión GO (validated). Habiendo demostrado que Semantic IR v0.4 permite a agentes de IA interactuar con contratos de interfaz WIT estandarizados, empaquetar WebAssembly Components nativos reproducibles con Canonical ABI, verificar compatibilidad estática con diagnósticos concisos y ejecutar en runtime de componentes de Wasmtime, se recomienda avanzar a la Fase 5: **POC 005 — Orquestación y composición multi-componente agent-native con Component Model Linker y registro federado**.
+Si el resultado es favorable, se recomendará iniciar una fase de **extracción y estabilización**, creando un repositorio independiente para Agent-Native, con paquetes internos separados para IR, verificación, compilación, runtime y orquestación. Kaddo incorporará posteriormente un adaptador opcional que consuma esa capacidad mediante contratos versionados.

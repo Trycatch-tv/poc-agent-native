@@ -1,0 +1,13 @@
+package kaddo:shipping@0.1.0;
+
+interface shipping-service {
+    quote-shipping: func(
+        subtotal-cents: s32,
+        weight-grams: s32,
+        is-express: s32
+    ) -> s32;
+}
+
+world shipping-component {
+    export shipping-service;
+}
