@@ -1,172 +1,195 @@
-﻿---
-type: poc-report
-version: 2
-conclusion: validated
-source_fingerprint: ee946bb0bc45f304c276cf9ab54a599a5a2532c477c17284df5d6b1c3abab113
-created_at: '2026-10-16'
 ---
-
-# Kaddo Agent-Native POC 001 â€” Final Report (`v002`, con Benchmark Pareado `WI-008`)
-
-> Reporte canÃ³nico sincronizado con [knowledge/delivery/poc-report-v002.md](knowledge/delivery/poc-report-v002.md).
+type: poc-report
+report_version: 3
+generated_at: '2026-10-16'
+poc_conclusion: validated
+source_fingerprint: 01152d588f157578bcb4cc89604eaa02443ab43d887df829241962ce23683184
+sources:
+  - knowledge/delivery/poc.md
+source_manifest:
+  knowledge/delivery/poc.md: 248f342ec73845ddccdf9708f64bc2d9b3045bc005d5b362ef610caca05cf994
+supersedes: poc-report-v002.md
+---
+# Kaddo Agent-Native POC 002 — Final Report (Semantic IR v0.2: Composición Funcional, Tipos Compuestos y Errores Tipados)
 
 ## Executive Summary
 
 | Atributo | Valor observado / verificado |
 |---|---|
-| **Experimento** | `KADDO-AGENT-NATIVE-POC-001` â€” Semantic IR v0.1 compilada directamente a WebAssembly + Benchmark Pareado Rustâ†’WASM (`WI-008`) |
-| **ConclusiÃ³n canÃ³nica** | **`validated`** |
-| **DecisiÃ³n recomendada** | **`GO`** |
+| **Experimento** | `KADDO-AGENT-NATIVE-POC-002` — Semantic IR v0.2 con composición funcional (`call`), registros en memoria lineal (`record`) y códigos de error tipados |
+| **Conclusión canónica** | **`validated`** |
+| **Decisión recomendada** | **`GO`** |
 | **Success Criteria cumplidos** | `16 / 16` (`SC-01` a `SC-16`) |
-| **Ejercicios Agent-Native completados** | `E1` (ConstrucciÃ³n y freeze), `E2` (ReparaciÃ³n controlada), `E3` (ExtensiÃ³n funcional), `E4` (Mantenimiento localizado) |
-| **Ejercicios Baseline Rust completados** | `B1` (`E1` par), `B2` (`E2` par), `B3` (`E3` par), `B4` (`E4` par) en `crates/baseline-rust` (`wasm32-unknown-unknown`) |
-| **Ventaja de velocidad de toolchain (`verify + compile`)** | **`16.0x` a `49.0x` mÃ¡s rÃ¡pido** en Agent-Native (`25â€“27 ms` vs `401â€“1324 ms`, medido) |
-| **Ventaja de tamaÃ±o binario `.wasm`** | **`34.6 %` a `44.9 %` mÃ¡s compacto** en Agent-Native (`76 B` / `134 B` vs `138 B` / `205 B`, medido) |
-| **Ventaja de compacidad de diagnÃ³stico (`E2` vs `B2`)** | **`23.3x` menos bytes de diagnÃ³stico** en Agent-Native (`264 B` JSONPath vs `6158 B` JSONL de `cargo check`, medido) |
+| **Ejercicios completados** | `E1-002` (Construcción y Freeze), `E2-002` (Reparación controlada), `E3-002` (Extensión funcional), `E4-002` (Mantenimiento modularizado) |
+| **Inmutabilidad del Backend** | **`100 %`** — Binarios de toolchain (`irtool.exe` y `runner.exe`) intactos post-freeze en `E2-002`, `E3-002` y `E4-002` |
+| **Latencia del ciclo determinista (`verify + compile`)** | **`23 ms` a `28 ms`** en Semantic IR v0.2 |
+| **Tamaño del binario WebAssembly emitido** | **`308 bytes`** (v1) / **`459 bytes`** (v2 y v3 con manejo de errores y memoria lineal) |
+| **Pass rate en suites de pruebas** | **`100 %`** (12/12 públicas, 18/18 reservadas) |
+| **Reproducibilidad bit a bit (`SC-11`)** | **`3/3` compilaciones idénticas** (`0a2265bca6b1431f2ea15bb3da9831f5e1f8082230c36fd1659c613f9af88c85`) |
 
-`KADDO-AGENT-NATIVE-POC-001` validÃ³ empÃ­ricamente que un agente puede construir (`E1`), reparar (`E2`), extender (`E3`) y mantener (`E4`) reglas comerciales operando exclusivamente sobre una Semantic IR v0.1 (`ir/program.ir.json`) compilada directamente a `.wasm` sin tocar el backend congelado (`poc-e1-freeze`). Adicionalmente, el benchmark comparativo pareado (`WI-008`) frente a `Rust â†’ wasm32-unknown-unknown` (`B1`â€“`B4`) demostrÃ³ que, manteniendo `100 %` de correcciÃ³n en ambas rutas, la ruta Agent-Native reduce la latencia de verificaciÃ³n/compilaciÃ³n entre `16x` y `49x`, reduce el tamaÃ±o del `.wasm` en `34.6 %â€“44.9 %` y reduce el volumen del diagnÃ³stico de error en `23.3x`.
+`KADDO-AGENT-NATIVE-POC-002` validó empíricamente que un agente de IA puede modelar lógica comercial compleja que requiere partición modular en subfunciones internas (`call`), estructuras de datos con layouts alineados en memoria lineal (`record` en Core WASM) y variantes de códigos de error de dominio tipados, operando exclusivamente sobre una Semantic IR v0.2 (`ir/program-002.ir.json`). A través de cuatro ejercicios iterativos sucesivos (`E1-002` a `E4-002`), el compilador y verificador determinista (`crates/irtool`) y el runner en Wasmtime (`crates/runner`) mantuvieron hashes criptográficos inalterados tras el freeze inicial, logrando un 100 % de aprobación en pruebas públicas y reservadas, tiempos de compilación sub-30ms y un aislamiento estricto de roles.
 
 ## Problem and Objective
 
-En el desarrollo asistido por IA actual, los agentes operan sobre lenguajes fuente diseÃ±ados para humanos (Rust, TypeScript, Python, Go), donde una fracciÃ³n significativa del esfuerzo de inferencia y revisiÃ³n se consume en sintaxis accidental, boilerplate de ABI y diagnÃ³sticos orientados a ediciÃ³n manual.
+En la POC 001 previa (`KADDO-AGENT-NATIVE-POC-001`), se demostró que un agente puede mantener funciones puras sobre tipos escalares primitivos (`i32`, `bool`) con ganancias sustanciales de velocidad y compacidad frente a Rust. Sin embargo, el software de producción requiere resolver:
+1. **Composición de funciones:** descomponer algoritmos en subfunciones auxiliares internas no exportadas sin duplicar lógica ni exponer interfaces innecesarias.
+2. **Tipos de datos compuestos:** representar entidades de dominio (`LineItem`, `OrderCalculation`) con campos tipados mediante un layout predecible en memoria lineal de WebAssembly.
+3. **Manejo formal de errores:** modelar explícitamente estados de fallo de negocio mediante códigos tipados y variantes de estado (`status_code`).
 
-El objetivo de `KADDO-AGENT-NATIVE-POC-001` fue comprobar si una **Semantic IR v0.1** explÃ­cita, pequeÃ±a y fuertemente tipada puede actuar como **artefacto primario de software mantenido por el agente**, y comparar cuantitativamente su ciclo de vida (`E1`â€“`E4`) frente al baseline tradicional `Rust â†’ wasm32-unknown-unknown` (`B1`â€“`B4`, `WI-008`).
+El objetivo de esta POC 002 fue demostrar que la Semantic IR puede escalar a v0.2 para soportar llamadas internas, memoria lineal determinista y variantes de error, conservando la inmutabilidad del compilador, la latencia ultra-baja y diagnósticos JSONPath exactos.
 
 ## Hypothesis and Success Criteria
 
-- **HipÃ³tesis principal (`H1`):** Para funciones puras de reglas de negocio sin I/O, un agente puede operar sobre una Semantic IR v0.1 como artefacto principal de software y, apoyado en un verificador determinista, un compilador directo `IR â†’ WASM` y un runner de pruebas en Wasmtime, completar construcciÃ³n (`E1`), reparaciÃ³n controlada (`E2`), extensiÃ³n (`E3`) y mantenimiento (`E4`) sin editar cÃ³digo fuente tradicional ni modificar el compilador despuÃ©s del punto de congelamiento.
+- **Hipótesis principal (`H2`):** Dada una especificación funcional con composición modular, estructuras de datos compuestas y variantes de error explícitas, un agente de IA puede construir, reparar, extender y mantener la Semantic IR v0.2 de un programa mediante ciclos sucesivos (`E1`–`E4`), mientras una toolchain determinista verifica tipos, firmas y layouts de memoria, emitiendo WebAssembly ejecutable que satisface el 100 % de las pruebas de aceptación y regresión, sin requerir modificaciones al backend tras el hito inicial `E1`.
 
 | ID | Criterio | Estado | Evidencia medida |
 |---|---|---|---|
-| `SC-01` | E1 correcciÃ³n (`100 %` pÃºblicas y reservadas) | Cumplido (`[x]`) | `6/6` pÃºblicas y `9/9` reservadas en `runs/e1-build/attempt-01/` |
-| `SC-02` | E1 autonomÃ­a (`0` ediciones manuales humanas a IR) | Cumplido (`[x]`) | `manual_ir_edits = 0` en `runs/e1-build/attempt-01/run.json` |
-| `SC-03` | LÃ­mite de reparaciÃ³n inicial en E1 (`<= 2` intentos) | Cumplido (`[x]`) | `repair_attempts = 0` (aprobado en el primer intento) |
-| `SC-04` | E2 rechazo determinista (`exit != 0`, cÃ³digo y ruta) | Cumplido (`[x]`) | `exit code = 1`, `E_UNKNOWN_PARAM` en `$.functions[0].body.condition.left` (`diagnostics.injected.json`) |
-| `SC-05` | E2 reparaciÃ³n (`<= 2` intentos, `100 %` pruebas E1) | Cumplido (`[x]`) | Reparado en `1` intento; `6/6` pÃºblicas + `9/9` reservadas (`runs/e2-repair/attempt-01/`) |
-| `SC-06` | E3 extensiÃ³n (`calculate_discount` + regresiÃ³n) | Cumplido (`[x]`) | `12/12` pÃºblicas + `18/18` reservadas (`runs/e3-extend/attempt-01/`) |
-| `SC-07` | E3 estabilidad de toolchain post-freeze | Cumplido (`[x]`) | Hashes de `irtool.exe` y `runner.exe` idÃ©nticos a `runs/toolchain-freeze.sha256` |
-| `SC-08` | E4 mantenimiento (`calculate_shipping` v3 + regresiÃ³n) | Cumplido (`[x]`) | `12/12` pÃºblicas + `18/18` reservadas (`runs/e4-maintain/attempt-01/`) |
-| `SC-09` | E4 estabilidad de toolchain post-freeze | Cumplido (`[x]`) | Hashes de `irtool.exe` y `runner.exe` idÃ©nticos a `runs/toolchain-freeze.sha256` |
-| `SC-10` | Validez WASM (`wasmparser` / `irtool validate`) | Cumplido (`[x]`) | `wasm_valid = true` en `E1`â€“`E4` y `B1`â€“`B4` |
-| `SC-11` | Reproducibilidad (`3/3` compilaciones idÃ©nticas en E4) | Cumplido (`[x]`) | `3/3` builds con `sha256 = 947620fe23636397ba820b7cadf673e95fb3e09f68591bd0b54bfc8183d0a450` |
-| `SC-12` | Fuente de verdad (sin ediciones manuales a WAT/WASM) | Cumplido (`[x]`) | Todo `.wasm` y `.wat` fue emitido automÃ¡ticamente |
-| `SC-13` | Aislamiento de negocio (sin implementaciÃ³n paralela en el pipeline Agent-Native) | Cumplido (`[x]`) | `crates/irtool` y `crates/runner` son genÃ©ricos; `crates/baseline-rust` es un workspace separado de benchmark (`WI-008`) |
-| `SC-14` | Evidencia completa en `runs/<exercise>/<attempt>/` | Cumplido (`[x]`) | Todos los artefactos requeridos existen para `E1`â€“`E4` y `B1`â€“`B4` |
-| `SC-15` | Trazabilidad funciÃ³n/caso â†’ requirement ID | Cumplido (`[x]`) | `SHIP-001..003` y `DISC-001..003` trazados en IR y reportes de `runner` |
-| `SC-16` | Cero bypass de pruebas, verifier o especificaciÃ³n | Cumplido (`[x]`) | NingÃºn criterio ni caso esperado fue relajado |
+| `SC-01` | Construcción inicial `E1-002` (<= 3 intentos) | Cumplido (`[x]`) | Aprobado en 1 intento en `runs/poc002-e1-build/attempt-01/` |
+| `SC-02` | Corrección funcional `E1-002` (100 % pruebas) | Cumplido (`[x]`) | 6/6 públicas y 9/9 reservadas aprobadas |
+| `SC-03` | Congelamiento de toolchain sellado | Cumplido (`[x]`) | Hashes sellados en `runs/toolchain-freeze-poc002.sha256` y tag `poc-002-e1-freeze` |
+| `SC-04` | Detección determinista de defecto en `E2-002` | Cumplido (`[x]`) | Exit code 1, `E_UNKNOWN_FIELD` en `$.functions[2].body.else.fields.subtotal` |
+| `SC-05` | Reparación controlada `E2-002` (<= 2 intentos) | Cumplido (`[x]`) | Reparado en 1 intento; 6/6 públicas y 9/9 reservadas aprobadas; mismo SHA-256 WASM |
+| `SC-06` | Extensión funcional `E3-002` (<= 3 intentos) | Cumplido (`[x]`) | Completado en 1 intento incorporando `status_code` 0..3 |
+| `SC-07` | Inmutabilidad del backend en `E3-002` | Cumplido (`[x]`) | Hashes de `irtool.exe` y `runner.exe` idénticos a freeze point |
+| `SC-08` | Preservación de regresión en `E3-002` | Cumplido (`[x]`) | 12/12 públicas y 18/18 reservadas aprobadas |
+| `SC-09` | Inmutabilidad del backend en `E4-002` | Cumplido (`[x]`) | Hashes de toolchain 100 % coincidentes post-freeze |
+| `SC-10` | Mantenimiento modularizado en `E4-002` | Cumplido (`[x]`) | 12/12 públicas y 18/18 reservadas aprobadas con diff de 2 líneas |
+| `SC-11` | Reproducibilidad binaria exacta | Cumplido (`[x]`) | 3/3 builds deterministas producen hash `0a2265bca6b1431f2ea15bb3da9831f5e1f8082230c36fd1659c613f9af88c85` |
+| `SC-12` | Integridad de roles (agente) | Cumplido (`[x]`) | 0 líneas de WAT o WASM editadas por el agente |
+| `SC-13` | Integridad del estado de software | Cumplido (`[x]`) | `ir/program-002.ir.json` es el único artefacto modificado por el agente |
+| `SC-14` | Compacidad diagnóstica | Cumplido (`[x]`) | Diagnóstico estructurado con ruta JSONPath precisa y sin ruido sintáctico |
+| `SC-15` | Latencia del bucle determinista (< 60 ms) | Cumplido (`[x]`) | `verify` + `compile` ejecutado entre 23 ms y 28 ms |
+| `SC-16` | Validación estricta de WebAssembly | Cumplido (`[x]`) | Binarios `.wasm` validados al 100 % por `wasmparser` |
 
 ## Scope, Constraints and Non-goals
 
-- **Alcance tÃ©cnico incluido (`IR v0.1` + `WI-008`):** Tipos escalares `i32` y `bool`, funciones exportadas puras, literales (`const`), referencias a parÃ¡metros (`param`), condicional ternario (`if`), comparaciones (`eq`, `lt_s`, `gte_s`), aritmÃ©tica entera con signo (`add`, `sub`, `mul`, `div_s`), operadores booleanos (`and`, `or`, `not`), trazabilidad por `requirements`, compilaciÃ³n directa a WebAssembly Core Module y benchmark pareado contra `Rust â†’ wasm32-unknown-unknown`.
-- **Restricciones activas:** Cero ediciones manuales a `ir/program.ir.json`, `.wat` o `.wasm`; congelamiento estricto del backend (`irtool` y `runner`) tras `E1` (`poc-e1-freeze`); ejecuciÃ³n determinista sin I/O ni capacidades de host.
-- **Non-goals respetados:** No se incluyÃ³ memoria lineal dinÃ¡mica ni strings/colecciones en la IR, ni integraciones externas (HTTP, bases de datos, colas) ni WASI.
+- **Alcance técnico incluido (`IR v0.2`):** Composición funcional con subfunciones internas (`call`), tipos compuestos definidos en esquema (`records`), instanciación y acceso a registros mediante punteros a memoria lineal (`record.construct`, `record.get`), discriminación tipada de estados de error (`status_code` 0..3), control de flujo condicional (`if`), aritmética y comparaciones enteras con signo, validación de esquemas JSON Schema Draft 2020-12, y verificación estricta de firmas antes de la emisión binaria directa.
+- **Restricciones activas:** Montos en centavos enteros (`i32`), memoria alineada a 4 bytes, toolchain compilada y congelada en `E1-002` con hashes auditables, y ausencia total de intervención manual sobre binarios o código intermedio.
+- **Non-goals:** No se incorporó recolección de basura compleja (GC) en runtime, ni comunicación de red/disco (I/O diferida a la Fase 3), ni concurrencia/threads en WebAssembly.
 
 ## Technical Approach and Architecture
 
 ```mermaid
 flowchart TD
-    S["Misma especificaciÃ³n (v1..v3) + mismos tests pÃºblicos y reservados"]
-    S --> IRA["Ruta Agent-Native (E1â€“E4)"]
-    IRA --> A1["Agente â†’ ir/program.ir.json (Semantic IR v0.1)"]
-    A1 --> A2["irtool verify (11â€“12 ms)"]
-    A2 --> A3["irtool compile (14â€“15 ms)"]
-    A3 --> WA["program.wasm (76 B / 134 B)"]
-
-    S --> RB["Baseline Rust (B1â€“B4, WI-008)"]
-    RB --> R1["Agente â†’ crates/baseline-rust/src/lib.rs (#![no_std])"]
-    R1 --> R2["cargo check (138â€“365 ms)"]
-    R2 --> R3["cargo build --release wasm32 (263â€“959 ms)"]
-    R3 --> WR["baseline_rust.wasm (138 B / 205 B)"]
-
-    WA --> H["Mismo irtool validate + mismo runner (Wasmtime 27.0.0)"]
-    WR --> H
+    SPEC["Especificación de Requisitos (spec/task-002.yaml v1..v3)"] --> AGENT["Agente IA (Generación/Mantenimiento)"]
+    AGENT --> IR["Semantic IR v0.2 (ir/program-002.ir.json)"]
+    IR --> VER["irtool verify (Type Checking, Signatures, Records)"]
+    VER -->|0 diagnósticos| COM["irtool compile (Lowering directo a WASM Core)"]
+    VER -->|Errores| DIAG["diagnostics.json (JSONPath + Expected / Found)"]
+    DIAG -.->|Feedback conciso| AGENT
+    COM --> WASM["program.wasm (308 B - 459 B)"]
+    WASM --> VAL["irtool validate (wasmparser)"]
+    WASM --> RUN["runner test (Wasmtime 27.0.0 + Linear Memory Reader)"]
+    SUITE["Suites YAML (tests/public-002.yaml, hidden-002.yaml)"] --> RUN
+    RUN --> REP["Reporte de Ejecución (100 % pass rate)"]
 ```
 
 ## Infrastructure and Project Resources
 
-| Recurso / Componente | Tipo | VersiÃ³n / Hash observado | Rol en la POC |
+| Recurso / Componente | Tipo | Versión / Identificador | Rol en la POC |
 |---|---|---|---|
-| `rustc` / `cargo` | Compilador host y target `wasm32-unknown-unknown` | `1.85.0 (4d91de4e4 2025-02-17)` | CompilaciÃ³n del toolchain (`irtool`, `runner`) y del baseline Rust (`WI-008`) |
-| `wasmtime` | Runtime WASM embebido | `27.0.0` | EjecuciÃ³n aislada de funciones exportadas en `crates/runner` |
-| `wasm-encoder` / `wasmparser` / `wasmprinter` | Bytecode Alliance crates | `0.221.3` | EmisiÃ³n binaria `.wasm`, validaciÃ³n independiente e inspecciÃ³n `.wat` |
-| `target/debug/irtool.exe` | Binario congelado (`E1`) | `sha256: 05b0d4c4d8bd85b5fcd7cbcfafa92dccb9b57d0a240464d50a5c874452604d0e` | Verifier + Compiler directo `IR â†’ WASM` |
-| `target/debug/runner.exe` | Binario congelado (`E1`) | `sha256: 808cf7f6a6b88aedb141a2d09d75d999d3f36b8824aa1837b19113fb9963782c` | Ejecutor determinista de suites YAML pÃºblicas y reservadas |
-| `crates/baseline-rust` | Workspace Rust aislado (`WI-008`) | `#![no_std]`, `cdylib`, `opt-level = "z"`, `lto = true`, `strip = "symbols"` | Sujeto del benchmark comparativo `Rust â†’ wasm32-unknown-unknown` |
+| `rustc` / `cargo` | Compilador host | `1.93.0-nightly` | Compilación de la toolchain determinista |
+| `wasmtime` | Runtime WASM embebido | `27.0.0` | Ejecución aislada de funciones exportadas e inspección de memoria lineal |
+| `wasm-encoder` / `wasmparser` | Crates WASM | `0.221.0` | Emisión binaria directa de secciones (`Type`, `Function`, `Memory`, `Export`, `Code`) y validación estricta |
+| `target/debug/irtool.exe` | Binario congelado (`E1-002`) | `sha256: 959ca4f87127d36799c1bddad2af2cf260006711d03c6a8fd4f58fdcaf581f2d` | Verificador y compilador directo `IR v0.2 → WASM` |
+| `target/debug/runner.exe` | Binario congelado (`E1-002`) | `sha256: feda31350f81dcd8beca79f31a15b1e6932cd8fb9ab9a7266b775e8845795a5b` | Ejecutor de suites de prueba con lectura de registros en memoria lineal |
 
 ## Implementation and Relevant Technical Decisions
 
-| Work Item | DecisiÃ³n tÃ©cnica relevante | JustificaciÃ³n |
+| Work Item | Decisión técnica relevante | Justificación |
 |---|---|---|
-| `WI-001` | FormalizaciÃ³n de `ir/ir.schema.json` (Draft 2020-12) y tabla de tipado con `eq` polimÃ³rfico `(i32, i32)` / `(bool, bool)` | Evitar ambigÃ¼edades entre la especificaciÃ³n de `E3` (`premium == false`) y el verificador semÃ¡ntico |
-| `WI-002` | EmisiÃ³n directa a `.wasm` mediante `wasm-encoder` e integraciÃ³n de `wasmparser` (`irtool validate`) y `wasmprinter` (`irtool print`) | Cumplir la ruta principal sin pasar por cÃ³digo fuente ni depender de binarios externos fuera del `PATH` |
-| `WI-003` | Sellado del freeze point en el tag `poc-e1-freeze` y registro en `runs/toolchain-freeze.sha256` | Garantizar auditabilidad criptogrÃ¡fica de que `E2`, `E3` y `E4` no alteran el backend |
-| `WI-004`â€“`WI-007` | EjecuciÃ³n `E2`â€“`E4` sobre `ir/program.ir.json` y cierre validado (`GO`) | Verificar los `16/16` Success Criteria |
-| `WI-008` | Workspace aislado `crates/baseline-rust` para comparar `B1`â€“`B4` contra `E1`â€“`E4` con el mismo `runner` | Medir diferencias reales de latencia, tamaÃ±o `.wasm`, ruido de diagnÃ³stico y ABI sin contaminar el workspace congelado |
+| `WI-009` | Especificación de Semantic IR v0.2 con declaración de tipos compuestos (`records`), campo `params` tipado y catálogo de subfunciones internas | Garantizar que el verificador conozca la firma de las funciones auxiliares antes de autorizar un operador `call`. |
+| `WI-010` | Modelo de Bump Allocation en memoria lineal Core WASM (`(global $heap_ptr (mut i32) (i32.const 1024))`) y lectura tipada en `runner` | Permite crear y retornar estructuras de datos arbitrarias sin depender de un runtime GC externo ni de llamadas al host. |
+| `WI-011` | Implementación de `calculate_line_item` y `calculate_tax` compuestas en `calculate_order`, emitiendo binario de 308 bytes y sellando freeze | Validar la capacidad de razonamiento composicional del agente y congelar criptográficamente el backend. |
+| `WI-012` | Inyección de fallo semántico en campo (`subtotal` vs `subtotal_cents`) produciendo diagnóstico JSONPath exacto | Demostrar que los diagnósticos de campo estructurados permiten al agente reparar el fallo en 1 intento sin ambigüedades. |
+| `WI-013` | Extensión a `OrderCalculation.status_code` para modelar 4 estados de error de dominio (OK, ítem inválido, envío inválido, límite excedido) | Demostrar que la evolución hacia variantes de error funciona completamente en la IR sin alterar el micro-compilador. |
+| `WI-014` | Actualización de la regla tributaria en `calculate_tax` (10 % a 15 %) en un diff localizado de exactamente 2 líneas | Probar que la modularización interna aísla los cambios de reglas de negocio evitando efectos colaterales. |
 
 ## Experiments and Validation
 
-| Par experimental | Ruta Agent-Native (`E1`â€“`E4`) | Ruta Baseline Rust (`B1`â€“`B4`, `WI-008`) | Estado |
+| Ejercicio | Descripción del Experimento | Resultado Observable | Estado |
 |---|---|---|---|
-| **ConstrucciÃ³n (`E1` vs `B1`)** | `76 B` `.wasm`, `12 ms` verify + `15 ms` compile (`27 ms`), `6/6` pÃºblicas, `9/9` reservadas | `138 B` `.wasm`, `365 ms` check + `959 ms` build (`1324 ms`), `6/6` pÃºblicas, `9/9` reservadas | Validado |
-| **ReparaciÃ³n (`E2` vs `B2`)** | Rechazo en `11 ms` (`264 B` JSON con JSONPath), reparado en `1` intento, `25 ms` rebuild | Rechazo en `181 ms` (`6158 B` JSONL de `cargo check`), reparado en `1` intento, `401 ms` rebuild | Validado |
-| **ExtensiÃ³n (`E3` vs `B3`)** | `134 B` `.wasm`, `11 ms` verify + `14 ms` compile (`25 ms`), `12/12` pÃºblicas, `18/18` reservadas | `205 B` `.wasm`, `237 ms` check + `313 ms` build (`550 ms`), `12/12` pÃºblicas, `18/18` reservadas | Validado |
-| **Mantenimiento (`E4` vs `B4`)** | `134 B` `.wasm`, `25 ms` rebuild, `3` lÃ­neas diff, `3/3` builds idÃ©nticos (`947620fe...`) | `205 B` `.wasm`, `508 ms` inc. / `584 ms` clean, `3` lÃ­neas diff, `3/3` builds idÃ©nticos (`e840e0d1...`) | Validado |
+| **`E1-002` (Construcción)** | Construcción inicial de `program-002.ir.json` con subfunciones `calculate_line_item`, `calculate_tax` y record `OrderCalculation` | 0 diagnósticos, compilación en 23 ms, 308 bytes WASM, 6/6 públicas y 9/9 reservadas aprobadas | Validado |
+| **`E2-002` (Reparación)** | Inyección intencional de campo erróneo `subtotal` en constructor de `OrderCalculation` | Detección determinista inmediata (exit 1), diagnóstico JSONPath, reparado en 1 intento, SHA-256 recuperado | Validado |
+| **`E3-002` (Extensión)** | Incorporación de discriminantes de error de dominio `status_code` (0..3) con suite de 30 pruebas | 0 diagnósticos, 459 bytes WASM, 12/12 públicas y 18/18 reservadas aprobadas, toolchain inalterada | Validado |
+| **`E4-002` (Mantenimiento)** | Modificación de tasa tributaria al 15 % en subfunción interna `calculate_tax` | Diff de 2 líneas, 12/12 públicas y 18/18 reservadas aprobadas, 3/3 compilaciones deterministas idénticas | Validado |
 
 ## Results and Measurements
 
-| MÃ©trica | E1 vs B1 (1 fn) | E2 vs B2 (Repair) | E3 vs B3 (2 fns) | E4 vs B4 (Maintain) | Ventaja medida (`Agent-Native` vs `Rust`) |
+| Métrica | E1-002 (Construcción) | E2-002 (Reparación) | E3-002 (Extensión) | E4-002 (Mantenimiento) | Observación / Comportamiento |
 |---|---|---|---|---|---|
-| **VerificaciÃ³n (`verify_ms` vs `cargo check`)** | `12 ms` vs `365 ms` | `11 ms` vs `181 ms` (fallo) / `138 ms` (ok) | `11 ms` vs `237 ms` | `11 ms` vs `188 ms` | **`12.5x` a `30.4x` mÃ¡s rÃ¡pido** |
-| **CompilaciÃ³n (`compile_ms` vs `cargo build`)** | `15 ms` vs `959 ms` | `14 ms` vs `263 ms` | `14 ms` vs `313 ms` | `14 ms` vs `320 ms` (`396 ms` clean) | **`18.8x` a `63.9x` mÃ¡s rÃ¡pido** |
-| **Ciclo total (`verify + compile`)** | `27 ms` vs `1324 ms` | `25 ms` vs `401 ms` | `25 ms` vs `550 ms` | `25 ms` vs `508 ms` (`584 ms` clean) | **`16.0x` a `49.0x` mÃ¡s rÃ¡pido** |
-| **TamaÃ±o `.wasm` (`wasm_size_bytes`)** | `76 B` vs `138 B` | `76 B` vs `138 B` | `134 B` vs `205 B` | `134 B` vs `205 B` | **`34.6 %` a `44.9 %` mÃ¡s pequeÃ±o** |
-| **Payload de diagnÃ³stico (`E2` vs `B2`)** | â€” | `264 B` vs `6158 B` | â€” | â€” | **`23.3x` mÃ¡s compacto** |
-| **Pass rate pÃºblico y reservado** | `100 %` vs `100 %` | `100 %` vs `100 %` | `100 %` vs `100 %` | `100 %` vs `100 %` | Empate (`100 %`) |
+| **Latencia Verificación** | `11 ms` | `10 ms` | `11 ms` | `11 ms` | Constante e instantánea en todas las fases |
+| **Latencia Compilación** | `12 ms` | `13 ms` | `13 ms` | `12 ms` | Emisión directa de bytecode sin pasos intermedios |
+| **Ciclo Total Toolchain** | `23 ms` | `23 ms` | `24 ms` | `23 ms` | Muy inferior al umbral máximo de 60 ms (`SC-15`) |
+| **Tamaño `.wasm` emitido** | `308 B` | `308 B` | `459 B` | `459 B` | Huella ultra-compacta con memoria lineal y 3 funciones |
+| **Intentos requeridos** | `1` (límite <= 3) | `1` (límite <= 2) | `1` (límite <= 3) | `1` (límite <= 3) | 100 % de precisión en primer intento |
+| **Pass rate Pruebas Públicas** | `6/6 (100 %)` | `6/6 (100 %)` | `12/12 (100 %)` | `12/12 (100 %)` | Cero regresiones |
+| **Pass rate Pruebas Reservadas** | `9/9 (100 %)` | `9/9 (100 %)` | `18/18 (100 %)` | `18/18 (100 %)` | Robustez ante límites aritméticos |
+| **Reproducibilidad SHA-256** | 100 % | 100 % | 100 % | `3/3` idénticos | Determinismo estricto bit a bit |
 
 ## Cost and Efficiency Analysis
 
-- **MÃ©tricas de tokens y costo monetario del proveedor (`M09`, `M10`, `M11`):** `No evidence available.` para contadores internos del proveedor, pero el **costo de contexto del bucle de diagnÃ³stico (`E2` vs `B2`)** se midiÃ³ directamente en bytes: `264 bytes` en `irtool verify` frente a `6,158 bytes` en `cargo check --message-format=json` (**reducciÃ³n del `95.7 %` en el volumen de salida diagnÃ³stica** entregada al agente).
-- **Eficiencia de compilaciÃ³n y artefacto:** Mientras que `cargo build --target wasm32-unknown-unknown --release` requiriÃ³ `263â€“959 ms` y emitiÃ³ `138â€“205 bytes` (incluyendo una secciÃ³n `(memory 16)` de 1 MiB y globales `__data_end`/`__heap_base` no utilizados), `irtool compile` completÃ³ la emisiÃ³n binaria en `14â€“15 ms` con `76â€“134 bytes` y cero secciones superfluas.
+- **Eficiencia en el consumo de contexto y tokens:** Al eliminar la sintaxis accidental de lenguajes tradicionales (headers, macros, allocators manuales, convenciones de punteros unsafe), el modelo sólo opera sobre el árbol de decisión de negocio.
+- **Compacidad de los diagnósticos de fallo:** En lugar de emitir trazas de compilador de múltiples kilobytes con warnings de borrow-checker o layouts de structs desalineados, `irtool verify` produjo un informe conciso con JSONPath exacto (`$.functions[2].body.else.fields.subtotal`), reduciendo el ruido de contexto entregado al agente a menos de 600 bytes estructurados.
+- **Rendimiento de emisión:** La generación de WebAssembly Core con sección de memoria lineal se completó en ~13 ms, requiriendo 0 llamadas a optimizadores externos pesados (como `wasm-opt`).
 
 ## Observability and Operational Findings
 
-- **DiagnÃ³sticos semÃ¡nticos orientados al AST vs spans de texto:** `irtool verify` reporta `path: "$.functions[0].body.condition.left"`, `expected: "subtotal_cents"` y `found: "subtotal"`, eliminando la necesidad de parsear lÃ­neas/columnas o texto ANSI renderizado de `rustc`.
-- **EliminaciÃ³n de fricciÃ³n de ABI en frontera WASM:** En Rust (`extern "C"`), el agente debe recordar que WebAssembly Core no tiene tipo `bool` nativo y codificar manualmente `premium: i32` (`premium == 0`), ademÃ¡s de incluir `#![no_std]` y `#[panic_handler]`. En la Semantic IR v0.1, el agente usa `type: "bool"` con verificaciÃ³n de tipos estricta y el compilador resuelve la representaciÃ³n ABI `i32` automÃ¡ticamente.
+- **Aislamiento modular comprobado:** La hipótesis `H2-D` se confirmó de manera concluyente en `E4-002`: al modificar la tasa impositiva del 10 % al 15 %, únicamente se tocó el cuerpo de `calculate_tax`. `calculate_order` invocó la subfunción vía `call` sin requerir re-especificación de firmas ni propagación de cambios manuales.
+- **Mapeo determinista en memoria lineal:** La asignación mediante un puntero bump global (`$heap_ptr`) a partir del offset 1024 permitió que las funciones retornaran punteros `i32` directos al inicio de la estructura, permitiendo a `runner` deserializar los campos de `OrderCalculation` inspeccionando offsets múltiplos de 4 bytes (`offset 0 = subtotal`, `offset 4 = tax`, etc.).
+- **Diagnósticos accionables para el agente:** La presencia explícita de `expected` y `found` en `diagnostics.json` orientó al agente a sustituir `subtotal` por `subtotal_cents` de forma quirúrgica en su primer intento.
 
 ## Findings, Learnings, Limitations and Risks
 
-| CategorÃ­a | DescripciÃ³n fundamentada en la evidencia |
+| Categoría | Descripción fundamentada en la evidencia |
 |---|---|
-| **Hallazgo principal (`E1`â€“`E4`)** | La Semantic IR v0.1 permite construir, reparar, extender y mantener reglas puras cumpliendo `16/16` criterios con `0` cambios al backend tras el freeze. |
-| **Hallazgo del benchmark (`WI-008`)** | Frente a `Rust â†’ wasm32-unknown-unknown`, la ruta Agent-Native es `16xâ€“49x` mÃ¡s rÃ¡pida en feedback de toolchain, genera binarios `.wasm` `35 %â€“45 %` mÃ¡s pequeÃ±os y emite diagnÃ³sticos `23.3x` mÃ¡s compactos. |
-| **LimitaciÃ³n actual** | `IR v0.1` cubre Ãºnicamente funciones escalares puras (`i32`, `bool`) sin estructuras compuestas, llamadas entre funciones ni I/O. |
-| **Riesgo para fases siguientes** | Escalar la IR sin preservar su simplicidad estructural podrÃ­a erosionar la ventaja de compacidad diagnÃ³stica y velocidad de verificaciÃ³n observada frente a `rustc`. |
+| **Hallazgo principal** | Semantic IR v0.2 es plenamente capaz de soportar modularidad interna, estructuras compuestas y variantes tipadas de error manteniendo la velocidad sub-30ms, el congelamiento del compilador y el determinismo binario. |
+| **Aprendizaje clave** | El patrón de composición funcional (`call`) simplifica drásticamente el mantenimiento (`E4-002`), logrando que una actualización de reglas comerciales complejas se reduzca a un diff de solo 2 líneas. |
+| **Limitación identificada** | En esta fase no existe persistencia ni comunicación exterior (capabilities de host para I/O, base de datos o red), por lo que el programa es una función pura autocontenida en memoria. |
+| **Riesgo para Fase 3** | Incorporar interfaces de I/O o Component Model (WASI / WIT) podría introducir asincronía y complejidad de runtime que debe ser aislada cuidadosamente para no degradar el determinismo del núcleo de negocio. |
 
 ## Conclusion
 
-- **Status:** **`validated`**
-- **Decision:** **`GO`**
+Status: validated
 
-Tanto la serie primaria `E1`â€“`E4` (`16/16` criterios aprobados) como el benchmark comparativo pareado `B1`â€“`B4` (`WI-008`) confirman la hipÃ³tesis `H1` y demuestran ventajas cuantitativas claras en latencia de ciclo determinista (`16xâ€“49x`), compacidad de binario (`35 %â€“45 %`) y densidad de diagnÃ³stico (`23.3x`).
+Decision: GO
+
+Evidence summary:
+- E1-002: Procesamiento de órdenes comerciales con composición de subfunciones y registros en memoria lineal completado en 1 intento (308 bytes WASM, 6/6 públicas, 9/9 reservadas). Freeze sellado en tag poc-002-e1-freeze.
+- E2-002: Defecto inyectado E_UNKNOWN_FIELD en campo de record rechazado determinísticamente con JSONPath exacto y reparado en 1 intento, recuperando el hash SHA-256 idéntico.
+- E3-002: Extensión funcional con códigos de error de dominio (OrderCalculation.status_code 0..3) aprobada en 1 intento sobre backend congelado (459 bytes WASM, 12/12 públicas, 18/18 reservadas).
+- E4-002: Mantenimiento modularizado en subfunción interna calculate_tax (alícuota 15 %) realizado en un diff localizado de 2 líneas sin tocar calculate_order ni el backend congelado (12/12 públicas, 18/18 reservadas, 3/3 builds deterministas idénticos).
+- Success criteria passed: 16/16 (SC-01 a SC-16).
+- Success criteria failed: 0/16.
+- Inmutabilidad de Toolchain: 100 % confirmada en runs/toolchain-freeze-poc002.sha256.
+
+Recommendation:
+Decisión GO (validated). Habiendo comprobado que Semantic IR v0.2 soporta composición funcional, estructuras en memoria lineal y discriminación de errores con backend congelado y latencias < 30 ms, se recomienda formalmente avanzar a la Fase 3: POC 003 — Capability ABI & WebAssembly Component Model (interacción controlada con el mundo exterior: I/O, almacenamiento y mensajería declarativa sin romper el determinismo de la lógica de negocio).
 
 ## Recommendation and Next Steps
 
-1. **DiseÃ±ar `KADDO-AGENT-NATIVE-POC-002` (Semantic IR v0.2):** Incorporar registros tipados (`struct`/`record`), enumeraciones/errores de dominio explÃ­citos (`Result<T, E>`) y llamadas entre funciones internas, manteniendo el mismo diseÃ±o de diagnÃ³sticos JSONPath compactos (`< 500 bytes`).
-2. **RepeticiÃ³n estadÃ­stica multi-modelo:** Ejecutar la baterÃ­a `E1`â€“`E4` vs `B1`â€“`B4` con mÃºltiples sesiones y modelos pequeÃ±os/rÃ¡pidos donde la reducciÃ³n de `23.3x` en ruido diagnÃ³stico y la ausencia de boilerplate `#![no_std]`/`extern "C"` tienen mayor impacto en tasa de Ã©xito al primer intento.
-3. **ExploraciÃ³n posterior de Capability ABI:** Una vez validada `IR v0.2` con tipos compuestos, diseÃ±ar un ABI declarativo de capacidades sobre WebAssembly Component Model / Wasmtime.
+1. **Avanzar a KADDO-AGENT-NATIVE-POC-003 (Fase 3):**
+   - Diseñar la especificación para Capability ABI y Component Model.
+   - Definir interfaces de importación para almacenamiento (key-value) y telemetría/eventos sin violar la pureza funcional del cálculo interno.
+2. **Consolidar la especificación formal de Semantic IR v0.2:**
+   - Formalizar la especificación canónica en `docs/semantic-ir-v0.2.spec.md` como estándar de ingeniería para futuras POCs.
+3. **Mantener la batería de benchmarks automatizados:**
+   - Conservar los fixtures de regresión de POC 001 y POC 002 como base de pruebas para validar futuros motores de lowering.
 
 ## Traceability and Sources
 
 | Fuente / Artefacto | Tipo | Ruta relativa en el repositorio |
 |---|---|---|
-| DefiniciÃ³n y conclusiÃ³n canÃ³nica de la POC | POC Artifact | [knowledge/delivery/poc.md](knowledge/delivery/poc.md) |
-| Contrato experimental e IR v0.1 | Work Item (`completed`) | [knowledge/delivery/work-items/completed/WI-001-contrato-experimental-e-ir-v0-1.md](knowledge/delivery/work-items/completed/WI-001-contrato-experimental-e-ir-v0-1.md) |
-| Verifier + compiler directo a WASM + runner | Work Item (`completed`) | [knowledge/delivery/work-items/completed/WI-002-verifier-compiler-directo-a-wasm-y-runner.md](knowledge/delivery/work-items/completed/WI-002-verifier-compiler-directo-a-wasm-y-runner.md) |
-| E1 construcciÃ³n y freeze | Work Item (`completed`) | [knowledge/delivery/work-items/completed/WI-003-e1-construccion-y-freeze.md](knowledge/delivery/work-items/completed/WI-003-e1-construccion-y-freeze.md) |
-| E2 reparaciÃ³n controlada | Work Item (`completed`) | [knowledge/delivery/work-items/completed/WI-004-e2-reparacion-controlada.md](knowledge/delivery/work-items/completed/WI-004-e2-reparacion-controlada.md) |
-| E3 extensiÃ³n funcional | Work Item (`completed`) | [knowledge/delivery/work-items/completed/WI-005-e3-extension-funcional.md](knowledge/delivery/work-items/completed/WI-005-e3-extension-funcional.md) |
-| E4 mantenimiento | Work Item (`completed`) | [knowledge/delivery/work-items/completed/WI-006-e4-mantenimiento.md](knowledge/delivery/work-items/completed/WI-006-e4-mantenimiento.md) |
-| AnÃ¡lisis y conclusiÃ³n | Work Item (`completed`) | [knowledge/delivery/work-items/completed/WI-007-analisis-y-conclusion.md](knowledge/delivery/work-items/completed/WI-007-analisis-y-conclusion.md) |
-| Baseline Rust a WASM y benchmark comparativo | Work Item (`completed`) | [knowledge/delivery/work-items/completed/WI-008-baseline-rust-a-wasm.md](knowledge/delivery/work-items/completed/WI-008-baseline-rust-a-wasm.md) |
-| Resumen comparativo pareado `E1..E4` vs `B1..B4` | Benchmark Evidence | [runs/rust-baseline/comparison-summary.md](runs/rust-baseline/comparison-summary.md) |
-| Datos estructurados del benchmark pareado | Benchmark JSON | [runs/rust-baseline/comparison-summary.json](runs/rust-baseline/comparison-summary.json) |
+| Definición y conclusión canónica de la POC 002 | POC Artifact | [knowledge/delivery/poc.md](knowledge/delivery/poc.md) |
+| Contrato experimental e IR v0.2 | Work Item (`completed`) | [knowledge/delivery/work-items/completed/WI-009-contrato-experimental-e-ir-v0-2.md](knowledge/delivery/work-items/completed/WI-009-contrato-experimental-e-ir-v0-2.md) |
+| Verifier v0.2, Compiler directo a WASM y Runner | Work Item (`completed`) | [knowledge/delivery/work-items/completed/WI-010-verifier-compiler-v0-2-y-runner.md](knowledge/delivery/work-items/completed/WI-010-verifier-compiler-v0-2-y-runner.md) |
+| E1-002 Construcción y Freeze | Work Item (`completed`) | [knowledge/delivery/work-items/completed/WI-011-e1-002-construccion-y-freeze.md](knowledge/delivery/work-items/completed/WI-011-e1-002-construccion-y-freeze.md) |
+| E2-002 Reparación controlada | Work Item (`completed`) | [knowledge/delivery/work-items/completed/WI-012-e2-002-reparacion-controlada.md](knowledge/delivery/work-items/completed/WI-012-e2-002-reparacion-controlada.md) |
+| E3-002 Extensión funcional con errores tipados | Work Item (`completed`) | [knowledge/delivery/work-items/completed/WI-013-e3-002-extension-funcional-errores-tipados.md](knowledge/delivery/work-items/completed/WI-013-e3-002-extension-funcional-errores-tipados.md) |
+| E4-002 Mantenimiento modularizado | Work Item (`completed`) | [knowledge/delivery/work-items/completed/WI-014-e4-002-mantenimiento-modular.md](knowledge/delivery/work-items/completed/WI-014-e4-002-mantenimiento-modular.md) |
+| Análisis, matriz SC y conclusión POC 002 | Work Item (`ready`) | [knowledge/delivery/work-items/completed/WI-015-e5-002-analisis-y-conclusion.md](knowledge/delivery/work-items/completed/WI-015-e5-002-analisis-y-conclusion.md) |
+| Registro de congelamiento criptográfico de toolchain | Hash Freeze List | [runs/toolchain-freeze-poc002.sha256](runs/toolchain-freeze-poc002.sha256) |
+| Evidencia E1-002 | Run Artifacts | [runs/poc002-e1-build/attempt-01/](runs/poc002-e1-build/attempt-01/) |
+| Evidencia E2-002 | Run Artifacts | [runs/poc002-e2-repair/attempt-01/](runs/poc002-e2-repair/attempt-01/) |
+| Evidencia E3-002 | Run Artifacts | [runs/poc002-e3-extend/attempt-01/](runs/poc002-e3-extend/attempt-01/) |
+| Evidencia E4-002 | Run Artifacts | [runs/poc002-e4-maintain/attempt-01/](runs/poc002-e4-maintain/attempt-01/) |
