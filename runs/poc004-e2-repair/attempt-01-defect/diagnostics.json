@@ -1,0 +1,10 @@
+[
+  {
+    "code": "E_UNKNOWN_EXPORT_INTERFACE",
+    "function": "calculate_order",
+    "path": "$.functions[9].wit_interface",
+    "message": "Exported function 'calculate_order' specifies wit_interface 'unregistered-commercial-api', but wit_contract exports 'order-calculator'.",
+    "expected": "order-calculator",
+    "found": "unregistered-commercial-api"
+  }
+]
