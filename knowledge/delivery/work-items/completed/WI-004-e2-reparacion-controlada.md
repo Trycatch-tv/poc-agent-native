@@ -4,11 +4,14 @@ id: WI-004
 alias: KAN-POC-WI-004
 title: E2 reparación controlada
 knowledge_level: K2
-status: draft
+status: completed
+implementation_status: completed
 phase: now
 project_state: ai-assisted
 refined_by: work-item-agent
 created_at: '2026-10-16'
+ready_at: '2026-10-16'
+completed_at: '2026-10-16'
 domains:
   - semantic-ir
   - deterministic-toolchain
@@ -84,12 +87,12 @@ _Expected value:_ Evidencia auditable para **H1-B**, **SC-04**, **SC-05** y **SC
 
 ## Acceptance Criteria
 
-- [ ] Existe `runs/e2-repair/attempt-01/ir.injected.json` con un único defecto sembrado (`E_UNKNOWN_PARAM`) sobre la IR de `E1`.
-- [ ] `irtool verify` rechaza `ir.injected.json` con `exit != 0` y emite en `diagnostics.injected.json` el código `E_UNKNOWN_PARAM`, la función `calculate_shipping` y la ruta lógica `$.functions[0].body.condition.left` (**SC-04**).
-- [ ] El agente repara `ir/program.ir.json` en máximo `2` intentos (`repair_attempts <= 2`) sin edición manual humana y `irtool verify` aprueba con `0` diagnósticos (**SC-05**).
-- [ ] Tras la reparación, `6/6` pruebas públicas de `E1` y `9/9` (`100 %`) pruebas reservadas vuelven a pasar en Wasmtime (**SC-05**, **SC-10**).
-- [ ] Los hashes SHA-256 de `irtool` y `runner` coinciden exactamente con `runs/toolchain-freeze.sha256` (`backend_modified_since_freeze: false`).
-- [ ] **End-to-end:** Existen todos los artefactos obligatorios de `E2` en `runs/e2-repair/attempt-01/` (`run.json`, `toolchain.json`, `spec.snapshot.yaml`, `ir.before.json`, `ir.injected.json`, `ir.after.json`, `diagnostics.injected.json`, `diagnostics.json`, `public-tests.json`, `hidden-tests.json`, `program.wasm`, `program.wat`, `artifact.sha256`, `diff.patch`, `agent-summary.md`) (**SC-14**).
+- [x] Existe `runs/e2-repair/attempt-01/ir.injected.json` con un único defecto sembrado (`E_UNKNOWN_PARAM`) sobre la IR de `E1`.
+- [x] `irtool verify` rechaza `ir.injected.json` con `exit != 0` y emite en `diagnostics.injected.json` el código `E_UNKNOWN_PARAM`, la función `calculate_shipping` y la ruta lógica `$.functions[0].body.condition.left` (**SC-04**).
+- [x] El agente repara `ir/program.ir.json` en máximo `2` intentos (`repair_attempts <= 2`) sin edición manual humana y `irtool verify` aprueba con `0` diagnósticos (**SC-05**).
+- [x] Tras la reparación, `6/6` pruebas públicas de `E1` y `9/9` (`100 %`) pruebas reservadas vuelven a pasar en Wasmtime (**SC-05**, **SC-10**).
+- [x] Los hashes SHA-256 de `irtool` y `runner` coinciden exactamente con `runs/toolchain-freeze.sha256` (`backend_modified_since_freeze: false`).
+- [x] **End-to-end:** Existen todos los artefactos obligatorios de `E2` en `runs/e2-repair/attempt-01/` (`run.json`, `toolchain.json`, `spec.snapshot.yaml`, `ir.before.json`, `ir.injected.json`, `ir.after.json`, `diagnostics.injected.json`, `diagnostics.json`, `public-tests.json`, `hidden-tests.json`, `program.wasm`, `program.wat`, `artifact.sha256`, `diff.patch`, `agent-summary.md`) (**SC-14**).
 
 ## Validation
 

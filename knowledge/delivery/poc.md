@@ -401,8 +401,8 @@ Los siguientes checks se evalúan con evidencia almacenada en `runs/`.
 - [x] **SC-01 — E1 corrección:** E1 termina con IR válida, WASM válido y `100 %` de pruebas públicas y reservadas aprobadas.
 - [x] **SC-02 — E1 autonomía:** desde el inicio de E1 hay `0` ediciones manuales humanas a `ir/program.ir.json`; cualquier corrección de IR la realiza el agente.
 - [x] **SC-03 — Límite de reparación inicial:** el agente requiere máximo `2` intentos adicionales después del primer rechazo del verifier en E1.
-- [ ] **SC-04 — E2 rechazo determinista:** la IR defectuosa sembrada es rechazada por el verifier con `exit != 0`, código de diagnóstico y ubicación lógica del error.
-- [ ] **SC-05 — E2 reparación:** el agente repara E2 en máximo `2` intentos y recupera `100 %` de las pruebas E1.
+- [x] **SC-04 — E2 rechazo determinista:** la IR defectuosa sembrada es rechazada por el verifier con `exit != 0`, código de diagnóstico y ubicación lógica del error.
+- [x] **SC-05 — E2 reparación:** el agente repara E2 en máximo `2` intentos y recupera `100 %` de las pruebas E1.
 - [ ] **SC-06 — E3 extensión:** E3 añade `calculate_discount` y obtiene `100 %` de pruebas nuevas + `100 %` de regresión.
 - [ ] **SC-07 — E3 estabilidad de toolchain:** E3 no modifica verifier, compiler ni runner; sus hashes coinciden con el freeze point de E1.
 - [ ] **SC-08 — E4 mantenimiento:** E4 implementa la nueva política y obtiene `100 %` de pruebas actualizadas + `100 %` de regresión de descuento.

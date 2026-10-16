@@ -1,0 +1,13 @@
+﻿diff --git a/runs/e2-repair/attempt-01/ir.injected.json b/runs/e2-repair/attempt-01/ir.after.json
+index ab95ba1..408d2ce 100644
+--- a/runs/e2-repair/attempt-01/ir.injected.json
++++ b/runs/e2-repair/attempt-01/ir.after.json
+@@ -23,7 +23,7 @@
+           "op": "lt_s",
+           "left": {
+             "op": "param",
+-            "name": "subtotal"
++            "name": "subtotal_cents"
+           },
+           "right": {
+             "op": "const",

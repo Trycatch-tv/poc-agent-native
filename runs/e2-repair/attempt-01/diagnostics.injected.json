@@ -1,0 +1,10 @@
+[
+  {
+    "code": "E_UNKNOWN_PARAM",
+    "function": "calculate_shipping",
+    "path": "$.functions[0].body.condition.left",
+    "message": "Unknown parameter 'subtotal'; available parameters: [\"subtotal_cents\"]",
+    "expected": "subtotal_cents",
+    "found": "subtotal"
+  }
+]
