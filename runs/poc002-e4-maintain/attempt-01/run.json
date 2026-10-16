@@ -1,0 +1,39 @@
+{
+  "exercise": "E4-002",
+  "phase": "maintenance",
+  "attempt": 1,
+  "status": "passed",
+  "timestamp": "2026-10-16T07:44:50-05:00",
+  "ir_version": "0.2",
+  "spec_version": 3,
+  "program": "ir/program-002.ir.json",
+  "artifact": "runs/poc002-e4-maintain/attempt-01/program.wasm",
+  "artifact_size_bytes": 459,
+  "artifact_sha256": "0a2265bca6b1431f2ea15bb3da9831f5e1f8082230c36fd1659c613f9af88c85",
+  "diagnostics_count": 0,
+  "public_tests": {
+    "total": 12,
+    "passed": 12,
+    "failed": 0,
+    "execution_ms": 18
+  },
+  "hidden_tests": {
+    "total": 18,
+    "passed": 18,
+    "failed": 0,
+    "execution_ms": 20
+  },
+  "toolchain_frozen": true,
+  "toolchain_hashes_match": true,
+  "success_criteria": {
+    "SC-06": true,
+    "SC-07": true,
+    "SC-08": true,
+    "SC-11": true,
+    "SC-12": true,
+    "SC-13": true,
+    "SC-14": true,
+    "SC-15": true,
+    "SC-16": true
+  }
+}

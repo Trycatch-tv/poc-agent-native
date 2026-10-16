@@ -1,0 +1,9 @@
+{
+  "rustc": "rustc 1.93.0-nightly (77a493bf6 2024-11-20)",
+  "cargo": "cargo 1.93.0-nightly (b00cfaf 2024-11-19)",
+  "wasm_tools": "wasmparser 0.221.0, wasmprinter 0.221.0, wasm-encoder 0.221.0",
+  "wasmtime": "27.0.0",
+  "os": "windows-x86_64",
+  "irtool_sha256": "959ca4f87127d36799c1bddad2af2cf260006711d03c6a8fd4f58fdcaf581f2d",
+  "runner_sha256": "feda31350f81dcd8beca79f31a15b1e6932cd8fb9ab9a7266b775e8845795a5b"
+}

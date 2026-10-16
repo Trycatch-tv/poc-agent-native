@@ -1,7 +1,7 @@
 suite: KAN-POC-002-PUBLIC
-spec_version: 2
+spec_version: 3
 cases:
-  - id: E3-002-P01
+  - id: E4-002-P01
     requirement: ORD-001-V2
     function: calculate_order
     args: [-1, 1, 100, 1, 500]
@@ -12,7 +12,7 @@ cases:
       shipping_cents: 0
       total_cents: 0
 
-  - id: E3-002-P02
+  - id: E4-002-P02
     requirement: ORD-001-V2
     function: calculate_order
     args: [100, 1, 100, -1, 500]
@@ -23,7 +23,7 @@ cases:
       shipping_cents: 0
       total_cents: 0
 
-  - id: E3-002-P03
+  - id: E4-002-P03
     requirement: ORD-002-V2
     function: calculate_order
     args: [100, 1, 100, 1, -50]
@@ -34,18 +34,18 @@ cases:
       shipping_cents: 0
       total_cents: 0
 
-  - id: E3-002-P04
+  - id: E4-002-P04
     requirement: ORD-004-V2
     function: calculate_order
     args: [1000, 2, 500, 1, 500]
     expected:
       status_code: 0
       subtotal_cents: 2500
-      tax_cents: 250
+      tax_cents: 375
       shipping_cents: 500
-      total_cents: 3250
+      total_cents: 3375
 
-  - id: E3-002-P05
+  - id: E4-002-P05
     requirement: ORD-004-V2
     function: calculate_order
     args: [0, 0, 0, 0, 0]
@@ -56,18 +56,18 @@ cases:
       shipping_cents: 0
       total_cents: 0
 
-  - id: E3-002-P06
+  - id: E4-002-P06
     requirement: ORD-004-V2
     function: calculate_order
     args: [5000, 3, 2500, 2, 1000]
     expected:
       status_code: 0
       subtotal_cents: 20000
-      tax_cents: 2000
+      tax_cents: 3000
       shipping_cents: 1000
-      total_cents: 23000
+      total_cents: 24000
 
-  - id: E3-002-P07
+  - id: E4-002-P07
     requirement: ORD-003-V2
     function: calculate_order
     args: [500000, 2, 100000, 1, 500]
@@ -78,7 +78,7 @@ cases:
       shipping_cents: 0
       total_cents: 0
 
-  - id: E3-002-P08
+  - id: E4-002-P08
     requirement: ORD-003-V2
     function: calculate_order
     args: [2000000, 1, 0, 0, 100]
@@ -89,29 +89,29 @@ cases:
       shipping_cents: 0
       total_cents: 0
 
-  - id: E3-002-P09
+  - id: E4-002-P09
     requirement: ORD-004-V2
     function: calculate_order
     args: [200, 1, 300, 1, 0]
     expected:
       status_code: 0
       subtotal_cents: 500
-      tax_cents: 50
+      tax_cents: 75
       shipping_cents: 0
-      total_cents: 550
+      total_cents: 575
 
-  - id: E3-002-P10
+  - id: E4-002-P10
     requirement: ORD-004-V2
     function: calculate_order
     args: [50, 4, 10, 5, 25]
     expected:
       status_code: 0
       subtotal_cents: 250
-      tax_cents: 25
+      tax_cents: 37
       shipping_cents: 25
-      total_cents: 300
+      total_cents: 312
 
-  - id: E3-002-P11
+  - id: E4-002-P11
     requirement: ORD-001-V2
     function: calculate_order
     args: [-10, -5, 10, 5, 25]
@@ -122,7 +122,7 @@ cases:
       shipping_cents: 0
       total_cents: 0
 
-  - id: E3-002-P12
+  - id: E4-002-P12
     requirement: ORD-002-V2
     function: calculate_order
     args: [100, 2, 100, 2, -1]

@@ -1,6 +1,6 @@
 {
   "ir_version": "0.2",
-  "spec_version": 2,
+  "spec_version": 3,
   "types": [
     {
       "name": "OrderCalculation",
@@ -132,7 +132,7 @@
             "right": {
               "op": "const",
               "type": "i32",
-              "value": 10
+              "value": 15
             }
           },
           "right": {

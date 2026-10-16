@@ -1,10 +1,11 @@
 id: KAN-POC-002
-version: 2
+version: 3
 title: Motor modular de cálculo de órdenes comerciales con records, subfunciones y errores de dominio
 description: >
   Implementar el cálculo de órdenes de compra comerciales utilizando la Semantic IR v0.2.
   El programa debe descomponer la lógica mediante funciones internas privadas (calculate_line_item, calculate_tax)
   e instanciar y retornar un tipo compuesto OrderCalculation con status_code discriminado.
+  En la versión 3, la tasa de impuestos en calculate_tax se actualiza al 15 %.
 
 types:
   - name: OrderCalculation
@@ -44,8 +45,8 @@ functions:
     requirements:
       - id: TAX-001
         description: Si subtotal_cents < 0, devolver -1.
-      - id: TAX-002
-        description: En cualquier otro caso, devolver subtotal_cents * 10 / 100 (tasa estándar del 10 %).
+      - id: TAX-002-V3
+        description: En cualquier otro caso, devolver subtotal_cents * 15 / 100 (tasa actualizada del 15 %).
 
   - name: calculate_order
     export: true
@@ -73,7 +74,7 @@ functions:
 
 acceptance:
   public:
-    - id: E3-002-P01
+    - id: E4-002-P01
       function: calculate_order
       args: [-1, 1, 100, 1, 500]
       expected:
@@ -82,7 +83,7 @@ acceptance:
         tax_cents: 0
         shipping_cents: 0
         total_cents: 0
-    - id: E3-002-P02
+    - id: E4-002-P02
       function: calculate_order
       args: [100, 1, 100, -1, 500]
       expected:
@@ -91,7 +92,7 @@ acceptance:
         tax_cents: 0
         shipping_cents: 0
         total_cents: 0
-    - id: E3-002-P03
+    - id: E4-002-P03
       function: calculate_order
       args: [100, 1, 100, 1, -50]
       expected:
@@ -100,16 +101,16 @@ acceptance:
         tax_cents: 0
         shipping_cents: 0
         total_cents: 0
-    - id: E3-002-P04
+    - id: E4-002-P04
       function: calculate_order
       args: [1000, 2, 500, 1, 500]
       expected:
         status_code: 0
         subtotal_cents: 2500
-        tax_cents: 250
+        tax_cents: 375
         shipping_cents: 500
-        total_cents: 3250
-    - id: E3-002-P05
+        total_cents: 3375
+    - id: E4-002-P05
       function: calculate_order
       args: [0, 0, 0, 0, 0]
       expected:
@@ -118,16 +119,16 @@ acceptance:
         tax_cents: 0
         shipping_cents: 0
         total_cents: 0
-    - id: E3-002-P06
+    - id: E4-002-P06
       function: calculate_order
       args: [5000, 3, 2500, 2, 1000]
       expected:
         status_code: 0
         subtotal_cents: 20000
-        tax_cents: 2000
+        tax_cents: 3000
         shipping_cents: 1000
-        total_cents: 23000
-    - id: E3-002-P07
+        total_cents: 24000
+    - id: E4-002-P07
       function: calculate_order
       args: [500000, 2, 100000, 1, 500]
       expected:
@@ -136,7 +137,7 @@ acceptance:
         tax_cents: 0
         shipping_cents: 0
         total_cents: 0
-    - id: E3-002-P08
+    - id: E4-002-P08
       function: calculate_order
       args: [2000000, 1, 0, 0, 100]
       expected:
@@ -145,25 +146,25 @@ acceptance:
         tax_cents: 0
         shipping_cents: 0
         total_cents: 0
-    - id: E3-002-P09
+    - id: E4-002-P09
       function: calculate_order
       args: [200, 1, 300, 1, 0]
       expected:
         status_code: 0
         subtotal_cents: 500
-        tax_cents: 50
+        tax_cents: 75
         shipping_cents: 0
-        total_cents: 550
-    - id: E3-002-P10
+        total_cents: 575
+    - id: E4-002-P10
       function: calculate_order
       args: [50, 4, 10, 5, 25]
       expected:
         status_code: 0
         subtotal_cents: 250
-        tax_cents: 25
+        tax_cents: 37
         shipping_cents: 25
-        total_cents: 300
-    - id: E3-002-P11
+        total_cents: 312
+    - id: E4-002-P11
       function: calculate_order
       args: [-10, -5, 10, 5, 25]
       expected:
@@ -172,7 +173,7 @@ acceptance:
         tax_cents: 0
         shipping_cents: 0
         total_cents: 0
-    - id: E3-002-P12
+    - id: E4-002-P12
       function: calculate_order
       args: [100, 2, 100, 2, -1]
       expected:
