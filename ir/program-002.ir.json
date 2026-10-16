@@ -1,10 +1,14 @@
 {
   "ir_version": "0.2",
-  "spec_version": 1,
+  "spec_version": 2,
   "types": [
     {
       "name": "OrderCalculation",
       "fields": [
+        {
+          "name": "status_code",
+          "type": "i32"
+        },
         {
           "name": "subtotal_cents",
           "type": "i32"
@@ -166,67 +170,52 @@
       ],
       "returns": "OrderCalculation",
       "requirements": [
-        "ORD-001",
-        "ORD-002",
-        "ORD-003",
-        "ORD-004"
+        "ORD-001-V2",
+        "ORD-002-V2",
+        "ORD-003-V2",
+        "ORD-004-V2"
       ],
       "body": {
         "op": "if",
         "condition": {
           "op": "or",
           "left": {
-            "op": "or",
+            "op": "lt_s",
             "left": {
-              "op": "lt_s",
-              "left": {
-                "op": "call",
-                "function": "calculate_line_item",
-                "args": [
-                  {
-                    "op": "param",
-                    "name": "price1"
-                  },
-                  {
-                    "op": "param",
-                    "name": "qty1"
-                  }
-                ]
-              },
-              "right": {
-                "op": "const",
-                "type": "i32",
-                "value": 0
-              }
+              "op": "call",
+              "function": "calculate_line_item",
+              "args": [
+                {
+                  "op": "param",
+                  "name": "price1"
+                },
+                {
+                  "op": "param",
+                  "name": "qty1"
+                }
+              ]
             },
             "right": {
-              "op": "lt_s",
-              "left": {
-                "op": "call",
-                "function": "calculate_line_item",
-                "args": [
-                  {
-                    "op": "param",
-                    "name": "price2"
-                  },
-                  {
-                    "op": "param",
-                    "name": "qty2"
-                  }
-                ]
-              },
-              "right": {
-                "op": "const",
-                "type": "i32",
-                "value": 0
-              }
+              "op": "const",
+              "type": "i32",
+              "value": 0
             }
           },
           "right": {
             "op": "lt_s",
             "left": {
-              "op": "param",
-              "name": "shipping_cents"
+              "op": "call",
+              "function": "calculate_line_item",
+              "args": [
+                {
+                  "op": "param",
+                  "name": "price2"
+                },
+                {
+                  "op": "param",
+                  "name": "qty2"
+                }
+              ]
             },
             "right": {
               "op": "const",
@@ -239,107 +228,88 @@
           "op": "record.construct",
           "type": "OrderCalculation",
           "fields": {
+            "status_code": {
+              "op": "const",
+              "type": "i32",
+              "value": 1
+            },
             "subtotal_cents": {
               "op": "const",
               "type": "i32",
-              "value": -1
+              "value": 0
             },
             "tax_cents": {
               "op": "const",
               "type": "i32",
-              "value": -1
+              "value": 0
             },
             "shipping_cents": {
               "op": "const",
               "type": "i32",
-              "value": -1
+              "value": 0
             },
             "total_cents": {
               "op": "const",
               "type": "i32",
-              "value": -1
+              "value": 0
             }
           }
         },
         "else": {
-          "op": "record.construct",
-          "type": "OrderCalculation",
-          "fields": {
-            "subtotal_cents": {
-              "op": "add",
-              "left": {
-                "op": "call",
-                "function": "calculate_line_item",
-                "args": [
-                  {
-                    "op": "param",
-                    "name": "price1"
-                  },
-                  {
-                    "op": "param",
-                    "name": "qty1"
-                  }
-                ]
-              },
-              "right": {
-                "op": "call",
-                "function": "calculate_line_item",
-                "args": [
-                  {
-                    "op": "param",
-                    "name": "price2"
-                  },
-                  {
-                    "op": "param",
-                    "name": "qty2"
-                  }
-                ]
-              }
-            },
-            "tax_cents": {
-              "op": "call",
-              "function": "calculate_tax",
-              "args": [
-                {
-                  "op": "add",
-                  "left": {
-                    "op": "call",
-                    "function": "calculate_line_item",
-                    "args": [
-                      {
-                        "op": "param",
-                        "name": "price1"
-                      },
-                      {
-                        "op": "param",
-                        "name": "qty1"
-                      }
-                    ]
-                  },
-                  "right": {
-                    "op": "call",
-                    "function": "calculate_line_item",
-                    "args": [
-                      {
-                        "op": "param",
-                        "name": "price2"
-                      },
-                      {
-                        "op": "param",
-                        "name": "qty2"
-                      }
-                    ]
-                  }
-                }
-              ]
-            },
-            "shipping_cents": {
+          "op": "if",
+          "condition": {
+            "op": "lt_s",
+            "left": {
               "op": "param",
               "name": "shipping_cents"
             },
-            "total_cents": {
-              "op": "add",
+            "right": {
+              "op": "const",
+              "type": "i32",
+              "value": 0
+            }
+          },
+          "then": {
+            "op": "record.construct",
+            "type": "OrderCalculation",
+            "fields": {
+              "status_code": {
+                "op": "const",
+                "type": "i32",
+                "value": 2
+              },
+              "subtotal_cents": {
+                "op": "const",
+                "type": "i32",
+                "value": 0
+              },
+              "tax_cents": {
+                "op": "const",
+                "type": "i32",
+                "value": 0
+              },
+              "shipping_cents": {
+                "op": "const",
+                "type": "i32",
+                "value": 0
+              },
+              "total_cents": {
+                "op": "const",
+                "type": "i32",
+                "value": 0
+              }
+            }
+          },
+          "else": {
+            "op": "if",
+            "condition": {
+              "op": "lt_s",
               "left": {
+                "op": "const",
+                "type": "i32",
+                "value": 1000000
+              },
+              "right": {
                 "op": "add",
                 "left": {
                   "op": "add",
@@ -409,10 +379,198 @@
                     }
                   ]
                 }
-              },
-              "right": {
-                "op": "param",
-                "name": "shipping_cents"
+              }
+            },
+            "then": {
+              "op": "record.construct",
+              "type": "OrderCalculation",
+              "fields": {
+                "status_code": {
+                  "op": "const",
+                  "type": "i32",
+                  "value": 3
+                },
+                "subtotal_cents": {
+                  "op": "const",
+                  "type": "i32",
+                  "value": 0
+                },
+                "tax_cents": {
+                  "op": "const",
+                  "type": "i32",
+                  "value": 0
+                },
+                "shipping_cents": {
+                  "op": "const",
+                  "type": "i32",
+                  "value": 0
+                },
+                "total_cents": {
+                  "op": "const",
+                  "type": "i32",
+                  "value": 0
+                }
+              }
+            },
+            "else": {
+              "op": "record.construct",
+              "type": "OrderCalculation",
+              "fields": {
+                "status_code": {
+                  "op": "const",
+                  "type": "i32",
+                  "value": 0
+                },
+                "subtotal_cents": {
+                  "op": "add",
+                  "left": {
+                    "op": "call",
+                    "function": "calculate_line_item",
+                    "args": [
+                      {
+                        "op": "param",
+                        "name": "price1"
+                      },
+                      {
+                        "op": "param",
+                        "name": "qty1"
+                      }
+                    ]
+                  },
+                  "right": {
+                    "op": "call",
+                    "function": "calculate_line_item",
+                    "args": [
+                      {
+                        "op": "param",
+                        "name": "price2"
+                      },
+                      {
+                        "op": "param",
+                        "name": "qty2"
+                      }
+                    ]
+                  }
+                },
+                "tax_cents": {
+                  "op": "call",
+                  "function": "calculate_tax",
+                  "args": [
+                    {
+                      "op": "add",
+                      "left": {
+                        "op": "call",
+                        "function": "calculate_line_item",
+                        "args": [
+                          {
+                            "op": "param",
+                            "name": "price1"
+                          },
+                          {
+                            "op": "param",
+                            "name": "qty1"
+                          }
+                        ]
+                      },
+                      "right": {
+                        "op": "call",
+                        "function": "calculate_line_item",
+                        "args": [
+                          {
+                            "op": "param",
+                            "name": "price2"
+                          },
+                          {
+                            "op": "param",
+                            "name": "qty2"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "shipping_cents": {
+                  "op": "param",
+                  "name": "shipping_cents"
+                },
+                "total_cents": {
+                  "op": "add",
+                  "left": {
+                    "op": "add",
+                    "left": {
+                      "op": "add",
+                      "left": {
+                        "op": "call",
+                        "function": "calculate_line_item",
+                        "args": [
+                          {
+                            "op": "param",
+                            "name": "price1"
+                          },
+                          {
+                            "op": "param",
+                            "name": "qty1"
+                          }
+                        ]
+                      },
+                      "right": {
+                        "op": "call",
+                        "function": "calculate_line_item",
+                        "args": [
+                          {
+                            "op": "param",
+                            "name": "price2"
+                          },
+                          {
+                            "op": "param",
+                            "name": "qty2"
+                          }
+                        ]
+                      }
+                    },
+                    "right": {
+                      "op": "call",
+                      "function": "calculate_tax",
+                      "args": [
+                        {
+                          "op": "add",
+                          "left": {
+                            "op": "call",
+                            "function": "calculate_line_item",
+                            "args": [
+                              {
+                                "op": "param",
+                                "name": "price1"
+                              },
+                              {
+                                "op": "param",
+                                "name": "qty1"
+                              }
+                            ]
+                          },
+                          "right": {
+                            "op": "call",
+                            "function": "calculate_line_item",
+                            "args": [
+                              {
+                                "op": "param",
+                                "name": "price2"
+                              },
+                              {
+                                "op": "param",
+                                "name": "qty2"
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "right": {
+                    "op": "param",
+                    "name": "shipping_cents"
+                  }
+                }
               }
             }
           }
