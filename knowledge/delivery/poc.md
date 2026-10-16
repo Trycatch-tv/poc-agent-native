@@ -116,7 +116,7 @@ El problema a resolver en esta **POC 004** es determinar si la Semantic IR puede
 | **`WI-029`** | spike | E3-004 Extensión funcional con interfaces y variantes ricas en WIT | `completed` | Extensión de especificación WIT con nueva operación (`quote-shipping`) y validación sobre backend congelado. |
 | **`WI-030`** | spike | E4-004 Mantenimiento modularizado y composición interoperable | `completed` | Mantenimiento localizado de reglas comerciales preservando la interfaz WIT y reproducibilidad 3/3. |
 | **`WI-031`** | chore | Análisis, matriz SC y conclusión POC 004 | `completed` | Evaluación de `SC-01` a `SC-16`, reporte final `poc-report-v005.md` y decisión canónica Kaddo. |
-| **`WI-032`** | spike opcional | Benchmark pareado POC-004 vs Rust `cargo component` | `draft` | Comparación cuantitativa: Semantic IR v0.4 vs `cargo-component` con bindings WIT automáticos. |
+| **`WI-032`** | spike opcional | Benchmark pareado POC-004 vs Rust `cargo component` | `completed` | Comparación cuantitativa: Semantic IR v0.4 vs Rust (`wasm32-unknown-unknown`) con metadatos WIT; publicado en `BENCHMARK_REPORT_004.md`. |
 
 ## Conclusion Rule
 
