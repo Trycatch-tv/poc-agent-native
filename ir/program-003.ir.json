@@ -1,9 +1,10 @@
 {
   "ir_version": "0.3",
-  "spec_version": 1,
+  "spec_version": 2,
   "capabilities": [
     "kv_store",
-    "audit_log"
+    "audit_log",
+    "credit_service"
   ],
   "imports": [
     {
@@ -17,6 +18,22 @@
         }
       ],
       "returns": "i32"
+    },
+    {
+      "module": "host",
+      "name": "check_credit",
+      "capability": "credit_service",
+      "params": [
+        {
+          "name": "customer_id",
+          "type": "i32"
+        },
+        {
+          "name": "amount",
+          "type": "i32"
+        }
+      ],
+      "returns": "bool"
     },
     {
       "module": "host",
@@ -302,6 +319,10 @@
       "export": false,
       "params": [
         {
+          "name": "customer_id",
+          "type": "i32"
+        },
+        {
           "name": "subtotal",
           "type": "i32"
         },
@@ -324,152 +345,136 @@
       ],
       "returns": "OrderResult",
       "requirements": [
-        "ORD-006"
+        "ORD-006",
+        "ORD-007"
       ],
       "body": {
-        "op": "record.construct",
-        "type": "OrderResult",
-        "fields": {
-          "status_code": {
-            "op": "if",
-            "condition": {
-              "op": "gte_s",
-              "left": {
-                "op": "call_import",
-                "import": "emit_audit",
-                "args": [
-                  {
-                    "op": "const",
-                    "type": "i32",
-                    "value": 100
-                  },
-                  {
-                    "op": "param",
-                    "name": "total"
-                  }
-                ]
+        "op": "if",
+        "condition": {
+          "op": "not",
+          "value": {
+            "op": "call_import",
+            "import": "check_credit",
+            "args": [
+              {
+                "op": "param",
+                "name": "customer_id"
               },
-              "right": {
+              {
+                "op": "param",
+                "name": "total"
+              }
+            ]
+          }
+        },
+        "then": {
+          "op": "record.construct",
+          "type": "OrderResult",
+          "fields": {
+            "status_code": {
+              "op": "const",
+              "type": "i32",
+              "value": 3
+            },
+            "subtotal_cents": {
+              "op": "const",
+              "type": "i32",
+              "value": 0
+            },
+            "discount_cents": {
+              "op": "const",
+              "type": "i32",
+              "value": 0
+            },
+            "tax_cents": {
+              "op": "const",
+              "type": "i32",
+              "value": 0
+            },
+            "shipping_cents": {
+              "op": "const",
+              "type": "i32",
+              "value": 0
+            },
+            "total_cents": {
+              "op": "const",
+              "type": "i32",
+              "value": 0
+            }
+          }
+        },
+        "else": {
+          "op": "record.construct",
+          "type": "OrderResult",
+          "fields": {
+            "status_code": {
+              "op": "if",
+              "condition": {
+                "op": "gte_s",
+                "left": {
+                  "op": "call_import",
+                  "import": "emit_audit",
+                  "args": [
+                    {
+                      "op": "const",
+                      "type": "i32",
+                      "value": 100
+                    },
+                    {
+                      "op": "param",
+                      "name": "total"
+                    }
+                  ]
+                },
+                "right": {
+                  "op": "const",
+                  "type": "i32",
+                  "value": 0
+                }
+              },
+              "then": {
+                "op": "const",
+                "type": "i32",
+                "value": 0
+              },
+              "else": {
                 "op": "const",
                 "type": "i32",
                 "value": 0
               }
             },
-            "then": {
-              "op": "const",
-              "type": "i32",
-              "value": 0
+            "subtotal_cents": {
+              "op": "param",
+              "name": "subtotal"
             },
-            "else": {
-              "op": "const",
-              "type": "i32",
-              "value": 0
+            "discount_cents": {
+              "op": "param",
+              "name": "discount"
+            },
+            "tax_cents": {
+              "op": "param",
+              "name": "tax"
+            },
+            "shipping_cents": {
+              "op": "param",
+              "name": "shipping"
+            },
+            "total_cents": {
+              "op": "param",
+              "name": "total"
             }
-          },
-          "subtotal_cents": {
-            "op": "param",
-            "name": "subtotal"
-          },
-          "discount_cents": {
-            "op": "param",
-            "name": "discount"
-          },
-          "tax_cents": {
-            "op": "param",
-            "name": "tax"
-          },
-          "shipping_cents": {
-            "op": "param",
-            "name": "shipping"
-          },
-          "total_cents": {
-            "op": "param",
-            "name": "total"
           }
         }
-      }
-    },
-    {
-      "name": "process_valid_order",
-      "export": false,
-      "params": [
-        {
-          "name": "customer_id",
-          "type": "i32"
-        },
-        {
-          "name": "line1",
-          "type": "i32"
-        },
-        {
-          "name": "line2",
-          "type": "i32"
-        },
-        {
-          "name": "shipping_cents",
-          "type": "i32"
-        }
-      ],
-      "returns": "OrderResult",
-      "requirements": [
-        "ORD-003",
-        "ORD-004",
-        "ORD-005",
-        "ORD-006"
-      ],
-      "body": {
-        "op": "call",
-        "function": "dispatch_order_calculation",
-        "args": [
-          {
-            "op": "call",
-            "function": "calculate_subtotal",
-            "args": [
-              {
-                "op": "param",
-                "name": "line1"
-              },
-              {
-                "op": "param",
-                "name": "line2"
-              }
-            ]
-          },
-          {
-            "op": "call",
-            "function": "calculate_discount",
-            "args": [
-              {
-                "op": "call",
-                "function": "calculate_subtotal",
-                "args": [
-                  {
-                    "op": "param",
-                    "name": "line1"
-                  },
-                  {
-                    "op": "param",
-                    "name": "line2"
-                  }
-                ]
-              },
-              {
-                "op": "param",
-                "name": "customer_id"
-              }
-            ]
-          },
-          {
-            "op": "param",
-            "name": "shipping_cents"
-          }
-        ]
       }
     },
     {
       "name": "dispatch_order_calculation",
       "export": false,
       "params": [
+        {
+          "name": "customer_id",
+          "type": "i32"
+        },
         {
           "name": "subtotal",
           "type": "i32"
@@ -487,12 +492,17 @@
       "requirements": [
         "ORD-004",
         "ORD-005",
-        "ORD-006"
+        "ORD-006",
+        "ORD-007"
       ],
       "body": {
         "op": "call",
         "function": "build_valid_order_result",
         "args": [
+          {
+            "op": "param",
+            "name": "customer_id"
+          },
           {
             "op": "param",
             "name": "subtotal"
@@ -559,6 +569,88 @@
                 "name": "shipping"
               }
             ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "process_valid_order",
+      "export": false,
+      "params": [
+        {
+          "name": "customer_id",
+          "type": "i32"
+        },
+        {
+          "name": "line1",
+          "type": "i32"
+        },
+        {
+          "name": "line2",
+          "type": "i32"
+        },
+        {
+          "name": "shipping_cents",
+          "type": "i32"
+        }
+      ],
+      "returns": "OrderResult",
+      "requirements": [
+        "ORD-003",
+        "ORD-004",
+        "ORD-005",
+        "ORD-006",
+        "ORD-007"
+      ],
+      "body": {
+        "op": "call",
+        "function": "dispatch_order_calculation",
+        "args": [
+          {
+            "op": "param",
+            "name": "customer_id"
+          },
+          {
+            "op": "call",
+            "function": "calculate_subtotal",
+            "args": [
+              {
+                "op": "param",
+                "name": "line1"
+              },
+              {
+                "op": "param",
+                "name": "line2"
+              }
+            ]
+          },
+          {
+            "op": "call",
+            "function": "calculate_discount",
+            "args": [
+              {
+                "op": "call",
+                "function": "calculate_subtotal",
+                "args": [
+                  {
+                    "op": "param",
+                    "name": "line1"
+                  },
+                  {
+                    "op": "param",
+                    "name": "line2"
+                  }
+                ]
+              },
+              {
+                "op": "param",
+                "name": "customer_id"
+              }
+            ]
+          },
+          {
+            "op": "param",
+            "name": "shipping_cents"
           }
         ]
       }
@@ -698,7 +790,8 @@
         "ORD-003",
         "ORD-004",
         "ORD-005",
-        "ORD-006"
+        "ORD-006",
+        "ORD-007"
       ],
       "body": {
         "op": "if",

@@ -1,18 +1,21 @@
 id: KAN-POC-003
-version: 1
-title: Motor de cálculo comercial con Capability ABI (KV Store y Audit Log)
+version: 2
+title: Motor de cálculo comercial con Capability ABI (KV Store, Audit Log y Credit Service)
 description: >
   Implementar el cálculo de órdenes de compra comerciales utilizando la Semantic IR v0.3.
   El programa debe declarar y utilizar capabilities de host para:
   1. Consultar el descuento del cliente desde un almacén clave-valor (kv_store.kv_get).
-  2. Emitir eventos de auditoría ante transacciones válidas (audit_log.emit_audit).
-  3. Descomponer la lógica en subfunciones internas y retornar el registro OrderResult en memoria lineal.
+  2. Verificar la solvencia del cliente ante un servicio de crédito de host (credit_service.check_credit).
+  3. Emitir eventos de auditoría ante transacciones válidas (audit_log.emit_audit).
+  4. Descomponer la lógica en subfunciones internas y retornar el registro OrderResult en memoria lineal.
 
 capabilities:
   - name: kv_store
     description: Acceso síncrono de solo lectura a parámetros de cliente e inventario.
   - name: audit_log
     description: Registro determinista de eventos de auditoría y trazabilidad en el host.
+  - name: credit_service
+    description: Validación de límites de crédito comercial en el host.
 
 imports:
   - module: host
@@ -23,6 +26,17 @@ imports:
         type: i32
     returns: i32
     description: Retorna el porcentaje de descuento asignado al customer_id (0 si no existe, o tasa 0..100).
+
+  - module: host
+    name: check_credit
+    capability: credit_service
+    params:
+      - name: customer_id
+        type: i32
+      - name: amount
+        type: i32
+    returns: bool
+    description: Retorna true (1) si amount <= límite disponible del cliente; false (0) de lo contrario.
 
   - module: host
     name: emit_audit
@@ -106,4 +120,6 @@ functions:
       - id: ORD-005
         description: total_cents = base_imponible + tax_cents + shipping_cents.
       - id: ORD-006
-        description: Invocar emit_audit(100, total_cents) y retornar OrderResult con status_code = 0.
+        description: Si check_credit es válido, invocar emit_audit(100, total_cents) y retornar OrderResult con status_code = 0.
+      - id: ORD-007
+        description: Si check_credit(customer_id, total_cents) retorna 0 (crédito insuficiente), retornar OrderResult con status_code = 3 y montos en 0 sin emitir auditoría.

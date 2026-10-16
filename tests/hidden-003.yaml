@@ -1,5 +1,5 @@
 suite: KAN-POC-003-HIDDEN
-spec_version: 1
+spec_version: 2
 cases:
   - id: E1-003-H01
     requirement: ORD-001
@@ -8,6 +8,8 @@ cases:
     host_state:
       kv:
         201: 10
+      credit_limits:
+        201: 50000
     expected:
       status_code: 1
       subtotal_cents: 0
@@ -24,6 +26,8 @@ cases:
     host_state:
       kv:
         201: 10
+      credit_limits:
+        201: 50000
     expected:
       status_code: 1
       subtotal_cents: 0
@@ -40,6 +44,8 @@ cases:
     host_state:
       kv:
         202: 5
+      credit_limits:
+        202: 50000
     expected:
       status_code: 2
       subtotal_cents: 0
@@ -55,6 +61,8 @@ cases:
     args: [999, 3000, 1, 2000, 1, 500]
     host_state:
       kv: {}
+      credit_limits:
+        999: 100000
     expected:
       status_code: 0
       subtotal_cents: 5000
@@ -63,6 +71,8 @@ cases:
       shipping_cents: 500
       total_cents: 6000
     expected_host_calls:
+      - import: check_credit
+        args: [999, 6000]
       - import: emit_audit
         args: [100, 6000]
 
@@ -73,6 +83,8 @@ cases:
     host_state:
       kv:
         203: 100
+      credit_limits:
+        203: 100000
     expected:
       status_code: 0
       subtotal_cents: 10000
@@ -81,6 +93,8 @@ cases:
       shipping_cents: 800
       total_cents: 800
     expected_host_calls:
+      - import: check_credit
+        args: [203, 800]
       - import: emit_audit
         args: [100, 800]
 
@@ -91,6 +105,8 @@ cases:
     host_state:
       kv:
         204: 25
+      credit_limits:
+        204: 100000
     expected:
       status_code: 0
       subtotal_cents: 4000
@@ -99,6 +115,8 @@ cases:
       shipping_cents: 0
       total_cents: 3300
     expected_host_calls:
+      - import: check_credit
+        args: [204, 3300]
       - import: emit_audit
         args: [100, 3300]
 
@@ -109,6 +127,8 @@ cases:
     host_state:
       kv:
         205: 10
+      credit_limits:
+        205: 100000
     expected:
       status_code: 0
       subtotal_cents: 0
@@ -117,6 +137,8 @@ cases:
       shipping_cents: 0
       total_cents: 0
     expected_host_calls:
+      - import: check_credit
+        args: [205, 0]
       - import: emit_audit
         args: [100, 0]
 
@@ -127,6 +149,8 @@ cases:
     host_state:
       kv:
         206: 15
+      credit_limits:
+        206: 100000
     expected:
       status_code: 0
       subtotal_cents: 333
@@ -135,6 +159,8 @@ cases:
       shipping_cents: 100
       total_cents: 412
     expected_host_calls:
+      - import: check_credit
+        args: [206, 412]
       - import: emit_audit
         args: [100, 412]
 
@@ -145,6 +171,8 @@ cases:
     host_state:
       kv:
         207: 12
+      credit_limits:
+        207: 100000
     expected:
       status_code: 0
       subtotal_cents: 30000
@@ -153,5 +181,27 @@ cases:
       shipping_cents: 1500
       total_cents: 30540
     expected_host_calls:
+      - import: check_credit
+        args: [207, 30540]
       - import: emit_audit
         args: [100, 30540]
+
+  - id: E3-003-H10
+    requirement: ORD-007
+    function: calculate_order
+    args: [208, 5000, 1, 0, 0, 500]
+    host_state:
+      kv:
+        208: 0
+      credit_limits:
+        208: 2000
+    expected:
+      status_code: 3
+      subtotal_cents: 0
+      discount_cents: 0
+      tax_cents: 0
+      shipping_cents: 0
+      total_cents: 0
+    expected_host_calls:
+      - import: check_credit
+        args: [208, 6000]

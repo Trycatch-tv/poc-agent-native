@@ -1,5 +1,5 @@
 suite: KAN-POC-003-PUBLIC
-spec_version: 1
+spec_version: 2
 cases:
   - id: E1-003-P01
     requirement: ORD-001
@@ -8,6 +8,8 @@ cases:
     host_state:
       kv:
         101: 10
+      credit_limits:
+        101: 10000
     expected:
       status_code: 1
       subtotal_cents: 0
@@ -24,6 +26,8 @@ cases:
     host_state:
       kv:
         101: 10
+      credit_limits:
+        101: 10000
     expected:
       status_code: 1
       subtotal_cents: 0
@@ -40,6 +44,8 @@ cases:
     host_state:
       kv:
         101: 10
+      credit_limits:
+        101: 10000
     expected:
       status_code: 2
       subtotal_cents: 0
@@ -56,6 +62,8 @@ cases:
     host_state:
       kv:
         101: 20
+      credit_limits:
+        101: 5000
     expected:
       status_code: 0
       subtotal_cents: 2500
@@ -64,6 +72,8 @@ cases:
       shipping_cents: 500
       total_cents: 2700
     expected_host_calls:
+      - import: check_credit
+        args: [101, 2700]
       - import: emit_audit
         args: [100, 2700]
 
@@ -74,6 +84,8 @@ cases:
     host_state:
       kv:
         102: 0
+      credit_limits:
+        102: 10000
     expected:
       status_code: 0
       subtotal_cents: 5000
@@ -82,6 +94,8 @@ cases:
       shipping_cents: 0
       total_cents: 5500
     expected_host_calls:
+      - import: check_credit
+        args: [102, 5500]
       - import: emit_audit
         args: [100, 5500]
 
@@ -92,6 +106,8 @@ cases:
     host_state:
       kv:
         103: 50
+      credit_limits:
+        103: 50000
     expected:
       status_code: 0
       subtotal_cents: 40000
@@ -100,5 +116,27 @@ cases:
       shipping_cents: 1000
       total_cents: 23000
     expected_host_calls:
+      - import: check_credit
+        args: [103, 23000]
       - import: emit_audit
         args: [100, 23000]
+
+  - id: E3-003-P07
+    requirement: ORD-007
+    function: calculate_order
+    args: [104, 1000, 2, 500, 1, 500]
+    host_state:
+      kv:
+        104: 20
+      credit_limits:
+        104: 1500
+    expected:
+      status_code: 3
+      subtotal_cents: 0
+      discount_cents: 0
+      tax_cents: 0
+      shipping_cents: 0
+      total_cents: 0
+    expected_host_calls:
+      - import: check_credit
+        args: [104, 2700]
