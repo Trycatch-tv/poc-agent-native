@@ -1,0 +1,121 @@
+id: KAN-POC-002
+version: 1
+title: Motor modular de cálculo de órdenes comerciales con records y subfunciones
+description: >
+  Implementar el cálculo de órdenes de compra comerciales utilizando la Semantic IR v0.2.
+  El programa debe descomponer la lógica mediante funciones internas privadas (calculate_line_item, calculate_tax)
+  e instanciar y retornar un tipo compuesto OrderCalculation.
+
+types:
+  - name: OrderCalculation
+    fields:
+      - name: subtotal_cents
+        type: i32
+      - name: tax_cents
+        type: i32
+      - name: shipping_cents
+        type: i32
+      - name: total_cents
+        type: i32
+
+functions:
+  - name: calculate_line_item
+    export: false
+    params:
+      - name: unit_price_cents
+        type: i32
+      - name: quantity
+        type: i32
+    returns: i32
+    requirements:
+      - id: LINE-001
+        description: Si unit_price_cents < 0 o quantity < 0, devolver -1.
+      - id: LINE-002
+        description: En cualquier otro caso, devolver unit_price_cents * quantity.
+
+  - name: calculate_tax
+    export: false
+    params:
+      - name: subtotal_cents
+        type: i32
+    returns: i32
+    requirements:
+      - id: TAX-001
+        description: Si subtotal_cents < 0, devolver -1.
+      - id: TAX-002
+        description: En cualquier otro caso, devolver subtotal_cents * 10 / 100 (tasa estándar del 10 %).
+
+  - name: calculate_order
+    export: true
+    params:
+      - name: price1
+        type: i32
+      - name: qty1
+        type: i32
+      - name: price2
+        type: i32
+      - name: qty2
+        type: i32
+      - name: shipping_cents
+        type: i32
+    returns: OrderCalculation
+    requirements:
+      - id: ORD-001
+        description: Invocar calculate_line_item para cada item. Si alguna línea es < 0 o shipping_cents < 0, devolver un OrderCalculation con todos los campos en -1.
+      - id: ORD-002
+        description: subtotal_cents es la suma de ambas líneas (line1 + line2).
+      - id: ORD-003
+        description: tax_cents se obtiene invocando calculate_tax(subtotal_cents).
+      - id: ORD-004
+        description: total_cents es subtotal_cents + tax_cents + shipping_cents. Devolver el OrderCalculation resultante.
+
+acceptance:
+  public:
+    - id: E1-002-P01
+      function: calculate_order
+      args: [-1, 1, 100, 1, 500]
+      expected:
+        subtotal_cents: -1
+        tax_cents: -1
+        shipping_cents: -1
+        total_cents: -1
+    - id: E1-002-P02
+      function: calculate_order
+      args: [100, 1, 100, -1, 500]
+      expected:
+        subtotal_cents: -1
+        tax_cents: -1
+        shipping_cents: -1
+        total_cents: -1
+    - id: E1-002-P03
+      function: calculate_order
+      args: [100, 1, 100, 1, -50]
+      expected:
+        subtotal_cents: -1
+        tax_cents: -1
+        shipping_cents: -1
+        total_cents: -1
+    - id: E1-002-P04
+      function: calculate_order
+      args: [1000, 2, 500, 1, 500]
+      expected:
+        subtotal_cents: 2500
+        tax_cents: 250
+        shipping_cents: 500
+        total_cents: 3250
+    - id: E1-002-P05
+      function: calculate_order
+      args: [0, 0, 0, 0, 0]
+      expected:
+        subtotal_cents: 0
+        tax_cents: 0
+        shipping_cents: 0
+        total_cents: 0
+    - id: E1-002-P06
+      function: calculate_order
+      args: [5000, 3, 2500, 2, 1000]
+      expected:
+        subtotal_cents: 20000
+        tax_cents: 2000
+        shipping_cents: 1000
+        total_cents: 23000

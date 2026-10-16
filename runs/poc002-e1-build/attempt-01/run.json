@@ -1,0 +1,35 @@
+{
+  "exercise": "E1-002",
+  "phase": "construction",
+  "attempt": 1,
+  "status": "passed",
+  "timestamp": "2026-10-16T07:22:00-05:00",
+  "ir_version": "0.2",
+  "spec_version": 1,
+  "program": "ir/program-002.ir.json",
+  "artifact": "build/program-002.wasm",
+  "artifact_size_bytes": 308,
+  "artifact_sha256": "f42bcb6e03c616b2891a9c4d1e060c4e141d502b01f44a326bc749d65a0d771a",
+  "diagnostics_count": 0,
+  "public_tests": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "execution_ms": 40
+  },
+  "hidden_tests": {
+    "total": 9,
+    "passed": 9,
+    "failed": 0,
+    "execution_ms": 49
+  },
+  "success_criteria": {
+    "SC-01": true,
+    "SC-02": true,
+    "SC-12": true,
+    "SC-13": true,
+    "SC-14": true,
+    "SC-15": true,
+    "SC-16": true
+  }
+}
