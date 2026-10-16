@@ -1,0 +1,104 @@
+suite: KAN-POC-003-PUBLIC
+spec_version: 1
+cases:
+  - id: E1-003-P01
+    requirement: ORD-001
+    function: calculate_order
+    args: [101, -1, 1, 100, 1, 500]
+    host_state:
+      kv:
+        101: 10
+    expected:
+      status_code: 1
+      subtotal_cents: 0
+      discount_cents: 0
+      tax_cents: 0
+      shipping_cents: 0
+      total_cents: 0
+    expected_host_calls: []
+
+  - id: E1-003-P02
+    requirement: ORD-001
+    function: calculate_order
+    args: [101, 100, 1, 100, -1, 500]
+    host_state:
+      kv:
+        101: 10
+    expected:
+      status_code: 1
+      subtotal_cents: 0
+      discount_cents: 0
+      tax_cents: 0
+      shipping_cents: 0
+      total_cents: 0
+    expected_host_calls: []
+
+  - id: E1-003-P03
+    requirement: ORD-002
+    function: calculate_order
+    args: [101, 100, 1, 100, 1, -50]
+    host_state:
+      kv:
+        101: 10
+    expected:
+      status_code: 2
+      subtotal_cents: 0
+      discount_cents: 0
+      tax_cents: 0
+      shipping_cents: 0
+      total_cents: 0
+    expected_host_calls: []
+
+  - id: E1-003-P04
+    requirement: ORD-006
+    function: calculate_order
+    args: [101, 1000, 2, 500, 1, 500]
+    host_state:
+      kv:
+        101: 20
+    expected:
+      status_code: 0
+      subtotal_cents: 2500
+      discount_cents: 500
+      tax_cents: 200
+      shipping_cents: 500
+      total_cents: 2700
+    expected_host_calls:
+      - import: emit_audit
+        args: [100, 2700]
+
+  - id: E1-003-P05
+    requirement: ORD-006
+    function: calculate_order
+    args: [102, 5000, 1, 0, 0, 0]
+    host_state:
+      kv:
+        102: 0
+    expected:
+      status_code: 0
+      subtotal_cents: 5000
+      discount_cents: 0
+      tax_cents: 500
+      shipping_cents: 0
+      total_cents: 5500
+    expected_host_calls:
+      - import: emit_audit
+        args: [100, 5500]
+
+  - id: E1-003-P06
+    requirement: ORD-006
+    function: calculate_order
+    args: [103, 10000, 2, 20000, 1, 1000]
+    host_state:
+      kv:
+        103: 50
+    expected:
+      status_code: 0
+      subtotal_cents: 40000
+      discount_cents: 20000
+      tax_cents: 2000
+      shipping_cents: 1000
+      total_cents: 23000
+    expected_host_calls:
+      - import: emit_audit
+        args: [100, 23000]

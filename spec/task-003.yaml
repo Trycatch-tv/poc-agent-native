@@ -1,0 +1,109 @@
+id: KAN-POC-003
+version: 1
+title: Motor de cálculo comercial con Capability ABI (KV Store y Audit Log)
+description: >
+  Implementar el cálculo de órdenes de compra comerciales utilizando la Semantic IR v0.3.
+  El programa debe declarar y utilizar capabilities de host para:
+  1. Consultar el descuento del cliente desde un almacén clave-valor (kv_store.kv_get).
+  2. Emitir eventos de auditoría ante transacciones válidas (audit_log.emit_audit).
+  3. Descomponer la lógica en subfunciones internas y retornar el registro OrderResult en memoria lineal.
+
+capabilities:
+  - name: kv_store
+    description: Acceso síncrono de solo lectura a parámetros de cliente e inventario.
+  - name: audit_log
+    description: Registro determinista de eventos de auditoría y trazabilidad en el host.
+
+imports:
+  - module: host
+    name: kv_get
+    capability: kv_store
+    params:
+      - name: key
+        type: i32
+    returns: i32
+    description: Retorna el porcentaje de descuento asignado al customer_id (0 si no existe, o tasa 0..100).
+
+  - module: host
+    name: emit_audit
+    capability: audit_log
+    params:
+      - name: event_id
+        type: i32
+      - name: payload
+        type: i32
+    returns: i32
+    description: Emite un evento de auditoría en el host. Retorna 1 si fue registrado exitosamente.
+
+types:
+  - name: OrderResult
+    fields:
+      - name: status_code
+        type: i32
+      - name: subtotal_cents
+        type: i32
+      - name: discount_cents
+        type: i32
+      - name: tax_cents
+        type: i32
+      - name: shipping_cents
+        type: i32
+      - name: total_cents
+        type: i32
+
+functions:
+  - name: calculate_line_item
+    export: false
+    params:
+      - name: unit_price_cents
+        type: i32
+      - name: quantity
+        type: i32
+    returns: i32
+    requirements:
+      - id: LINE-001
+        description: Si unit_price_cents < 0 o quantity < 0, retornar -1.
+      - id: LINE-002
+        description: De lo contrario, retornar unit_price_cents * quantity.
+
+  - name: calculate_tax
+    export: false
+    params:
+      - name: taxable_amount_cents
+        type: i32
+    returns: i32
+    requirements:
+      - id: TAX-001
+        description: Si taxable_amount_cents < 0, retornar 0.
+      - id: TAX-002
+        description: De lo contrario, retornar taxable_amount_cents * 10 / 100 (tasa estándar 10 %).
+
+  - name: calculate_order
+    export: true
+    params:
+      - name: customer_id
+        type: i32
+      - name: price1
+        type: i32
+      - name: qty1
+        type: i32
+      - name: price2
+        type: i32
+      - name: qty2
+        type: i32
+      - name: shipping_cents
+        type: i32
+    returns: OrderResult
+    requirements:
+      - id: ORD-001
+        description: Validar líneas. Si alguna línea es < 0, retornar OrderResult con status_code = 1 y montos en 0.
+      - id: ORD-002
+        description: Validar envío. Si shipping_cents < 0, retornar OrderResult con status_code = 2 y montos en 0.
+      - id: ORD-003
+        description: Consultar descuento invocando kv_get(customer_id). discount_cents = subtotal_cents * discount_rate / 100.
+      - id: ORD-004
+        description: Base imponible = subtotal_cents - discount_cents. tax_cents = calculate_tax(base_imponible).
+      - id: ORD-005
+        description: total_cents = base_imponible + tax_cents + shipping_cents.
+      - id: ORD-006
+        description: Invocar emit_audit(100, total_cents) y retornar OrderResult con status_code = 0.
