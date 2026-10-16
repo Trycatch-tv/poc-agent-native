@@ -1,6 +1,6 @@
 {
   "ir_version": "0.1",
-  "spec_version": 1,
+  "spec_version": 2,
   "functions": [
     {
       "name": "calculate_shipping",
@@ -59,6 +59,78 @@
             "op": "const",
             "type": "i32",
             "value": 500
+          }
+        }
+      }
+    },
+    {
+      "name": "calculate_discount",
+      "export": true,
+      "params": [
+        {
+          "name": "subtotal_cents",
+          "type": "i32"
+        },
+        {
+          "name": "premium",
+          "type": "bool"
+        }
+      ],
+      "returns": "i32",
+      "requirements": [
+        "DISC-001",
+        "DISC-002",
+        "DISC-003"
+      ],
+      "body": {
+        "op": "if",
+        "condition": {
+          "op": "lt_s",
+          "left": {
+            "op": "param",
+            "name": "subtotal_cents"
+          },
+          "right": {
+            "op": "const",
+            "type": "i32",
+            "value": 0
+          }
+        },
+        "then": {
+          "op": "const",
+          "type": "i32",
+          "value": -1
+        },
+        "else": {
+          "op": "if",
+          "condition": {
+            "op": "eq",
+            "left": {
+              "op": "param",
+              "name": "premium"
+            },
+            "right": {
+              "op": "const",
+              "type": "bool",
+              "value": false
+            }
+          },
+          "then": {
+            "op": "const",
+            "type": "i32",
+            "value": 0
+          },
+          "else": {
+            "op": "div_s",
+            "left": {
+              "op": "param",
+              "name": "subtotal_cents"
+            },
+            "right": {
+              "op": "const",
+              "type": "i32",
+              "value": 10
+            }
           }
         }
       }

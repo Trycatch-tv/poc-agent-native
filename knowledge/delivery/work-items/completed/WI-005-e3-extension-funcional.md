@@ -4,11 +4,14 @@ id: WI-005
 alias: KAN-POC-WI-005
 title: E3 extensión funcional
 knowledge_level: K2
-status: draft
+status: completed
+implementation_status: completed
 phase: now
 project_state: ai-assisted
 refined_by: work-item-agent
 created_at: '2026-10-16'
+ready_at: '2026-10-16'
+completed_at: '2026-10-16'
 domains:
   - semantic-ir
   - commercial-rules-subject
@@ -89,11 +92,11 @@ _Expected value:_ Evidencia auditable para **H1-C**, **SC-06**, **SC-07**, **SC-
 
 ## Acceptance Criteria
 
-- [ ] `spec/task.yaml` está actualizado a `version: 2` con las funciones exportadas `calculate_shipping` y `calculate_discount` (`DISC-001`, `DISC-002`, `DISC-003`).
-- [ ] `ir/program.ir.json` (`spec_version: 2`) incluye `calculate_discount(subtotal_cents: i32, premium: bool) -> i32` conservando intacta `calculate_shipping` y pasa `irtool verify` con `0` diagnósticos (`diagnostics.json = []`).
-- [ ] El módulo `program.wasm` compilado pasa `irtool validate` y aprueba `12/12` pruebas públicas (`6` nuevas de `calculate_discount` + `6` de regresión de `calculate_shipping`) y `100 %` de las pruebas reservadas (**SC-06**, **SC-10**).
-- [ ] Los hashes SHA-256 de `irtool` y `runner` coinciden exactamente con `runs/toolchain-freeze.sha256` (`backend_modified_since_freeze: false`, **SC-07**).
-- [ ] **End-to-end:** Existen todos los artefactos obligatorios de `E3` en `runs/e3-extend/attempt-01/` (`run.json`, `toolchain.json`, `spec.snapshot.yaml`, `ir.before.json`, `ir.after.json`, `diagnostics.json`, `public-tests.json`, `hidden-tests.json`, `program.wasm`, `program.wat`, `artifact.sha256`, `diff.patch`, `agent-summary.md`) (**SC-14**).
+- [x] `spec/task.yaml` está actualizado a `version: 2` con las funciones exportadas `calculate_shipping` y `calculate_discount` (`DISC-001`, `DISC-002`, `DISC-003`).
+- [x] `ir/program.ir.json` (`spec_version: 2`) incluye `calculate_discount(subtotal_cents: i32, premium: bool) -> i32` conservando intacta `calculate_shipping` y pasa `irtool verify` con `0` diagnósticos (`diagnostics.json = []`).
+- [x] El módulo `program.wasm` compilado pasa `irtool validate` y aprueba `12/12` pruebas públicas (`6` nuevas de `calculate_discount` + `6` de regresión de `calculate_shipping`) y `100 %` de las pruebas reservadas (**SC-06**, **SC-10**).
+- [x] Los hashes SHA-256 de `irtool` y `runner` coinciden exactamente con `runs/toolchain-freeze.sha256` (`backend_modified_since_freeze: false`, **SC-07**).
+- [x] **End-to-end:** Existen todos los artefactos obligatorios de `E3` en `runs/e3-extend/attempt-01/` (`run.json`, `toolchain.json`, `spec.snapshot.yaml`, `ir.before.json`, `ir.after.json`, `diagnostics.json`, `public-tests.json`, `hidden-tests.json`, `program.wasm`, `program.wat`, `artifact.sha256`, `diff.patch`, `agent-summary.md`) (**SC-14**).
 
 ## Validation
 

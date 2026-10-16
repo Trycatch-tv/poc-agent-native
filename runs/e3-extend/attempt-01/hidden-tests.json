@@ -1,0 +1,215 @@
+{
+  "passed": 18,
+  "failed": 0,
+  "total": 18,
+  "execution_ms": 33,
+  "cases": [
+    {
+      "id": "SHIP-H01",
+      "requirement": "SHIP-001",
+      "function": "calculate_shipping",
+      "args": [
+        -2147483648
+      ],
+      "expected": -1,
+      "actual": -1,
+      "passed": true
+    },
+    {
+      "id": "SHIP-H02",
+      "requirement": "SHIP-001",
+      "function": "calculate_shipping",
+      "args": [
+        -500
+      ],
+      "expected": -1,
+      "actual": -1,
+      "passed": true
+    },
+    {
+      "id": "SHIP-H03",
+      "requirement": "SHIP-001",
+      "function": "calculate_shipping",
+      "args": [
+        -2
+      ],
+      "expected": -1,
+      "actual": -1,
+      "passed": true
+    },
+    {
+      "id": "SHIP-H04",
+      "requirement": "SHIP-003",
+      "function": "calculate_shipping",
+      "args": [
+        1
+      ],
+      "expected": 500,
+      "actual": 500,
+      "passed": true
+    },
+    {
+      "id": "SHIP-H05",
+      "requirement": "SHIP-003",
+      "function": "calculate_shipping",
+      "args": [
+        2500
+      ],
+      "expected": 500,
+      "actual": 500,
+      "passed": true
+    },
+    {
+      "id": "SHIP-H06",
+      "requirement": "SHIP-003",
+      "function": "calculate_shipping",
+      "args": [
+        4998
+      ],
+      "expected": 500,
+      "actual": 500,
+      "passed": true
+    },
+    {
+      "id": "SHIP-H07",
+      "requirement": "SHIP-002",
+      "function": "calculate_shipping",
+      "args": [
+        5002
+      ],
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "id": "SHIP-H08",
+      "requirement": "SHIP-002",
+      "function": "calculate_shipping",
+      "args": [
+        10000
+      ],
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "id": "SHIP-H09",
+      "requirement": "SHIP-002",
+      "function": "calculate_shipping",
+      "args": [
+        1000000
+      ],
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "id": "DISC-H01",
+      "requirement": "DISC-001",
+      "function": "calculate_discount",
+      "args": [
+        -1,
+        0
+      ],
+      "expected": -1,
+      "actual": -1,
+      "passed": true
+    },
+    {
+      "id": "DISC-H02",
+      "requirement": "DISC-001",
+      "function": "calculate_discount",
+      "args": [
+        -2147483648,
+        1
+      ],
+      "expected": -1,
+      "actual": -1,
+      "passed": true
+    },
+    {
+      "id": "DISC-H03",
+      "requirement": "DISC-001",
+      "function": "calculate_discount",
+      "args": [
+        -500,
+        0
+      ],
+      "expected": -1,
+      "actual": -1,
+      "passed": true
+    },
+    {
+      "id": "DISC-H04",
+      "requirement": "DISC-002",
+      "function": "calculate_discount",
+      "args": [
+        0,
+        0
+      ],
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "id": "DISC-H05",
+      "requirement": "DISC-002",
+      "function": "calculate_discount",
+      "args": [
+        9999,
+        0
+      ],
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "id": "DISC-H06",
+      "requirement": "DISC-003",
+      "function": "calculate_discount",
+      "args": [
+        9,
+        1
+      ],
+      "expected": 0,
+      "actual": 0,
+      "passed": true
+    },
+    {
+      "id": "DISC-H07",
+      "requirement": "DISC-003",
+      "function": "calculate_discount",
+      "args": [
+        10,
+        1
+      ],
+      "expected": 1,
+      "actual": 1,
+      "passed": true
+    },
+    {
+      "id": "DISC-H08",
+      "requirement": "DISC-003",
+      "function": "calculate_discount",
+      "args": [
+        19,
+        1
+      ],
+      "expected": 1,
+      "actual": 1,
+      "passed": true
+    },
+    {
+      "id": "DISC-H09",
+      "requirement": "DISC-003",
+      "function": "calculate_discount",
+      "args": [
+        2147483640,
+        1
+      ],
+      "expected": 214748364,
+      "actual": 214748364,
+      "passed": true
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "schema_version": "1",
+  "experiment_id": "KADDO-AGENT-NATIVE-POC-001",
+  "exercise": "E3",
+  "attempt": 1,
+  "started_at": "2026-10-15T23:39:40-05:00",
+  "ended_at": "2026-10-15T23:41:06-05:00",
+  "git": {
+    "commit": "780461b",
+    "dirty": true
+  },
+  "agent": {
+    "provider": "Google DeepMind",
+    "model": "Gemini 4 Argon (Medium)",
+    "session_id": "fb466195-32bb-4a86-9be5-ea89f1022e2e",
+    "input_tokens": null,
+    "output_tokens": null,
+    "cost": null
+  },
+  "inputs": {
+    "spec_sha256": "86dedc16ca17ee215bb197bc8f780c97ba2ef462a02ecd33bd729e244abeceb7",
+    "ir_before_sha256": "953f73aca2c344b8dc167f73f4b14c53fb660ca37a79adcd29e2ac765a3df3e4",
+    "ir_after_sha256": "fe14251a90893f3c92dea24a5a5c32965cf1568dddc782d1ce59bc2ee8cfa090"
+  },
+  "toolchain": {
+    "rustc": "rustc 1.85.0 (4d91de4e4 2025-02-17)",
+    "wasmtime": "27.0.0",
+    "wasm_tools": "wasmparser/wasmprinter 0.221.3",
+    "verifier_sha256": "05b0d4c4d8bd85b5fcd7cbcfafa92dccb9b57d0a240464d50a5c874452604d0e",
+    "compiler_sha256": "05b0d4c4d8bd85b5fcd7cbcfafa92dccb9b57d0a240464d50a5c874452604d0e",
+    "runner_sha256": "808cf7f6a6b88aedb141a2d09d75d999d3f36b8824aa1837b19113fb9963782c",
+    "freeze_commit": "ba7399d"
+  },
+  "results": {
+    "ir_valid": true,
+    "wasm_valid": true,
+    "public_tests": {
+      "passed": 12,
+      "failed": 0,
+      "total": 12
+    },
+    "hidden_tests": {
+      "passed": 18,
+      "failed": 0,
+      "total": 18
+    },
+    "repair_attempts": 0,
+    "manual_ir_edits": 0,
+    "human_clarifications": 0,
+    "backend_modified_since_freeze": false,
+    "wasm_size_bytes": 134,
+    "verify_ms": 11,
+    "compile_ms": 14,
+    "test_ms": 28
+  },
+  "artifacts": {
+    "spec": "spec.snapshot.yaml",
+    "ir_before": "ir.before.json",
+    "ir_after": "ir.after.json",
+    "diagnostics": "diagnostics.json",
+    "public_tests": "public-tests.json",
+    "hidden_tests": "hidden-tests.json",
+    "wasm": "program.wasm",
+    "wat": "program.wat",
+    "sha256": "artifact.sha256",
+    "diff": "diff.patch",
+    "agent_summary": "agent-summary.md",
+    "toolchain": "toolchain.json"
+  },
+  "outcome": "passed",
+  "notes": [
+    "E3 extended ir/program.ir.json to spec_version 2 by adding calculate_discount(subtotal_cents: i32, premium: bool) -> i32 while keeping calculate_shipping untouched.",
+    "Passed on attempt 1 with 0 diagnostics, 12/12 public tests (6 new + 6 regression), 18/18 hidden tests (9 new + 9 regression), and 0 modifications to the frozen toolchain (SC-06, SC-07)."
+  ]
+}

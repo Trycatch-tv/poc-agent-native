@@ -1,5 +1,5 @@
 suite: KAN-POC-001-PUBLIC
-spec_version: 1
+spec_version: 2
 cases:
   - id: SHIP-P01
     requirement: SHIP-001
@@ -31,3 +31,33 @@ cases:
     function: calculate_shipping
     args: [2147483647]
     expected: 0
+  - id: E3-P01
+    requirement: DISC-001
+    function: calculate_discount
+    args: [-1, true]
+    expected: -1
+  - id: E3-P02
+    requirement: DISC-003
+    function: calculate_discount
+    args: [0, true]
+    expected: 0
+  - id: E3-P03
+    requirement: DISC-003
+    function: calculate_discount
+    args: [99, true]
+    expected: 9
+  - id: E3-P04
+    requirement: DISC-003
+    function: calculate_discount
+    args: [100, true]
+    expected: 10
+  - id: E3-P05
+    requirement: DISC-002
+    function: calculate_discount
+    args: [100, false]
+    expected: 0
+  - id: E3-P06
+    requirement: DISC-003
+    function: calculate_discount
+    args: [5000, true]
+    expected: 500
