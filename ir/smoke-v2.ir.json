@@ -1,0 +1,95 @@
+{
+  "ir_version": "0.2",
+  "spec_version": 1,
+  "types": [
+    {
+      "name": "Point",
+      "fields": [
+        {
+          "name": "x",
+          "type": "i32"
+        },
+        {
+          "name": "y",
+          "type": "i32"
+        }
+      ]
+    },
+    {
+      "name": "PointSum",
+      "fields": [
+        {
+          "name": "sum",
+          "type": "i32"
+        }
+      ]
+    }
+  ],
+  "functions": [
+    {
+      "name": "add_coords",
+      "export": false,
+      "params": [
+        {
+          "name": "x",
+          "type": "i32"
+        },
+        {
+          "name": "y",
+          "type": "i32"
+        }
+      ],
+      "returns": "i32",
+      "requirements": [],
+      "body": {
+        "op": "add",
+        "left": {
+          "op": "param",
+          "name": "x"
+        },
+        "right": {
+          "op": "param",
+          "name": "y"
+        }
+      }
+    },
+    {
+      "name": "make_point_sum",
+      "export": true,
+      "params": [
+        {
+          "name": "x",
+          "type": "i32"
+        },
+        {
+          "name": "y",
+          "type": "i32"
+        }
+      ],
+      "returns": "PointSum",
+      "requirements": [
+        "SMOKE2-001"
+      ],
+      "body": {
+        "op": "record.construct",
+        "type": "PointSum",
+        "fields": {
+          "sum": {
+            "op": "call",
+            "function": "add_coords",
+            "args": [
+              {
+                "op": "param",
+                "name": "x"
+              },
+              {
+                "op": "param",
+                "name": "y"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
