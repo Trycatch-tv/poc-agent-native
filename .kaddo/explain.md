@@ -20,6 +20,7 @@
 
 ### Delivery — Traceable
 - ✓ WI-001-contrato-experimental-e-ir-v0-1.md
+- ✓ WI-002-verifier-compiler-directo-a-wasm-y-runner.md
 - ✓ poc.md
 
 ## Detected Stack
@@ -35,28 +36,28 @@
 - Tech: Structured
 - Delivery: Traceable
 - Agents: available
-- Work items: 1
-- Ownership coverage: 1/1 work items
+- Work items: 2
+- Ownership coverage: 2/2 work items
 
 ## Work Items
 - Draft: 0
-- Ready: 1
+- Ready: 0
 - In Progress: 0
 - Blocked: 0
-- Completed: 0
+- Completed: 2
 - Archived: 0
 
 ## Work Items by Type
-- Spikes: 1
+- Spikes: 2
 
 ## Work Item Sources
-- Unknown: 1
+- Unknown: 2
 
 ## Work Items by Initiative
-- Unassigned — Ready: 1
+- Unassigned — Completed: 2
 
 ## Domains
-- semantic-ir, commercial-rules-subject, experiment-evidence
+- semantic-ir, commercial-rules-subject, experiment-evidence, deterministic-toolchain
 
 ## Mapped Modules
 - Mapped modules: 0
@@ -72,7 +73,7 @@ Groups:
 ## Project Route
 
 Route: new
-Progress: 5/8
+Progress: 6/8
 
 - [x] Enable Kaddo
 - [x] Create POC artifact
@@ -81,7 +82,7 @@ Progress: 5/8
 - [>] Document minimal technical context
 - [o] Identify relevant resources
 - [x] Create experiment Work Item
-- [ ] Capture experiment evidence
+- [x] Capture experiment evidence
 - [ ] Evaluate and conclude
 - [o] Generate final report (optional)
 
@@ -89,9 +90,13 @@ Progress: 5/8
 - Phase: Discovery
 - Reason:
   - No roadmap yet
-  - ready: 1
   - Ownership coverage 100%
 - Next step: This project uses the standard new-project Kaddo flow.
+
+## Delivery Summary
+- Completed Work Items: 2
+- Active Work Items: 0
+- Implementation completed: 2
 
 ## Suggested Next Steps
 1. Run `kaddo bootstrap` to create the project knowledge baseline.

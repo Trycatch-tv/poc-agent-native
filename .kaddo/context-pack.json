@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "generatedAt": "2026-10-16T03:43:34.553Z",
+  "generatedAt": "2026-10-16T04:07:22.110Z",
   "project": {
     "name": "poc-agent-native",
     "state": "new",
@@ -23,13 +23,15 @@
     "summary": "> What is true about this product right now.",
     "roadmapSummary": "",
     "inventoryAvailable": true,
-    "workItems": [
+    "workItems": [],
+    "activeWorkItems": [],
+    "completedWorkItems": [
       {
         "id": "WI-001",
         "type": "spike",
         "title": "Contrato experimental e IR v0.1",
-        "status": "ready",
-        "lifecycle": "ready",
+        "status": "completed",
+        "lifecycle": "completed",
         "knowledgeLevel": "K2",
         "domains": [
           "semantic-ir",
@@ -40,38 +42,41 @@
           "type": "unknown",
           "inferred": true,
           "reason": "No source metadata found."
-        }
-      }
-    ],
-    "activeWorkItems": [
+        },
+        "implementationStatus": "completed",
+        "validationStatus": "not-assessed",
+        "releaseStatus": "not-assessed"
+      },
       {
-        "id": "WI-001",
+        "id": "WI-002",
         "type": "spike",
-        "title": "Contrato experimental e IR v0.1",
-        "status": "ready",
-        "lifecycle": "ready",
-        "knowledgeLevel": "K2",
+        "title": "Verifier + compiler directo a WASM + runner",
+        "status": "completed",
+        "lifecycle": "completed",
+        "knowledgeLevel": "K3",
         "domains": [
+          "deterministic-toolchain",
           "semantic-ir",
-          "commercial-rules-subject",
           "experiment-evidence"
         ],
         "source": {
           "type": "unknown",
           "inferred": true,
           "reason": "No source metadata found."
-        }
+        },
+        "implementationStatus": "completed",
+        "validationStatus": "not-assessed",
+        "releaseStatus": "not-assessed"
       }
     ],
-    "completedWorkItems": [],
     "archivedWorkItems": [],
     "allWorkItems": [
       {
         "id": "WI-001",
         "type": "spike",
         "title": "Contrato experimental e IR v0.1",
-        "status": "ready",
-        "lifecycle": "ready",
+        "status": "completed",
+        "lifecycle": "completed",
         "knowledgeLevel": "K2",
         "domains": [
           "semantic-ir",
@@ -82,7 +87,31 @@
           "type": "unknown",
           "inferred": true,
           "reason": "No source metadata found."
-        }
+        },
+        "implementationStatus": "completed",
+        "validationStatus": "not-assessed",
+        "releaseStatus": "not-assessed"
+      },
+      {
+        "id": "WI-002",
+        "type": "spike",
+        "title": "Verifier + compiler directo a WASM + runner",
+        "status": "completed",
+        "lifecycle": "completed",
+        "knowledgeLevel": "K3",
+        "domains": [
+          "deterministic-toolchain",
+          "semantic-ir",
+          "experiment-evidence"
+        ],
+        "source": {
+          "type": "unknown",
+          "inferred": true,
+          "reason": "No source metadata found."
+        },
+        "implementationStatus": "completed",
+        "validationStatus": "not-assessed",
+        "releaseStatus": "not-assessed"
       }
     ],
     "artifacts": [
@@ -97,6 +126,20 @@
           "tests/**",
           "runs/**",
           "build/**"
+        ]
+      },
+      {
+        "id": "WI-002",
+        "type": "spike",
+        "title": "Verifier + compiler directo a WASM + runner",
+        "summary": "",
+        "codeGlobs": [
+          "Cargo.toml",
+          "Cargo.lock",
+          "crates/**",
+          "compiler/**",
+          "runner/**",
+          "tests/**"
         ]
       }
     ]
@@ -133,6 +176,7 @@
       "status": "Traceable",
       "detected": [
         "WI-001-contrato-experimental-e-ir-v0-1.md",
+        "WI-002-verifier-compiler-directo-a-wasm-y-runner.md",
         "poc.md"
       ]
     }
@@ -169,17 +213,16 @@
     "present": false,
     "initiatives": 0,
     "work_item_candidates": 0,
-    "materialized_work_items": 1,
+    "materialized_work_items": 2,
     "remaining_work_item_candidates": 0,
     "candidates": 0,
-    "materialized": 1,
+    "materialized": 2,
     "remaining": 0
   },
   "phase": {
     "phase": "Discovery",
     "reasons": [
       "No roadmap yet",
-      "ready: 1",
       "Ownership coverage 100%"
     ],
     "recommendedAgents": [
@@ -204,15 +247,13 @@
     "draft_work_items": 0,
     "refined_draft_work_items": 0,
     "refined_draft_ids": [],
-    "ready_work_items": 1,
-    "ready_work_item_ids": [
-      "WI-001"
-    ],
+    "ready_work_items": 0,
+    "ready_work_item_ids": [],
     "ready_multirepo_wi_ids": [],
     "in_progress_work_items": 0,
     "blocked_work_items": 0,
-    "total_work_items": 1,
-    "ownership_coverage": "1/1",
+    "total_work_items": 2,
+    "ownership_coverage": "2/2",
     "remaining_work_item_candidates": 0,
     "decision_candidates": 0,
     "accepted_adrs": 0,
@@ -279,19 +320,17 @@
     }
   },
   "workItemSummary": {
-    "total": 1,
-    "active": 1,
+    "total": 2,
+    "active": 0,
     "draft": 0,
-    "ready": 1,
+    "ready": 0,
     "in_progress": 0,
     "blocked": 0,
-    "completed": 0,
+    "completed": 2,
     "archived": 0,
-    "summary": "ready"
+    "summary": "completed-only"
   },
-  "deliveryMix": {
-    "spike": 1
-  },
+  "deliveryMix": {},
   "external": [],
   "graph": null,
   "graphHints": null,
@@ -334,9 +373,9 @@
   "projectRoute": {
     "type": "new",
     "currentStep": "poc-technical-context",
-    "completed": 5,
+    "completed": 6,
     "total": 8,
-    "progressPercent": 63,
+    "progressPercent": 75,
     "steps": [
       {
         "id": "enable-kaddo",
@@ -397,13 +436,15 @@
       {
         "id": "poc-evidence",
         "label": "Capture experiment evidence",
-        "status": "next",
-        "reason": "Complete an experiment Work Item and link its evidence in the POC artifact."
+        "status": "done",
+        "evidence": [
+          "knowledge/delivery/work-items/"
+        ]
       },
       {
         "id": "poc-evaluate",
         "label": "Evaluate and conclude",
-        "status": "pending",
+        "status": "next",
         "reason": "Record validated, rejected, or inconclusive from the evidence."
       },
       {

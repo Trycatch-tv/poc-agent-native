@@ -26,30 +26,30 @@
     "hasSkills": true
   },
   "workItems": {
-    "total": 1,
+    "total": 2,
     "inProgress": 0,
     "done": 0,
     "cancelled": 0,
     "byState": {
       "draft": 0,
-      "ready": 1,
+      "ready": 0,
       "in-progress": 0,
       "blocked": 0,
-      "completed": 0,
+      "completed": 2,
       "archived": 0
     },
     "byType": {
-      "spike": 1
+      "spike": 2
     },
     "initiatives": [
       {
         "name": "Unassigned",
         "states": {
           "draft": 0,
-          "ready": 1,
+          "ready": 0,
           "in-progress": 0,
           "blocked": 0,
-          "completed": 0,
+          "completed": 2,
           "archived": 0
         }
       }
@@ -59,8 +59,8 @@
         "id": "WI-001",
         "title": "Contrato experimental e IR v0.1",
         "type": "spike",
-        "status": "ready",
-        "lifecycle": "ready",
+        "status": "completed",
+        "lifecycle": "completed",
         "initiative": "",
         "knowledgeLevel": "K2",
         "hasOwnership": true,
@@ -73,18 +73,38 @@
           "type": "unknown",
           "inferred": true
         }
+      },
+      {
+        "id": "WI-002",
+        "title": "Verifier + compiler directo a WASM + runner",
+        "type": "spike",
+        "status": "completed",
+        "lifecycle": "completed",
+        "initiative": "",
+        "knowledgeLevel": "K3",
+        "hasOwnership": true,
+        "domains": [
+          "deterministic-toolchain",
+          "semantic-ir",
+          "experiment-evidence"
+        ],
+        "source": {
+          "type": "unknown",
+          "inferred": true
+        }
       }
     ]
   },
   "ownership": {
-    "workItemsTotal": 1,
-    "workItemsWithOwnership": 1,
+    "workItemsTotal": 2,
+    "workItemsWithOwnership": 2,
     "workItemsMissingOwnership": 0
   },
   "domains": [
     "semantic-ir",
     "commercial-rules-subject",
-    "experiment-evidence"
+    "experiment-evidence",
+    "deterministic-toolchain"
   ],
   "duplicateWorkItems": [],
   "externalCapsules": [],
@@ -121,6 +141,7 @@
       "status": "Traceable",
       "detected": [
         "WI-001-contrato-experimental-e-ir-v0-1.md",
+        "WI-002-verifier-compiler-directo-a-wasm-y-runner.md",
         "poc.md"
       ]
     }
@@ -129,10 +150,10 @@
     "present": false,
     "initiatives": 0,
     "work_item_candidates": 0,
-    "materialized_work_items": 1,
+    "materialized_work_items": 2,
     "remaining_work_item_candidates": 0,
     "candidates": 0,
-    "materialized": 1,
+    "materialized": 2,
     "remaining": 0
   },
   "missingKnowledge": [
@@ -468,9 +489,9 @@
   "projectRoute": {
     "type": "new",
     "currentStep": "poc-technical-context",
-    "completed": 5,
+    "completed": 6,
     "total": 8,
-    "progressPercent": 63,
+    "progressPercent": 75,
     "steps": [
       {
         "id": "enable-kaddo",
@@ -531,13 +552,15 @@
       {
         "id": "poc-evidence",
         "label": "Capture experiment evidence",
-        "status": "next",
-        "reason": "Complete an experiment Work Item and link its evidence in the POC artifact."
+        "status": "done",
+        "evidence": [
+          "knowledge/delivery/work-items/"
+        ]
       },
       {
         "id": "poc-evaluate",
         "label": "Evaluate and conclude",
-        "status": "pending",
+        "status": "next",
         "reason": "Record validated, rejected, or inconclusive from the evidence."
       },
       {
@@ -578,7 +601,14 @@
     "drifted": 0
   },
   "isModuleRepo": false,
-  "deliverySummary": null,
+  "deliverySummary": {
+    "completedWorkItems": 2,
+    "archivedWorkItems": 0,
+    "activeWorkItems": 0,
+    "implementationCompleted": 2,
+    "releaseBlocked": 0,
+    "releaseReady": 0
+  },
   "scopeCoverage": [],
   "implementationEvidence": [],
   "mapped_modules": []

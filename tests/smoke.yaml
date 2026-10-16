@@ -1,0 +1,18 @@
+suite: KAN-POC-001-SMOKE
+spec_version: 1
+cases:
+  - id: SMOKE-P01
+    requirement: SMOKE-001
+    function: identity
+    args: [0]
+    expected: 0
+  - id: SMOKE-P02
+    requirement: SMOKE-001
+    function: identity
+    args: [42]
+    expected: 42
+  - id: SMOKE-P03
+    requirement: SMOKE-001
+    function: identity
+    args: [-7]
+    expected: -7

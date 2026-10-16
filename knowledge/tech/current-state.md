@@ -15,7 +15,7 @@ Generado a partir del Kaddo Context Pack y del artefacto canónico `knowledge/de
 
 `poc-agent-native` (`KADDO-AGENT-NATIVE-POC-001`) es un repositorio experimental en modalidad **Kaddo POC Mode** diseñado para investigar si un agente puede construir, reparar, extender y mantener reglas de negocio puras operando exclusivamente sobre una **Semantic IR (`v0.1`)**, mientras una toolchain determinista en Rust valida esa IR, la compila directamente a **WebAssembly (`.wasm`)** y ejecuta suites de pruebas públicas y reservadas en **Wasmtime**.
 
-En el estado actual (`WI-001` implementado), el repositorio cuenta con la estructura de carpetas experimentales (`spec/`, `ir/`, `tests/`, `runs/`, `build/`), el contrato formal de IR v0.1 (`ir/ir.schema.json`), el módulo de smoke test neutral (`ir/program.ir.json` con `identity`), la especificación inicial (`spec/task.yaml` v1) y los casos públicos de prueba (`tests/public.yaml`). Los componentes ejecutables en Rust (`irtool` y `runner`) corresponden al siguiente Work Item (`KAN-POC-WI-002`).
+En el estado actual (`WI-001` y `WI-002` implementados), el repositorio cuenta con la estructura experimental (`spec/`, `ir/`, `tests/`, `runs/`, `build/`), el contrato formal de IR v0.1 (`ir/ir.schema.json`), el smoke test neutral (`ir/program.ir.json` con `identity`), la especificación inicial (`spec/task.yaml` v1), los casos públicos (`tests/public.yaml`) y de smoke test (`tests/smoke.yaml`), y el workspace Cargo en Rust con `crates/irtool` (`verify`, `compile`, `validate`, `print`, `sha256` sobre `wasm-encoder`/`wasmparser`/`wasmprinter`) y `crates/runner` (`test` sobre `wasmtime` v27). El repositorio está listo para iniciar el ejercicio `E1` (`WI-003`).
 
 ## Modules
 

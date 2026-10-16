@@ -20,10 +20,10 @@
 ## Delivery State
 
 - Draft Work Items: 0
-- Ready Work Items: 1
+- Ready Work Items: 0
 - In-progress Work Items: 0
 - Blocked Work Items: 0
-- Ownership coverage: 1/1
+- Ownership coverage: 2/2
 - Remaining Work Item candidates: 0
 - Technical decision candidates: 0
 - Accepted ADRs: 0
@@ -31,7 +31,7 @@
 
 ## Project Route
 
-Route: new · Progress: 5/8
+Route: new · Progress: 6/8
 
 Current:
 - Document minimal technical context — architecture-agent
@@ -45,10 +45,6 @@ Current:
 - id: poc-technical-context
 - agent: architecture-agent
 - reason: The experiment surface and constraints are not yet sufficiently documented.
-
-## Active Work Items
-
-- WI-001 [spike] ready — Contrato experimental e IR v0.1
 
 ## Context Pack
 

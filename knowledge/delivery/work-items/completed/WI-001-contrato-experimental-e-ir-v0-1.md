@@ -4,11 +4,14 @@ id: WI-001
 alias: KAN-POC-WI-001
 title: Contrato experimental e IR v0.1
 knowledge_level: K2
-status: ready
+status: completed
+implementation_status: completed
 phase: now
 project_state: ai-assisted
 refined_by: work-item-agent
 created_at: '2026-10-16'
+ready_at: '2026-10-16'
+completed_at: '2026-10-16'
 domains:
   - semantic-ir
   - commercial-rules-subject
@@ -19,7 +22,6 @@ code:
   - tests/**
   - runs/**
   - build/**
-ready_at: '2026-10-16'
 ---
 
 # WI-001 (KAN-POC-WI-001) — Contrato experimental e IR v0.1
@@ -103,3 +105,14 @@ _Expected value:_ Proveer la base contractual verificable para la toolchain dete
 ## Dependencies
 
 - Ninguna. Este Work Item es la base experimental para `WI-002` (`Verifier + compiler directo a WASM + runner`).
+
+## Learning
+
+_Capturado al completar `WI-001` (2026-10-16):_
+
+- **Qué se entregó:** Estructura experimental `spec/`, `ir/`, `tests/`, `runs/` y `build/`, esquema JSON Draft 2020-12 (`ir/ir.schema.json`), smoke test neutral (`ir/program.ir.json` con `identity`), especificación funcional v1 (`spec/task.yaml`) y vectores públicos de `E1` (`tests/public.yaml`). Etiquetado en Git como `v0.1.0-wi-001` (commit `5d7b905`).
+- **Qué se aprendió / decisiones emergentes:**
+  1. Se refinó `knowledge/delivery/poc.md` para explicitar la tabla de tipado de operadores de `IR v0.1` (incluyendo `eq` tanto para `(i32, i32)` como `(bool, bool)`) y el contrato JSON formal de `diagnostics.json`, necesarios para que el verificador en `WI-002` sea 100 % determinista.
+  2. Se formatearon las señales exploratorias de `poc.md` como tabla para que el parser de Kaddo contabilice exactamente los `16` criterios de éxito verificables (`SC-01`..`SC-16`).
+- **Conocimiento actualizado:** `knowledge/delivery/poc.md`, `knowledge/knowledge.md`, `knowledge/tech/current-state.md` y `.kaddo/config.yml`.
+- **Pendientes:** Construir la toolchain determinista en Rust (`irtool` + `runner`) en `WI-002`.

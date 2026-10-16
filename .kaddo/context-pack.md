@@ -35,7 +35,6 @@ Phase: Discovery
 Reason:
 
 - No roadmap yet
-- ready: 1
 - Ownership coverage 100%
 
 Recommended next: architecture-agent
@@ -46,9 +45,9 @@ Next step: Document the minimal technical context for the experiment.
 
 - Phase: POC Discovery
 - Draft Work Items: 0
-- Ready Work Items: 1
+- Ready Work Items: 0
 - In-progress Work Items: 0
-- Ownership coverage: 1/1
+- Ownership coverage: 2/2
 - Remaining Work Item candidates: 0
 
 ## Next Step Recommendation
@@ -60,7 +59,7 @@ Next step: Document the minimal technical context for the experiment.
 
 ## Project Route
 
-Route: new · Progress: 5/8
+Route: new · Progress: 6/8
 
 Current:
 - Document minimal technical context — architecture-agent
@@ -83,6 +82,7 @@ Knowledge maturity — Business: Missing · Product: Missing · Tech: Structured
 
 ### Delivery — Traceable
 - ✓ WI-001-contrato-experimental-e-ir-v0-1.md
+- ✓ WI-002-verifier-compiler-directo-a-wasm-y-runner.md
 - ✓ poc.md
 
 ## Technical Inventory
@@ -101,17 +101,12 @@ Knowledge maturity — Business: Missing · Product: Missing · Tech: Structured
 
 ## Active Work Items
 
-- WI-001 [spike] [K2] (ready) — Contrato experimental e IR v0.1 · domains: semantic-ir, commercial-rules-subject, experiment-evidence
-
-## Delivery Mix
-
-Active Work Items by type:
-
-- Spikes: 1
+No active work items found.
 
 ## Artifacts and Ownership
 
 - WI-001 [spike] owns: spec/**, ir/**, tests/**, runs/**, build/**
+- WI-002 [spike] owns: Cargo.toml, Cargo.lock, crates/**, compiler/**, runner/**, tests/**
 
 ## Skills
 
