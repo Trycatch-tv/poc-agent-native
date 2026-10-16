@@ -1,0 +1,207 @@
+suite: KAN-POC-004-HIDDEN
+spec_version: 1
+cases:
+  - id: E1-004-H01
+    requirement: ORD-001
+    function: calculate_order
+    args: [201, 1500, 2, 800, -2, 300]
+    host_state:
+      kv:
+        201: 10
+      credit_limits:
+        201: 50000
+    expected:
+      status_code: 1
+      subtotal_cents: 0
+      discount_cents: 0
+      tax_cents: 0
+      shipping_cents: 0
+      total_cents: 0
+    expected_host_calls: []
+
+  - id: E1-004-H02
+    requirement: ORD-001
+    function: calculate_order
+    args: [201, 1500, 2, -50, 2, 300]
+    host_state:
+      kv:
+        201: 10
+      credit_limits:
+        201: 50000
+    expected:
+      status_code: 1
+      subtotal_cents: 0
+      discount_cents: 0
+      tax_cents: 0
+      shipping_cents: 0
+      total_cents: 0
+    expected_host_calls: []
+
+  - id: E1-004-H03
+    requirement: ORD-002
+    function: calculate_order
+    args: [202, 2000, 1, 1000, 1, -1]
+    host_state:
+      kv:
+        202: 5
+      credit_limits:
+        202: 50000
+    expected:
+      status_code: 2
+      subtotal_cents: 0
+      discount_cents: 0
+      tax_cents: 0
+      shipping_cents: 0
+      total_cents: 0
+    expected_host_calls: []
+
+  - id: E1-004-H04
+    requirement: ORD-006
+    function: calculate_order
+    args: [999, 3000, 1, 2000, 1, 500]
+    host_state:
+      kv: {}
+      credit_limits:
+        999: 100000
+    expected:
+      status_code: 0
+      subtotal_cents: 5000
+      discount_cents: 0
+      tax_cents: 500
+      shipping_cents: 500
+      total_cents: 6000
+    expected_host_calls:
+      - import: check_credit
+        args: [999, 6000]
+      - import: emit_audit
+        args: [100, 6000]
+
+  - id: E1-004-H05
+    requirement: ORD-006
+    function: calculate_order
+    args: [203, 4000, 2, 2000, 1, 800]
+    host_state:
+      kv:
+        203: 100
+      credit_limits:
+        203: 100000
+    expected:
+      status_code: 0
+      subtotal_cents: 10000
+      discount_cents: 10000
+      tax_cents: 0
+      shipping_cents: 800
+      total_cents: 800
+    expected_host_calls:
+      - import: check_credit
+        args: [203, 800]
+      - import: emit_audit
+        args: [100, 800]
+
+  - id: E1-004-H06
+    requirement: ORD-006
+    function: calculate_order
+    args: [204, 1200, 3, 400, 1, 0]
+    host_state:
+      kv:
+        204: 25
+      credit_limits:
+        204: 100000
+    expected:
+      status_code: 0
+      subtotal_cents: 4000
+      discount_cents: 1000
+      tax_cents: 300
+      shipping_cents: 0
+      total_cents: 3300
+    expected_host_calls:
+      - import: check_credit
+        args: [204, 3300]
+      - import: emit_audit
+        args: [100, 3300]
+
+  - id: E1-004-H07
+    requirement: ORD-006
+    function: calculate_order
+    args: [205, 0, 0, 0, 0, 0]
+    host_state:
+      kv:
+        205: 10
+      credit_limits:
+        205: 100000
+    expected:
+      status_code: 0
+      subtotal_cents: 0
+      discount_cents: 0
+      tax_cents: 0
+      shipping_cents: 0
+      total_cents: 0
+    expected_host_calls:
+      - import: check_credit
+        args: [205, 0]
+      - import: emit_audit
+        args: [100, 0]
+
+  - id: E1-004-H08
+    requirement: ORD-006
+    function: calculate_order
+    args: [206, 333, 1, 0, 0, 100]
+    host_state:
+      kv:
+        206: 15
+      credit_limits:
+        206: 100000
+    expected:
+      status_code: 0
+      subtotal_cents: 333
+      discount_cents: 49
+      tax_cents: 28
+      shipping_cents: 100
+      total_cents: 412
+    expected_host_calls:
+      - import: check_credit
+        args: [206, 412]
+      - import: emit_audit
+        args: [100, 412]
+
+  - id: E1-004-H09
+    requirement: ORD-006
+    function: calculate_order
+    args: [207, 7500, 2, 5000, 3, 1500]
+    host_state:
+      kv:
+        207: 12
+      credit_limits:
+        207: 100000
+    expected:
+      status_code: 0
+      subtotal_cents: 30000
+      discount_cents: 3600
+      tax_cents: 2640
+      shipping_cents: 1500
+      total_cents: 30540
+    expected_host_calls:
+      - import: check_credit
+        args: [207, 30540]
+      - import: emit_audit
+        args: [100, 30540]
+
+  - id: E1-004-H10
+    requirement: ORD-007
+    function: calculate_order
+    args: [208, 5000, 1, 0, 0, 500]
+    host_state:
+      kv:
+        208: 0
+      credit_limits:
+        208: 2000
+    expected:
+      status_code: 3
+      subtotal_cents: 0
+      discount_cents: 0
+      tax_cents: 0
+      shipping_cents: 0
+      total_cents: 0
+    expected_host_calls:
+      - import: check_credit
+        args: [208, 6000]
