@@ -1,0 +1,7 @@
+cases:
+  - id: TC-SMOKE-401
+    description: Prueba de humo v0.4 con contrato WIT y componente WASM
+    function: calculate_order
+    args: [42]
+    expected:
+      status_code: 0

@@ -3,7 +3,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use wasm_encoder::{
-    BlockType, CodeSection, ConstExpr, EntityType, ExportKind, ExportSection, Function,
+    BlockType, CodeSection, ConstExpr, CustomSection, EntityType, ExportKind, ExportSection, Function,
     FunctionSection, GlobalSection, GlobalType, ImportSection, Instruction, MemArg,
     MemorySection, MemoryType, Module, TypeSection, ValType,
 };
@@ -51,6 +51,7 @@ pub struct ImportSignature {
     pub module: String,
     pub name: String,
     pub capability: String,
+    pub wit_interface: Option<String>,
     pub params: Vec<(String, IrType)>,
     pub returns: IrType,
     pub index: u32,
@@ -62,9 +63,18 @@ pub struct RecordDef {
     pub fields: Vec<(String, IrType)>,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct WitContractDef {
+    pub package: String,
+    pub world: String,
+    pub export_interface: String,
+    pub import_interfaces: Vec<String>,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Context {
     pub ir_version: String,
+    pub wit_contract: Option<WitContractDef>,
     pub capabilities: HashSet<String>,
     pub imports: HashMap<String, ImportSignature>,
     pub import_order: Vec<String>,
@@ -77,6 +87,7 @@ pub struct Context {
 pub struct FuncSignature {
     pub name: String,
     pub export: bool,
+    pub wit_interface: Option<String>,
     pub params: Vec<(String, IrType)>,
     pub returns: IrType,
     pub index: u32,
@@ -114,13 +125,14 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
         Some("0.1") => "0.1",
         Some("0.2") => "0.2",
         Some("0.3") => "0.3",
+        Some("0.4") => "0.4",
         Some(other) => {
             diags.push(Diagnostic {
                 code: "E_SCHEMA_INVALID".to_string(),
                 function: None,
                 path: "$.ir_version".to_string(),
-                message: "ir_version must be \"0.1\", \"0.2\", or \"0.3\".".to_string(),
-                expected: Some("\"0.1\" | \"0.2\" | \"0.3\"".to_string()),
+                message: "ir_version must be \"0.1\", \"0.2\", \"0.3\", or \"0.4\".".to_string(),
+                expected: Some("\"0.1\" | \"0.2\" | \"0.3\" | \"0.4\"".to_string()),
                 found: Some(other.to_string()),
             });
             "0.1"
@@ -131,7 +143,7 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
                 function: None,
                 path: "$.ir_version".to_string(),
                 message: "Missing required property 'ir_version'.".to_string(),
-                expected: Some("\"0.1\" | \"0.2\" | \"0.3\"".to_string()),
+                expected: Some("\"0.1\" | \"0.2\" | \"0.3\" | \"0.4\"".to_string()),
                 found: None,
             });
             "0.1"
@@ -149,6 +161,10 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
                 key.as_str(),
                 "ir_version" | "spec_version" | "capabilities" | "imports" | "types" | "functions"
             ),
+            "0.4" => matches!(
+                key.as_str(),
+                "ir_version" | "spec_version" | "wit_contract" | "capabilities" | "imports" | "types" | "functions"
+            ),
             _ => false,
         };
         if !is_allowed {
@@ -161,8 +177,10 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
                     "ir_version | spec_version | functions".to_string()
                 } else if ir_version == "0.2" {
                     "ir_version | spec_version | types | functions".to_string()
-                } else {
+                } else if ir_version == "0.3" {
                     "ir_version | spec_version | capabilities | imports | types | functions".to_string()
+                } else {
+                    "ir_version | spec_version | wit_contract | capabilities | imports | types | functions".to_string()
                 }),
                 found: Some(key.clone()),
             });
@@ -187,6 +205,69 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
             expected: Some("integer >= 1".to_string()),
             found: None,
         }),
+    }
+
+    let mut wit_contract_def = None;
+    if ir_version == "0.4" {
+        if let Some(wit_val) = obj.get("wit_contract") {
+            if let Some(wit_obj) = wit_val.as_object() {
+                let pkg = wit_obj.get("package").and_then(|v| v.as_str()).unwrap_or("");
+                let world = wit_obj.get("world").and_then(|v| v.as_str()).unwrap_or("");
+                let exp_iface = wit_obj.get("export_interface").and_then(|v| v.as_str()).unwrap_or("");
+                let mut imp_ifaces = Vec::new();
+                if let Some(arr) = wit_obj.get("import_interfaces").and_then(|v| v.as_array()) {
+                    for iface_val in arr {
+                        if let Some(s) = iface_val.as_str() {
+                            imp_ifaces.push(s.to_string());
+                        }
+                    }
+                }
+                if pkg.is_empty() {
+                    diags.push(Diagnostic {
+                        code: "E_SCHEMA_INVALID".to_string(),
+                        function: None,
+                        path: "$.wit_contract.package".to_string(),
+                        message: "Missing 'package' in wit_contract.".to_string(),
+                        expected: Some("package string (e.g. kaddo:commercial@0.1.0)".to_string()),
+                        found: None,
+                    });
+                }
+                if exp_iface.is_empty() {
+                    diags.push(Diagnostic {
+                        code: "E_SCHEMA_INVALID".to_string(),
+                        function: None,
+                        path: "$.wit_contract.export_interface".to_string(),
+                        message: "Missing 'export_interface' in wit_contract.".to_string(),
+                        expected: Some("export_interface name".to_string()),
+                        found: None,
+                    });
+                }
+                wit_contract_def = Some(WitContractDef {
+                    package: pkg.to_string(),
+                    world: world.to_string(),
+                    export_interface: exp_iface.to_string(),
+                    import_interfaces: imp_ifaces,
+                });
+            } else {
+                diags.push(Diagnostic {
+                    code: "E_SCHEMA_INVALID".to_string(),
+                    function: None,
+                    path: "$.wit_contract".to_string(),
+                    message: "wit_contract must be an object.".to_string(),
+                    expected: Some("object".to_string()),
+                    found: Some(value_kind(wit_val).to_string()),
+                });
+            }
+        } else {
+            diags.push(Diagnostic {
+                code: "E_SCHEMA_INVALID".to_string(),
+                function: None,
+                path: "$.wit_contract".to_string(),
+                message: "Missing required property 'wit_contract' in IR v0.4.".to_string(),
+                expected: Some("wit_contract object".to_string()),
+                found: None,
+            });
+        }
     }
 
     let mut record_defs: HashMap<String, RecordDef> = HashMap::new();
@@ -521,11 +602,50 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
             }
         }
 
+        let wit_interface = func_obj
+            .get("wit_interface")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        if ir_version == "0.4" && is_export {
+            if let Some(ref wit_c) = wit_contract_def {
+                match &wit_interface {
+                    Some(iface) if iface == &wit_c.export_interface => {}
+                    Some(iface) => {
+                        diags.push(Diagnostic {
+                            code: "E_UNKNOWN_EXPORT_INTERFACE".to_string(),
+                            function: Some(name.clone()),
+                            path: format!("{f_path}.wit_interface"),
+                            message: format!(
+                                "Exported function '{name}' specifies wit_interface '{iface}', but wit_contract exports '{}'.",
+                                wit_c.export_interface
+                            ),
+                            expected: Some(wit_c.export_interface.clone()),
+                            found: Some(iface.clone()),
+                        });
+                    }
+                    None => {
+                        diags.push(Diagnostic {
+                            code: "E_UNKNOWN_EXPORT_INTERFACE".to_string(),
+                            function: Some(name.clone()),
+                            path: format!("{f_path}.wit_interface"),
+                            message: format!(
+                                "Exported function '{name}' in IR v0.4 must declare wit_interface matching '{}'.",
+                                wit_c.export_interface
+                            ),
+                            expected: Some(wit_c.export_interface.clone()),
+                            found: None,
+                        });
+                    }
+                }
+            }
+        }
+
         function_signatures.insert(
             name.clone(),
             FuncSignature {
                 name,
                 export: is_export,
+                wit_interface,
                 params: parsed_params,
                 returns: returns_ty,
                 index: f_idx as u32,
@@ -630,10 +750,16 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
                     }
                 };
 
+                let wit_interface = imp_obj
+                    .get("wit_interface")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+
                 imports.insert(name.to_string(), ImportSignature {
                     module: module.to_string(),
                     name: name.to_string(),
                     capability: capability.to_string(),
+                    wit_interface,
                     params: parsed_params,
                     returns: ret_type,
                     index: i_idx as u32,
@@ -647,6 +773,7 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
 
     let ctx = Context {
         ir_version: ir_version.to_string(),
+        wit_contract: wit_contract_def,
         capabilities,
         imports,
         import_order,
@@ -1596,12 +1723,17 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
                     "bool" => IrType::Bool,
                     other => IrType::Record(other.to_string()),
                 };
+                let wit_interface = imp_obj
+                    .get("wit_interface")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
                 import_signatures.insert(
                     name.clone(),
                     ImportSignature {
                         module,
                         name: name.clone(),
                         capability,
+                        wit_interface,
                         params: parsed_params,
                         returns: ret_ty,
                         index: i_idx as u32,
@@ -1620,6 +1752,10 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
         let func_obj = func_val.as_object().unwrap();
         let name = func_obj["name"].as_str().unwrap().to_string();
         let is_export = func_obj.get("export").and_then(|v| v.as_bool()).unwrap_or(true);
+        let wit_interface = func_obj
+            .get("wit_interface")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
         let params_arr = func_obj["params"].as_array().unwrap();
         let mut params = Vec::new();
         for p_val in params_arr {
@@ -1641,6 +1777,7 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
             FuncSignature {
                 name,
                 export: is_export,
+                wit_interface,
                 params,
                 returns,
                 index: num_imports + f_idx as u32,
@@ -1648,8 +1785,24 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
         );
     }
 
+    let wit_contract_def = if ir_version == "0.4" {
+        root.get("wit_contract").and_then(|v| v.as_object()).map(|obj| WitContractDef {
+            package: obj.get("package").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            world: obj.get("world").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            export_interface: obj.get("export_interface").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            import_interfaces: obj
+                .get("import_interfaces")
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect())
+                .unwrap_or_default(),
+        })
+    } else {
+        None
+    };
+
     let ctx = Context {
         ir_version: ir_version.to_string(),
+        wit_contract: wit_contract_def,
         capabilities,
         imports: import_signatures,
         import_order: import_order.clone(),
@@ -1742,6 +1895,17 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
 
     module.section(&exports);
     module.section(&code);
+
+    if ir_version == "0.4" {
+        if let Some(wit_val) = root.get("wit_contract") {
+            let wit_json = serde_json::to_vec(wit_val).unwrap();
+            let custom = CustomSection {
+                name: "component-type:order-processor".into(),
+                data: wit_json.into(),
+            };
+            module.section(&custom);
+        }
+    }
 
     let wasm_bytes = module.finish();
     Ok(wasm_bytes)
@@ -2251,5 +2415,43 @@ mod tests {
         });
         let diags4 = verify_ir(&type_mismatch_call);
         assert!(diags4.iter().any(|d| d.code == "E_TYPE_MISMATCH"), "diags: {diags4:?}");
+    }
+
+    #[test]
+    fn validates_and_compiles_v0_4_smoke_module() {
+        let smoke_json = include_str!("../../../ir/smoke-v4.ir.json");
+        let val: Value = serde_json::from_str(smoke_json).expect("valid JSON");
+        let diags = verify_ir(&val);
+        assert!(diags.is_empty(), "diags on v0.4 smoke: {diags:?}");
+
+        let wasm = compile_ir_to_wasm(&val).expect("compile v0.4 to wasm");
+        assert!(!wasm.is_empty());
+
+        let mut validator = wasmparser::Validator::new();
+        validator.validate_all(&wasm).expect("valid wasm module with component metadata");
+
+        let parser = wasmparser::Parser::new(0);
+        let mut found_custom = false;
+        for payload in parser.parse_all(&wasm) {
+            if let Ok(wasmparser::Payload::CustomSection(cs)) = payload {
+                if cs.name() == "component-type:order-processor" {
+                    found_custom = true;
+                    break;
+                }
+            }
+        }
+        assert!(found_custom, "Custom section component-type:order-processor must be present in v0.4");
+    }
+
+    #[test]
+    fn detects_v0_4_wit_contract_mismatch() {
+        let smoke_json = include_str!("../../../ir/smoke-v4.ir.json");
+        let mut val: Value = serde_json::from_str(smoke_json).expect("valid JSON");
+        val["functions"][0]["wit_interface"] = json!("nonexistent-interface");
+        let diags = verify_ir(&val);
+        assert!(
+            diags.iter().any(|d| d.code == "E_UNKNOWN_EXPORT_INTERFACE"),
+            "diags: {diags:?}"
+        );
     }
 }
