@@ -1,11 +1,12 @@
 use clap::{Parser, Subcommand};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value as YamlValue;
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Instant;
-use wasmtime::{Engine, Instance, Module, Store, Val};
+use wasmtime::{Caller, Engine, Linker, Module, Store, Val};
 
 #[derive(Parser)]
 #[command(name = "runner", version, about = "Deterministic Wasmtime test runner for Kaddo Agent-Native POC")]
@@ -35,6 +36,29 @@ struct TestCaseInput {
     function: String,
     args: Vec<YamlValue>,
     expected: YamlValue,
+    #[serde(default)]
+    host_state: Option<YamlValue>,
+    #[serde(default)]
+    expected_host_calls: Option<YamlValue>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+struct HostCallRecord {
+    import: String,
+    args: Vec<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Default)]
+struct ParsedHostState {
+    kv: HashMap<i32, i32>,
+    credit_limits: HashMap<i32, i32>,
+}
+
+#[derive(Debug, Default)]
+struct HostStoreData {
+    kv: HashMap<i32, i32>,
+    credit_limits: HashMap<i32, i32>,
+    all_calls: Vec<HostCallRecord>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -46,6 +70,10 @@ struct CaseResult {
     args: Vec<serde_json::Value>,
     expected: serde_json::Value,
     actual: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    expected_host_calls: Option<Vec<HostCallRecord>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    actual_host_calls: Option<Vec<HostCallRecord>>,
     passed: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
@@ -101,6 +129,78 @@ fn yaml_to_json_val(v: &YamlValue) -> serde_json::Value {
     }
 }
 
+fn parse_host_state(val: Option<&YamlValue>) -> ParsedHostState {
+    let mut state = ParsedHostState::default();
+    let Some(val) = val else { return state; };
+    if let Some(map) = val.as_mapping() {
+        if let Some(kv_map) = map
+            .get(&YamlValue::String("kv".to_string()))
+            .and_then(|v| v.as_mapping())
+        {
+            for (k, v) in kv_map {
+                let key_i32 = match k {
+                    YamlValue::Number(n) => n.as_i64().and_then(|i| i32::try_from(i).ok()),
+                    YamlValue::String(s) => s.parse::<i32>().ok(),
+                    _ => None,
+                };
+                let val_i32 = match v {
+                    YamlValue::Number(n) => n.as_i64().and_then(|i| i32::try_from(i).ok()),
+                    YamlValue::String(s) => s.parse::<i32>().ok(),
+                    _ => None,
+                };
+                if let (Some(k), Some(v)) = (key_i32, val_i32) {
+                    state.kv.insert(k, v);
+                }
+            }
+        }
+        if let Some(cl_map) = map
+            .get(&YamlValue::String("credit_limits".to_string()))
+            .and_then(|v| v.as_mapping())
+        {
+            for (k, v) in cl_map {
+                let key_i32 = match k {
+                    YamlValue::Number(n) => n.as_i64().and_then(|i| i32::try_from(i).ok()),
+                    YamlValue::String(s) => s.parse::<i32>().ok(),
+                    _ => None,
+                };
+                let val_i32 = match v {
+                    YamlValue::Number(n) => n.as_i64().and_then(|i| i32::try_from(i).ok()),
+                    YamlValue::String(s) => s.parse::<i32>().ok(),
+                    _ => None,
+                };
+                if let (Some(k), Some(v)) = (key_i32, val_i32) {
+                    state.credit_limits.insert(k, v);
+                }
+            }
+        }
+    }
+    state
+}
+
+fn parse_expected_host_calls(val: Option<&YamlValue>) -> Option<Vec<HostCallRecord>> {
+    let val = val?;
+    let seq = val.as_sequence()?;
+    let mut list = Vec::new();
+    for item in seq {
+        if let Some(map) = item.as_mapping() {
+            let import_name = map
+                .get(&YamlValue::String("import".to_string()))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let args_vec = match map.get(&YamlValue::String("args".to_string())) {
+                Some(YamlValue::Sequence(s)) => s.iter().map(yaml_to_json_val).collect(),
+                _ => Vec::new(),
+            };
+            list.push(HostCallRecord {
+                import: import_name,
+                args: args_vec,
+            });
+        }
+    }
+    Some(list)
+}
+
 fn parse_cases(raw_yaml: &str) -> Result<Vec<TestCaseInput>, String> {
     let root: YamlValue = serde_yaml::from_str(raw_yaml).map_err(|e| e.to_string())?;
     if let Some(seq) = root.get("cases") {
@@ -140,6 +240,8 @@ fn run_suite(wasm_bytes: &[u8], test_cases: &[TestCaseInput]) -> Result<SuiteRep
         }
 
         let expected_json = yaml_to_json_val(&tc.expected);
+        let parsed_host_state = parse_host_state(tc.host_state.as_ref());
+        let expected_calls = parse_expected_host_calls(tc.expected_host_calls.as_ref());
 
         if let Some(err_msg) = conv_err {
             failed_count += 1;
@@ -150,14 +252,69 @@ fn run_suite(wasm_bytes: &[u8], test_cases: &[TestCaseInput]) -> Result<SuiteRep
                 args: json_args,
                 expected: expected_json,
                 actual: None,
+                expected_host_calls: expected_calls,
+                actual_host_calls: None,
                 passed: false,
                 error: Some(err_msg),
             });
             continue;
         }
 
-        let mut store = Store::new(&engine, ());
-        let instance = match Instance::new(&mut store, &module, &[]) {
+        let initial_store_data = HostStoreData {
+            kv: parsed_host_state.kv,
+            credit_limits: parsed_host_state.credit_limits,
+            all_calls: Vec::new(),
+        };
+
+        let mut store = Store::new(&engine, initial_store_data);
+        let mut linker = Linker::new(&engine);
+
+        linker
+            .func_wrap(
+                "host",
+                "kv_get",
+                |mut caller: Caller<'_, HostStoreData>, key: i32| -> i32 {
+                    let val = *caller.data().kv.get(&key).unwrap_or(&0);
+                    caller.data_mut().all_calls.push(HostCallRecord {
+                        import: "kv_get".to_string(),
+                        args: vec![serde_json::json!(key)],
+                    });
+                    val
+                },
+            )
+            .map_err(|e| e.to_string())?;
+
+        linker
+            .func_wrap(
+                "host",
+                "emit_audit",
+                |mut caller: Caller<'_, HostStoreData>, event_id: i32, payload: i32| -> i32 {
+                    caller.data_mut().all_calls.push(HostCallRecord {
+                        import: "emit_audit".to_string(),
+                        args: vec![serde_json::json!(event_id), serde_json::json!(payload)],
+                    });
+                    1
+                },
+            )
+            .map_err(|e| e.to_string())?;
+
+        linker
+            .func_wrap(
+                "host",
+                "check_credit",
+                |mut caller: Caller<'_, HostStoreData>, customer_id: i32, amount: i32| -> i32 {
+                    let limit = *caller.data().credit_limits.get(&customer_id).unwrap_or(&0);
+                    let ok = if amount <= limit { 1 } else { 0 };
+                    caller.data_mut().all_calls.push(HostCallRecord {
+                        import: "check_credit".to_string(),
+                        args: vec![serde_json::json!(customer_id), serde_json::json!(amount)],
+                    });
+                    ok
+                },
+            )
+            .map_err(|e| e.to_string())?;
+
+        let instance = match linker.instantiate(&mut store, &module) {
             Ok(inst) => inst,
             Err(e) => {
                 failed_count += 1;
@@ -168,6 +325,8 @@ fn run_suite(wasm_bytes: &[u8], test_cases: &[TestCaseInput]) -> Result<SuiteRep
                     args: json_args,
                     expected: expected_json,
                     actual: None,
+                    expected_host_calls: expected_calls,
+                    actual_host_calls: None,
                     passed: false,
                     error: Some(format!("Failed to instantiate WASM module: {e}")),
                 });
@@ -184,6 +343,8 @@ fn run_suite(wasm_bytes: &[u8], test_cases: &[TestCaseInput]) -> Result<SuiteRep
                 args: json_args,
                 expected: expected_json,
                 actual: None,
+                expected_host_calls: expected_calls,
+                actual_host_calls: None,
                 passed: false,
                 error: Some(format!("Exported function '{}' not found", tc.function)),
             });
@@ -197,9 +358,8 @@ fn run_suite(wasm_bytes: &[u8], test_cases: &[TestCaseInput]) -> Result<SuiteRep
             Ok(()) => {
                 let ret_i32 = wasm_results[0].i32().unwrap_or(0);
 
-                let (actual_json, is_pass, err) = match &tc.expected {
+                let (actual_json, mut is_pass, mut err) = match &tc.expected {
                     YamlValue::Mapping(map) => {
-                        // Expected a record struct in memory pointed to by ret_i32
                         let ptr = ret_i32;
                         if let Some(memory) = instance.get_memory(&mut store, "memory") {
                             let mem_data = memory.data(&store);
@@ -244,11 +404,33 @@ fn run_suite(wasm_bytes: &[u8], test_cases: &[TestCaseInput]) -> Result<SuiteRep
                         }
                     }
                     _ => {
-                        // Scalar comparison
                         let act_val = serde_json::json!(ret_i32);
                         let pass = act_val == expected_json;
                         (Some(act_val), pass, None)
                     }
+                };
+
+                let store_calls = store.data().all_calls.clone();
+                let actual_matched_calls = if let Some(ref exp_calls) = expected_calls {
+                    let has_kv_assertion = exp_calls.iter().any(|c| c.import == "kv_get");
+                    let filtered: Vec<HostCallRecord> = if has_kv_assertion {
+                        store_calls
+                    } else {
+                        store_calls
+                            .into_iter()
+                            .filter(|c| c.import != "kv_get")
+                            .collect()
+                    };
+                    if is_pass && &filtered != exp_calls {
+                        is_pass = false;
+                        err = Some(format!(
+                            "Host call mismatch: expected {:?}, actual {:?}",
+                            exp_calls, filtered
+                        ));
+                    }
+                    Some(filtered)
+                } else {
+                    None
                 };
 
                 if is_pass {
@@ -264,6 +446,8 @@ fn run_suite(wasm_bytes: &[u8], test_cases: &[TestCaseInput]) -> Result<SuiteRep
                     args: json_args,
                     expected: expected_json,
                     actual: actual_json,
+                    expected_host_calls: expected_calls,
+                    actual_host_calls: actual_matched_calls,
                     passed: is_pass,
                     error: err,
                 });
@@ -277,6 +461,8 @@ fn run_suite(wasm_bytes: &[u8], test_cases: &[TestCaseInput]) -> Result<SuiteRep
                     args: json_args,
                     expected: expected_json,
                     actual: None,
+                    expected_host_calls: expected_calls,
+                    actual_host_calls: None,
                     passed: false,
                     error: Some(format!("WASM trap/execution error: {e}")),
                 });
@@ -531,4 +717,33 @@ cases:
         assert_eq!(report.passed, 1);
         assert_eq!(report.failed, 0);
     }
+
+    #[test]
+    fn executes_v0_3_imports_and_audits_in_wasmtime() {
+        let smoke_str = include_str!("../../../ir/smoke-v3.ir.json");
+        let ir: serde_json::Value = serde_json::from_str(smoke_str).expect("smoke-v3 JSON");
+
+        let wasm_bytes = compile_ir_to_wasm(&ir).expect("smoke-v3 must compile");
+        let yaml = r#"
+cases:
+  - id: SMOKE3-01
+    requirement: SMOKE-001
+    function: process_order
+    args: [42, 500]
+    host_state:
+      kv:
+        42: 15
+    expected:
+      discount_cents: 15
+      audit_status: 1
+    expected_host_calls:
+      - import: emit_audit
+        args: [1001, 500]
+"#;
+        let cases = parse_cases(yaml).expect("parse YAML");
+        let report = run_suite(&wasm_bytes, &cases).expect("run suite");
+        assert_eq!(report.passed, 1, "report cases: {:?}", report.cases);
+        assert_eq!(report.failed, 0);
+    }
 }
+

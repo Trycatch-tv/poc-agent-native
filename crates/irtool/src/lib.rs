@@ -3,9 +3,9 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use wasm_encoder::{
-    BlockType, CodeSection, ConstExpr, ExportKind, ExportSection, Function, FunctionSection,
-    GlobalSection, GlobalType, Instruction, MemArg, MemorySection, MemoryType, Module,
-    TypeSection, ValType,
+    BlockType, CodeSection, ConstExpr, EntityType, ExportKind, ExportSection, Function,
+    FunctionSection, GlobalSection, GlobalType, ImportSection, Instruction, MemArg,
+    MemorySection, MemoryType, Module, TypeSection, ValType,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -47,6 +47,16 @@ impl IrType {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportSignature {
+    pub module: String,
+    pub name: String,
+    pub capability: String,
+    pub params: Vec<(String, IrType)>,
+    pub returns: IrType,
+    pub index: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RecordDef {
     pub name: String,
     pub fields: Vec<(String, IrType)>,
@@ -55,8 +65,12 @@ pub struct RecordDef {
 #[derive(Debug, Clone, Default)]
 pub struct Context {
     pub ir_version: String,
+    pub capabilities: HashSet<String>,
+    pub imports: HashMap<String, ImportSignature>,
+    pub import_order: Vec<String>,
     pub records: HashMap<String, RecordDef>,
     pub functions: HashMap<String, FuncSignature>,
+    pub num_imports: u32,
 }
 
 #[derive(Debug, Clone)]
@@ -99,13 +113,14 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
     let ir_version = match obj.get("ir_version").and_then(|v| v.as_str()) {
         Some("0.1") => "0.1",
         Some("0.2") => "0.2",
+        Some("0.3") => "0.3",
         Some(other) => {
             diags.push(Diagnostic {
                 code: "E_SCHEMA_INVALID".to_string(),
                 function: None,
                 path: "$.ir_version".to_string(),
-                message: "ir_version must be either \"0.1\" or \"0.2\".".to_string(),
-                expected: Some("\"0.1\" | \"0.2\"".to_string()),
+                message: "ir_version must be \"0.1\", \"0.2\", or \"0.3\".".to_string(),
+                expected: Some("\"0.1\" | \"0.2\" | \"0.3\"".to_string()),
                 found: Some(other.to_string()),
             });
             "0.1"
@@ -116,7 +131,7 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
                 function: None,
                 path: "$.ir_version".to_string(),
                 message: "Missing required property 'ir_version'.".to_string(),
-                expected: Some("\"0.1\" | \"0.2\"".to_string()),
+                expected: Some("\"0.1\" | \"0.2\" | \"0.3\"".to_string()),
                 found: None,
             });
             "0.1"
@@ -130,6 +145,10 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
                 key.as_str(),
                 "ir_version" | "spec_version" | "types" | "functions"
             ),
+            "0.3" => matches!(
+                key.as_str(),
+                "ir_version" | "spec_version" | "capabilities" | "imports" | "types" | "functions"
+            ),
             _ => false,
         };
         if !is_allowed {
@@ -140,8 +159,10 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
                 message: format!("Unknown root property '{key}'."),
                 expected: Some(if ir_version == "0.1" {
                     "ir_version | spec_version | functions".to_string()
-                } else {
+                } else if ir_version == "0.2" {
                     "ir_version | spec_version | types | functions".to_string()
+                } else {
+                    "ir_version | spec_version | capabilities | imports | types | functions".to_string()
                 }),
                 found: Some(key.clone()),
             });
@@ -512,10 +533,126 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
         );
     }
 
+    let mut capabilities = HashSet::new();
+    if let Some(caps_val) = obj.get("capabilities") {
+        if let Some(caps_arr) = caps_val.as_array() {
+            for (c_idx, c_val) in caps_arr.iter().enumerate() {
+                if let Some(s) = c_val.as_str() {
+                    capabilities.insert(s.to_string());
+                } else {
+                    diags.push(Diagnostic {
+                        code: "E_SCHEMA_INVALID".to_string(),
+                        function: None,
+                        path: format!("$.capabilities[{c_idx}]"),
+                        message: "Capability name must be a string.".to_string(),
+                        expected: Some("string".to_string()),
+                        found: Some(value_kind(c_val).to_string()),
+                    });
+                }
+            }
+        }
+    }
+
+    let mut imports: HashMap<String, ImportSignature> = HashMap::new();
+    let mut import_order: Vec<String> = Vec::new();
+    if let Some(imp_val) = obj.get("imports") {
+        if let Some(imp_arr) = imp_val.as_array() {
+            for (i_idx, item_val) in imp_arr.iter().enumerate() {
+                let path = format!("$.imports[{i_idx}]");
+                let Some(imp_obj) = item_val.as_object() else {
+                    diags.push(Diagnostic {
+                        code: "E_SCHEMA_INVALID".to_string(),
+                        function: None,
+                        path,
+                        message: "Import must be a JSON object.".to_string(),
+                        expected: Some("object".to_string()),
+                        found: Some(value_kind(item_val).to_string()),
+                    });
+                    continue;
+                };
+
+                let module = imp_obj.get("module").and_then(|v| v.as_str()).unwrap_or("");
+                let name = imp_obj.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                let capability = imp_obj.get("capability").and_then(|v| v.as_str()).unwrap_or("");
+
+                if !capabilities.contains(capability) {
+                    diags.push(Diagnostic {
+                        code: "E_UNDECLARED_CAPABILITY".to_string(),
+                        function: None,
+                        path: format!("{path}.capability"),
+                        message: format!(
+                            "Import '{name}' requires capability '{capability}', which is not declared in root 'capabilities'."
+                        ),
+                        expected: Some("declared capability in root 'capabilities'".to_string()),
+                        found: Some(capability.to_string()),
+                    });
+                }
+
+                let mut parsed_params = Vec::new();
+                if let Some(p_arr) = imp_obj.get("params").and_then(|v| v.as_array()) {
+                    for (p_idx, p_val) in p_arr.iter().enumerate() {
+                        let p_path = format!("{path}.params[{p_idx}]");
+                        if let Some(p_obj) = p_val.as_object() {
+                            let p_name = p_obj.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                            let p_ty_str = p_obj.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                            let p_type = match IrType::from_str(p_ty_str, &known_record_names) {
+                                Some(t) => t,
+                                None => {
+                                    diags.push(Diagnostic {
+                                        code: "E_UNKNOWN_TYPE".to_string(),
+                                        function: None,
+                                        path: format!("{p_path}.type"),
+                                        message: format!("Unknown type '{p_ty_str}' for import param '{p_name}'."),
+                                        expected: Some("valid type".to_string()),
+                                        found: Some(p_ty_str.to_string()),
+                                    });
+                                    IrType::I32
+                                }
+                            };
+                            parsed_params.push((p_name.to_string(), p_type));
+                        }
+                    }
+                }
+
+                let ret_str = imp_obj.get("returns").and_then(|v| v.as_str()).unwrap_or("i32");
+                let ret_type = match IrType::from_str(ret_str, &known_record_names) {
+                    Some(t) => t,
+                    None => {
+                        diags.push(Diagnostic {
+                            code: "E_UNKNOWN_TYPE".to_string(),
+                            function: None,
+                            path: format!("{path}.returns"),
+                            message: format!("Unknown return type '{ret_str}' for import '{name}'."),
+                            expected: Some("valid type".to_string()),
+                            found: Some(ret_str.to_string()),
+                        });
+                        IrType::I32
+                    }
+                };
+
+                imports.insert(name.to_string(), ImportSignature {
+                    module: module.to_string(),
+                    name: name.to_string(),
+                    capability: capability.to_string(),
+                    params: parsed_params,
+                    returns: ret_type,
+                    index: i_idx as u32,
+                });
+                import_order.push(name.to_string());
+            }
+        }
+    }
+
+    let num_imports = import_order.len() as u32;
+
     let ctx = Context {
         ir_version: ir_version.to_string(),
+        capabilities,
+        imports,
+        import_order,
         records: record_defs,
         functions: function_signatures,
+        num_imports,
     };
 
     // Second pass: typecheck function bodies
@@ -1058,6 +1195,106 @@ fn check_expr(
                 None
             }
         }
+        "call_import" => {
+            let Some(import_name) = obj.get("import").and_then(|v| v.as_str()) else {
+                diags.push(Diagnostic {
+                    code: "E_SCHEMA_INVALID".to_string(),
+                    function: func_name.map(ToOwned::to_owned),
+                    path: format!("{path}.import"),
+                    message: "'call_import' expression requires a string 'import' property.".to_string(),
+                    expected: Some("import name string".to_string()),
+                    found: None,
+                });
+                return None;
+            };
+
+            let Some(sig) = ctx.imports.get(import_name) else {
+                diags.push(Diagnostic {
+                    code: "E_UNKNOWN_IMPORT".to_string(),
+                    function: func_name.map(ToOwned::to_owned),
+                    path: format!("{path}.import"),
+                    message: format!("Unknown import '{import_name}' in 'call_import' expression."),
+                    expected: Some("declared import name".to_string()),
+                    found: Some(import_name.to_string()),
+                });
+                return None;
+            };
+
+            if !ctx.capabilities.contains(&sig.capability) {
+                diags.push(Diagnostic {
+                    code: "E_UNDECLARED_CAPABILITY".to_string(),
+                    function: func_name.map(ToOwned::to_owned),
+                    path: format!("{path}.import"),
+                    message: format!(
+                        "Invocation of import '{import_name}' requires capability '{}', which is not declared in root 'capabilities'.",
+                        sig.capability
+                    ),
+                    expected: Some(format!("capability '{}' in root 'capabilities'", sig.capability)),
+                    found: None,
+                });
+            }
+
+            let Some(args_arr) = obj.get("args").and_then(|v| v.as_array()) else {
+                diags.push(Diagnostic {
+                    code: "E_SCHEMA_INVALID".to_string(),
+                    function: func_name.map(ToOwned::to_owned),
+                    path: format!("{path}.args"),
+                    message: "'call_import' expression requires an 'args' array.".to_string(),
+                    expected: Some("array".to_string()),
+                    found: None,
+                });
+                return None;
+            };
+
+            if args_arr.len() != sig.params.len() {
+                diags.push(Diagnostic {
+                    code: "E_CALL_ARITY".to_string(),
+                    function: func_name.map(ToOwned::to_owned),
+                    path: format!("{path}.args"),
+                    message: format!(
+                        "Import '{import_name}' expects {} argument(s), but {} were provided.",
+                        sig.params.len(),
+                        args_arr.len()
+                    ),
+                    expected: Some(format!("{} arguments", sig.params.len())),
+                    found: Some(format!("{} arguments", args_arr.len())),
+                });
+                return None;
+            }
+
+            let mut match_ok = true;
+            for (arg_idx, arg_val) in args_arr.iter().enumerate() {
+                let arg_path = format!("{path}.args[{arg_idx}]");
+                let expected_ty = &sig.params[arg_idx].1;
+                let actual_ty = check_expr(arg_val, &arg_path, func_name, params, ctx, diags);
+                if let Some(act) = actual_ty {
+                    if act != *expected_ty {
+                        diags.push(Diagnostic {
+                            code: "E_TYPE_MISMATCH".to_string(),
+                            function: func_name.map(ToOwned::to_owned),
+                            path: arg_path,
+                            message: format!(
+                                "Argument {} for import '{import_name}' expects type '{}', found '{}'.",
+                                arg_idx,
+                                expected_ty.as_str(),
+                                act.as_str()
+                            ),
+                            expected: Some(expected_ty.as_str().to_string()),
+                            found: Some(act.as_str().to_string()),
+                        });
+                        match_ok = false;
+                    }
+                } else {
+                    match_ok = false;
+                }
+            }
+
+            if match_ok {
+                Some(sig.returns.clone())
+            } else {
+                None
+            }
+        }
         "record.construct" => {
             let Some(rec_type_name) = obj.get("type").and_then(|v| v.as_str()) else {
                 diags.push(Diagnostic {
@@ -1255,7 +1492,7 @@ fn check_expr(
                 path: format!("{path}.op"),
                 message: format!("Unsupported operator '{other}' in Semantic IR."),
                 expected: Some(
-                    "const | param | not | add | sub | mul | div_s | eq | lt_s | gte_s | and | or | if | call | record.construct | record.get"
+                    "const | param | not | add | sub | mul | div_s | eq | lt_s | gte_s | and | or | if | call | call_import | record.construct | record.get"
                         .to_string(),
                 ),
                 found: Some(other.to_string()),
@@ -1316,6 +1553,66 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
         }
     }
 
+    let mut capabilities = HashSet::new();
+    if let Some(caps_val) = root.get("capabilities") {
+        if let Some(caps_arr) = caps_val.as_array() {
+            for c_val in caps_arr {
+                if let Some(s) = c_val.as_str() {
+                    capabilities.insert(s.to_string());
+                }
+            }
+        }
+    }
+
+    let mut import_signatures: HashMap<String, ImportSignature> = HashMap::new();
+    let mut import_order: Vec<String> = Vec::new();
+    if let Some(imp_val) = root.get("imports") {
+        if let Some(imp_arr) = imp_val.as_array() {
+            for (i_idx, item_val) in imp_arr.iter().enumerate() {
+                let imp_obj = item_val.as_object().unwrap();
+                let module = imp_obj["module"].as_str().unwrap().to_string();
+                let name = imp_obj["name"].as_str().unwrap().to_string();
+                let capability = imp_obj
+                    .get("capability")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                let mut parsed_params = Vec::new();
+                if let Some(p_arr) = imp_obj.get("params").and_then(|v| v.as_array()) {
+                    for p_val in p_arr {
+                        let p_obj = p_val.as_object().unwrap();
+                        let p_name = p_obj["name"].as_str().unwrap().to_string();
+                        let p_ty = match p_obj["type"].as_str().unwrap() {
+                            "i32" => IrType::I32,
+                            "bool" => IrType::Bool,
+                            other => IrType::Record(other.to_string()),
+                        };
+                        parsed_params.push((p_name, p_ty));
+                    }
+                }
+                let ret_ty = match imp_obj.get("returns").and_then(|v| v.as_str()).unwrap_or("i32")
+                {
+                    "i32" => IrType::I32,
+                    "bool" => IrType::Bool,
+                    other => IrType::Record(other.to_string()),
+                };
+                import_signatures.insert(
+                    name.clone(),
+                    ImportSignature {
+                        module,
+                        name: name.clone(),
+                        capability,
+                        params: parsed_params,
+                        returns: ret_ty,
+                        index: i_idx as u32,
+                    },
+                );
+                import_order.push(name);
+            }
+        }
+    }
+    let num_imports = import_order.len() as u32;
+
     let functions = root["functions"].as_array().expect("verified functions array");
 
     let mut function_signatures: HashMap<String, FuncSignature> = HashMap::new();
@@ -1346,24 +1643,38 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
                 export: is_export,
                 params,
                 returns,
-                index: f_idx as u32,
+                index: num_imports + f_idx as u32,
             },
         );
     }
 
     let ctx = Context {
         ir_version: ir_version.to_string(),
+        capabilities,
+        imports: import_signatures,
+        import_order: import_order.clone(),
         records: record_defs,
         functions: function_signatures,
+        num_imports,
     };
 
-    let needs_memory = ir_version == "0.2" || !ctx.records.is_empty();
+    let needs_memory = ir_version == "0.2" || ir_version == "0.3" || !ctx.records.is_empty();
 
     let mut module = Module::new();
     let mut types = TypeSection::new();
+    let mut import_section = ImportSection::new();
     let mut func_section = FunctionSection::new();
     let mut exports = ExportSection::new();
     let mut code = CodeSection::new();
+
+    for (imp_idx, imp_name) in import_order.iter().enumerate() {
+        let imp_sig = &ctx.imports[imp_name];
+        let wasm_params: Vec<ValType> = imp_sig.params.iter().map(|_| ValType::I32).collect();
+        let results = [ValType::I32];
+        let type_idx = imp_idx as u32;
+        types.ty().function(wasm_params, results);
+        import_section.import(&imp_sig.module, &imp_sig.name, EntityType::Function(type_idx));
+    }
 
     for (func_idx, func_val) in functions.iter().enumerate() {
         let func_obj = func_val.as_object().unwrap();
@@ -1381,11 +1692,12 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
         }
 
         let results = [ValType::I32];
+        let func_type_idx = num_imports + func_idx as u32;
         types.ty().function(wasm_params, results);
-        func_section.function(func_idx as u32);
+        func_section.function(func_type_idx);
 
         if is_export {
-            exports.export(name, ExportKind::Func, func_idx as u32);
+            exports.export(name, ExportKind::Func, num_imports + func_idx as u32);
         }
 
         // Local 0..num_params-1: params
@@ -1398,6 +1710,9 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
     }
 
     module.section(&types);
+    if num_imports > 0 {
+        module.section(&import_section);
+    }
     module.section(&func_section);
 
     if needs_memory {
@@ -1499,6 +1814,15 @@ fn emit_expr(
             }
             func.instruction(&Instruction::Call(callee_sig.index));
         }
+        "call_import" => {
+            let import_name = obj["import"].as_str().unwrap();
+            let imp_sig = &ctx.imports[import_name];
+            let args_arr = obj["args"].as_array().unwrap();
+            for arg_val in args_arr {
+                emit_expr(arg_val, params, rec_ptr_local, ctx, func);
+            }
+            func.instruction(&Instruction::Call(imp_sig.index));
+        }
         "record.construct" => {
             let rec_type_name = obj["type"].as_str().unwrap();
             let rec_def = &ctx.records[rec_type_name];
@@ -1581,6 +1905,11 @@ fn infer_expr_type(expr: &Value, params: &HashMap<String, u32>, ctx: &Context) -
         "call" => {
             let func_name = obj.get("function")?.as_str()?;
             let sig = ctx.functions.get(func_name)?;
+            Some(sig.returns.clone())
+        }
+        "call_import" => {
+            let import_name = obj.get("import")?.as_str()?;
+            let sig = ctx.imports.get(import_name)?;
             Some(sig.returns.clone())
         }
         "if" => infer_expr_type(obj.get("then")?, params, ctx),
@@ -1791,5 +2120,136 @@ mod tests {
             }]
         });
         assert!(verify_ir(&missing_field).iter().any(|d| d.code == "E_MISSING_FIELD"));
+    }
+
+    #[test]
+    fn validates_and_compiles_v0_3_smoke_module() {
+        let smoke_json_str = include_str!("../../../ir/smoke-v3.ir.json");
+        let ir: Value = serde_json::from_str(smoke_json_str).expect("smoke-v3 must be valid JSON");
+
+        let diags = verify_ir(&ir);
+        assert!(diags.is_empty(), "smoke-v3 IR must have 0 diagnostics: {diags:?}");
+
+        let wasm = compile_ir_to_wasm(&ir).expect("smoke-v3 compilation must succeed");
+        assert!(validate_wasm_bytes(&wasm).is_ok(), "smoke-v3 WASM must pass wasmparser validation");
+    }
+
+    #[test]
+    fn detects_v0_3_capability_and_import_diagnostics() {
+        // 1. E_UNDECLARED_CAPABILITY at import declaration
+        let undeclared_cap_import = json!({
+            "ir_version": "0.3",
+            "spec_version": 1,
+            "capabilities": ["kv_store"],
+            "imports": [
+                {
+                    "module": "host",
+                    "name": "emit_audit",
+                    "capability": "audit_log",
+                    "params": [{ "name": "event_id", "type": "i32" }],
+                    "returns": "i32"
+                }
+            ],
+            "functions": [{
+                "name": "noop",
+                "export": true,
+                "params": [],
+                "returns": "i32",
+                "requirements": ["R1"],
+                "body": { "op": "const", "type": "i32", "value": 0 }
+            }]
+        });
+        let diags1 = verify_ir(&undeclared_cap_import);
+        assert!(diags1.iter().any(|d| d.code == "E_UNDECLARED_CAPABILITY"), "diags: {diags1:?}");
+
+        // 2. E_UNKNOWN_IMPORT in call_import
+        let unknown_import_call = json!({
+            "ir_version": "0.3",
+            "spec_version": 1,
+            "capabilities": ["kv_store"],
+            "imports": [
+                {
+                    "module": "host",
+                    "name": "kv_get",
+                    "capability": "kv_store",
+                    "params": [{ "name": "key", "type": "i32" }],
+                    "returns": "i32"
+                }
+            ],
+            "functions": [{
+                "name": "test",
+                "export": true,
+                "params": [],
+                "returns": "i32",
+                "requirements": ["R1"],
+                "body": {
+                    "op": "call_import",
+                    "import": "nonexistent_import",
+                    "args": [{ "op": "const", "type": "i32", "value": 1 }]
+                }
+            }]
+        });
+        let diags2 = verify_ir(&unknown_import_call);
+        assert!(diags2.iter().any(|d| d.code == "E_UNKNOWN_IMPORT"), "diags: {diags2:?}");
+
+        // 3. E_CALL_ARITY in call_import
+        let arity_err_call = json!({
+            "ir_version": "0.3",
+            "spec_version": 1,
+            "capabilities": ["kv_store"],
+            "imports": [
+                {
+                    "module": "host",
+                    "name": "kv_get",
+                    "capability": "kv_store",
+                    "params": [{ "name": "key", "type": "i32" }],
+                    "returns": "i32"
+                }
+            ],
+            "functions": [{
+                "name": "test",
+                "export": true,
+                "params": [],
+                "returns": "i32",
+                "requirements": ["R1"],
+                "body": {
+                    "op": "call_import",
+                    "import": "kv_get",
+                    "args": []
+                }
+            }]
+        });
+        let diags3 = verify_ir(&arity_err_call);
+        assert!(diags3.iter().any(|d| d.code == "E_CALL_ARITY"), "diags: {diags3:?}");
+
+        // 4. E_TYPE_MISMATCH in call_import
+        let type_mismatch_call = json!({
+            "ir_version": "0.3",
+            "spec_version": 1,
+            "capabilities": ["kv_store"],
+            "imports": [
+                {
+                    "module": "host",
+                    "name": "kv_get",
+                    "capability": "kv_store",
+                    "params": [{ "name": "key", "type": "i32" }],
+                    "returns": "i32"
+                }
+            ],
+            "functions": [{
+                "name": "test",
+                "export": true,
+                "params": [],
+                "returns": "i32",
+                "requirements": ["R1"],
+                "body": {
+                    "op": "call_import",
+                    "import": "kv_get",
+                    "args": [{ "op": "const", "type": "bool", "value": true }]
+                }
+            }]
+        });
+        let diags4 = verify_ir(&type_mismatch_call);
+        assert!(diags4.iter().any(|d| d.code == "E_TYPE_MISMATCH"), "diags: {diags4:?}");
     }
 }

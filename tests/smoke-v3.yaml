@@ -1,0 +1,16 @@
+suite: KAN-POC-003-SMOKE
+spec_version: 1
+cases:
+  - id: SMOKE3-CLI-01
+    requirement: SMOKE-001
+    function: process_order
+    args: [42, 500]
+    host_state:
+      kv:
+        42: 15
+    expected:
+      discount_cents: 15
+      audit_status: 1
+    expected_host_calls:
+      - import: emit_audit
+        args: [1001, 500]
