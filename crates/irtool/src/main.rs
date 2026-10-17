@@ -8,7 +8,11 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 #[derive(Parser)]
-#[command(name = "irtool", version, about = "Deterministic Semantic IR v0.1 verifier and direct WASM compiler")]
+#[command(
+    name = "irtool",
+    version,
+    about = "Deterministic Semantic IR v0.1 verifier and direct WASM compiler"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -35,9 +39,7 @@ enum Commands {
         wat: Option<PathBuf>,
     },
     /// Validate a .wasm binary using wasmparser (equivalent to wasm-tools validate)
-    Validate {
-        wasm: PathBuf,
-    },
+    Validate { wasm: PathBuf },
     /// Print a .wasm binary as WAT text using wasmprinter (equivalent to wasm-tools print)
     Print {
         wasm: PathBuf,
@@ -45,12 +47,10 @@ enum Commands {
         output: Option<PathBuf>,
     },
     /// Compute SHA-256 hash of a file
-    Sha256 {
-        file: PathBuf,
-    },
+    Sha256 { file: PathBuf },
 }
 
-fn ensure_parent_dir(path: &PathBuf) -> std::io::Result<()> {
+fn ensure_parent_dir(path: &std::path::Path) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent)?;
@@ -70,7 +70,10 @@ fn main() -> ExitCode {
         } => {
             if let Some(schema_path) = schema {
                 if let Err(e) = fs::read_to_string(&schema_path) {
-                    eprintln!("Failed to read schema file '{}': {e}", schema_path.display());
+                    eprintln!(
+                        "Failed to read schema file '{}': {e}",
+                        schema_path.display()
+                    );
                     return ExitCode::from(2);
                 }
             }
@@ -205,7 +208,11 @@ fn main() -> ExitCode {
             };
             match validate_wasm_bytes(&bytes) {
                 Ok(()) => {
-                    println!("Valid WASM module: {} ({} bytes)", wasm.display(), bytes.len());
+                    println!(
+                        "Valid WASM module: {} ({} bytes)",
+                        wasm.display(),
+                        bytes.len()
+                    );
                     ExitCode::SUCCESS
                 }
                 Err(e) => {

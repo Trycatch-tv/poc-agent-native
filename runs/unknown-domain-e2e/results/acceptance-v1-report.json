@@ -2,7 +2,7 @@
   "passed": 5,
   "failed": 0,
   "total": 5,
-  "execution_ms": 70,
+  "execution_ms": 73,
   "cases": [
     {
       "id": "LOCK-TC-001",

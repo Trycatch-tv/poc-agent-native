@@ -181,7 +181,9 @@ impl ImplementationAgent for SynthesizerAgent {
             "subscription-billing" => synthesize_generic_billing_ir(component_id, spec),
             "quota-engine" => synthesize_quota_engine_ir(component_id, spec),
             "reservation-coordinator" => synthesize_reservation_coordinator_ir(component_id, spec),
-            _ => Err(format!("SynthesizerAgent has no strategy for component '{component_id}'")),
+            _ => Err(format!(
+                "SynthesizerAgent has no strategy for component '{component_id}'"
+            )),
         }
     }
 }
@@ -201,8 +203,9 @@ pub fn extract_percentage_from_text(text: &str, default_val: i64) -> i64 {
 
 /// Synthesize shipping-calculator IR dynamically from requirements
 pub fn synthesize_shipping_ir(spec: &SystemSpec) -> Result<serde_json::Value, String> {
-    let mut val: serde_json::Value = serde_json::from_str(include_str!("../../../ir/shipping-005.ir.json"))
-        .map_err(|e| e.to_string())?;
+    let mut val: serde_json::Value =
+        serde_json::from_str(include_str!("../../../ir/shipping-005.ir.json"))
+            .map_err(|e| e.to_string())?;
 
     // Dynamically locate SHIP-003 or equivalent tariff requirement
     if let Some(ship_003) = spec.requirements.iter().find(|r| r.id == "SHIP-003") {
@@ -222,8 +225,9 @@ pub fn synthesize_shipping_ir(spec: &SystemSpec) -> Result<serde_json::Value, St
 
 /// Synthesize order-processor IR dynamically from requirements
 pub fn synthesize_order_ir(spec: &SystemSpec) -> Result<serde_json::Value, String> {
-    let mut val: serde_json::Value = serde_json::from_str(include_str!("../../../ir/order-005.ir.json"))
-        .map_err(|e| e.to_string())?;
+    let mut val: serde_json::Value =
+        serde_json::from_str(include_str!("../../../ir/order-005.ir.json"))
+            .map_err(|e| e.to_string())?;
 
     // Dynamically locate TAX-001 or equivalent tax rule
     if let Some(tax_req) = spec.requirements.iter().find(|r| r.id == "TAX-001") {
@@ -241,8 +245,14 @@ pub fn synthesize_order_ir(spec: &SystemSpec) -> Result<serde_json::Value, Strin
 }
 
 /// Synthesizes clean generic IR for new domain components (e.g. usage-tracker)
-fn synthesize_generic_tracker_ir(component_id: &str, spec: &SystemSpec) -> Result<serde_json::Value, String> {
-    let comp = spec.components.iter().find(|c| c.id == component_id)
+fn synthesize_generic_tracker_ir(
+    component_id: &str,
+    spec: &SystemSpec,
+) -> Result<serde_json::Value, String> {
+    let comp = spec
+        .components
+        .iter()
+        .find(|c| c.id == component_id)
         .ok_or_else(|| format!("Component {component_id} not found in spec"))?;
 
     let full_export = comp.export_interfaces.first().cloned().unwrap_or_default();
@@ -305,8 +315,14 @@ fn synthesize_generic_tracker_ir(component_id: &str, spec: &SystemSpec) -> Resul
 }
 
 /// Synthesizes clean generic IR for new domain components (e.g. subscription-billing)
-fn synthesize_generic_billing_ir(component_id: &str, spec: &SystemSpec) -> Result<serde_json::Value, String> {
-    let comp = spec.components.iter().find(|c| c.id == component_id)
+fn synthesize_generic_billing_ir(
+    component_id: &str,
+    spec: &SystemSpec,
+) -> Result<serde_json::Value, String> {
+    let comp = spec
+        .components
+        .iter()
+        .find(|c| c.id == component_id)
         .ok_or_else(|| format!("Component {component_id} not found in spec"))?;
 
     let full_export = comp.export_interfaces.first().cloned().unwrap_or_default();
@@ -410,8 +426,14 @@ fn synthesize_generic_billing_ir(component_id: &str, spec: &SystemSpec) -> Resul
 }
 
 /// Synthesizes quota-engine IR conforming to spec/semantic-ir-v0.5.schema.json
-pub fn synthesize_quota_engine_ir(component_id: &str, spec: &SystemSpec) -> Result<serde_json::Value, String> {
-    let comp = spec.components.iter().find(|c| c.id == component_id)
+pub fn synthesize_quota_engine_ir(
+    component_id: &str,
+    spec: &SystemSpec,
+) -> Result<serde_json::Value, String> {
+    let comp = spec
+        .components
+        .iter()
+        .find(|c| c.id == component_id)
         .ok_or_else(|| format!("Component {component_id} not found in spec"))?;
 
     // Determine max quota limit from active requirement statements
@@ -489,12 +511,20 @@ pub fn synthesize_quota_engine_ir(component_id: &str, spec: &SystemSpec) -> Resu
 }
 
 /// Synthesizes reservation-coordinator IR conforming to spec/semantic-ir-v0.5.schema.json
-pub fn synthesize_reservation_coordinator_ir(component_id: &str, spec: &SystemSpec) -> Result<serde_json::Value, String> {
-    let comp = spec.components.iter().find(|c| c.id == component_id)
+pub fn synthesize_reservation_coordinator_ir(
+    component_id: &str,
+    spec: &SystemSpec,
+) -> Result<serde_json::Value, String> {
+    let comp = spec
+        .components
+        .iter()
+        .find(|c| c.id == component_id)
         .ok_or_else(|| format!("Component {component_id} not found in spec"))?;
 
     // Check if penalty points rule is active (RES-004 v2)
-    let has_penalties = spec.requirements.iter().any(|r| r.id == "RES-004" && (r.version >= 2 || r.statement.contains("penalty_points = 50")));
+    let has_penalties = spec.requirements.iter().any(|r| {
+        r.id == "RES-004" && (r.version >= 2 || r.statement.contains("penalty_points = 50"))
+    });
 
     let penalty_expr = if has_penalties {
         serde_json::json!({
@@ -686,12 +716,16 @@ pub fn parse_narrative(content: &str, file_name: &str) -> Result<SystemSpec, Str
     let mut spec = interpreter.interpret_narrative(content, file_name)?;
 
     // If narrative specifies a custom tax or numerical adjustment on requirements, calibrate statements
-    if let Some(tax_line) = content.lines().find(|l| l.contains("TAX-001") || l.contains("alícuota impositiva")) {
+    if let Some(tax_line) = content
+        .lines()
+        .find(|l| l.contains("TAX-001") || l.contains("alícuota impositiva"))
+    {
         let pct = extract_percentage_from_text(tax_line, 15);
         if pct != 15 {
             if let Some(r) = spec.requirements.iter_mut().find(|r| r.id == "TAX-001") {
                 r.title = format!("Alícuota impositiva del {pct}%");
-                r.statement = format!("tax_cents = (subtotal_cents - discount_cents) * {pct} / 100.");
+                r.statement =
+                    format!("tax_cents = (subtotal_cents - discount_cents) * {pct} / 100.");
             }
         }
     }
@@ -949,20 +983,23 @@ fn legacy_commercial_spec(content: &str, file_name: &str) -> Result<SystemSpec, 
     };
 
     // If narrative specifies different tax percentage in text, update statement
-    if let Some(tax_line) = content.lines().find(|l| l.contains("TAX-001") || l.contains("alícuotas impositivas") || l.contains("alícuota impositiva")) {
+    if let Some(tax_line) = content.lines().find(|l| {
+        l.contains("TAX-001")
+            || l.contains("alícuotas impositivas")
+            || l.contains("alícuota impositiva")
+    }) {
         let pct = extract_percentage_from_text(tax_line, 15);
         if pct != 15 {
             if let Some(r) = spec.requirements.iter_mut().find(|r| r.id == "TAX-001") {
                 r.title = format!("Alícuota impositiva del {pct}%");
-                r.statement = format!("tax_cents = (subtotal_cents - discount_cents) * {pct} / 100.");
+                r.statement =
+                    format!("tax_cents = (subtotal_cents - discount_cents) * {pct} / 100.");
             }
         }
     }
 
     Ok(spec)
 }
-
-
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
@@ -982,7 +1019,10 @@ struct FrontMatter {
 }
 
 /// Generic Work Item parser that extracts frontmatter and markdown requirements
-fn parse_single_work_item(filename: &str, content: &str) -> Result<(FrontMatter, Vec<RequirementSpec>), String> {
+fn parse_single_work_item(
+    filename: &str,
+    content: &str,
+) -> Result<(FrontMatter, Vec<RequirementSpec>), String> {
     let mut fm = FrontMatter {
         id: filename.replace(".md", ""),
         title: filename.to_string(),
@@ -1039,7 +1079,10 @@ fn parse_single_work_item(filename: &str, content: &str) -> Result<(FrontMatter,
                 while j < body_lines.len() {
                     let next_line = body_lines[j];
                     let next_trimmed = next_line.trim();
-                    if next_trimmed.starts_with("- **") || next_trimmed.starts_with("* **") || next_trimmed.starts_with('#') {
+                    if next_trimmed.starts_with("- **")
+                        || next_trimmed.starts_with("* **")
+                        || next_trimmed.starts_with('#')
+                    {
                         break;
                     }
                     if !next_trimmed.is_empty() {
@@ -1160,8 +1203,16 @@ pub fn parse_work_items(items_content: &[(&str, &str)]) -> Result<SystemSpec, St
 
 pub fn compute_spec_diff(before: &SystemSpec, after: &SystemSpec) -> SpecDiff {
     let mut diff = SpecDiff::default();
-    let before_map: HashMap<String, &RequirementSpec> = before.requirements.iter().map(|r| (r.id.clone(), r)).collect();
-    let after_map: HashMap<String, &RequirementSpec> = after.requirements.iter().map(|r| (r.id.clone(), r)).collect();
+    let before_map: HashMap<String, &RequirementSpec> = before
+        .requirements
+        .iter()
+        .map(|r| (r.id.clone(), r))
+        .collect();
+    let after_map: HashMap<String, &RequirementSpec> = after
+        .requirements
+        .iter()
+        .map(|r| (r.id.clone(), r))
+        .collect();
 
     for (id, req) in &after_map {
         match before_map.get(id) {
@@ -1171,7 +1222,9 @@ pub fn compute_spec_diff(before: &SystemSpec, after: &SystemSpec) -> SpecDiff {
                     diff.affected_components.push(req.component.clone());
                 }
             }
-            Some(old_req) if old_req.statement != req.statement || old_req.version != req.version => {
+            Some(old_req)
+                if old_req.statement != req.statement || old_req.version != req.version =>
+            {
                 diff.modified_requirements.push(id.clone());
                 if !diff.affected_components.contains(&req.component) {
                     diff.affected_components.push(req.component.clone());
@@ -1192,14 +1245,22 @@ pub fn compute_spec_diff(before: &SystemSpec, after: &SystemSpec) -> SpecDiff {
 
     // Check operation changes
     for op in &after.operations {
-        if !before.operations.iter().any(|b| b.name == op.name && b.rules_applied == op.rules_applied) {
+        if !before
+            .operations
+            .iter()
+            .any(|b| b.name == op.name && b.rules_applied == op.rules_applied)
+        {
             diff.modified_operations.push(op.name.clone());
         }
     }
 
     // Check entity changes
     for ent in &after.entities {
-        if !before.entities.iter().any(|b| b.name == ent.name && b.fields == ent.fields) {
+        if !before
+            .entities
+            .iter()
+            .any(|b| b.name == ent.name && b.fields == ent.fields)
+        {
             diff.modified_entities.push(ent.name.clone());
         }
     }
@@ -1207,7 +1268,9 @@ pub fn compute_spec_diff(before: &SystemSpec, after: &SystemSpec) -> SpecDiff {
     // Check contract/WIT changes
     for comp in &after.components {
         if let Some(b) = before.components.iter().find(|b| b.id == comp.id) {
-            if b.export_interfaces != comp.export_interfaces || b.import_interfaces != comp.import_interfaces {
+            if b.export_interfaces != comp.export_interfaces
+                || b.import_interfaces != comp.import_interfaces
+            {
                 diff.modified_contracts.push(comp.id.clone());
             }
         }
@@ -1279,7 +1342,9 @@ pub fn atomic_replace_file(temp_path: &Path, final_path: &Path) -> Result<(), St
 
 /// Cleans up interrupted staging/temp files and verifies the integrity of the currently active version.
 /// Returns the active `version_id` and its verified `manifest.json` value if an active version exists.
-pub fn recover_and_verify_dist_state(out_dir: &Path) -> Result<Option<(String, serde_json::Value)>, String> {
+pub fn recover_and_verify_dist_state(
+    out_dir: &Path,
+) -> Result<Option<(String, serde_json::Value)>, String> {
     let temp_staging = out_dir.join(".staging");
     if temp_staging.exists() {
         let _ = std::fs::remove_dir_all(&temp_staging);
@@ -1296,8 +1361,8 @@ pub fn recover_and_verify_dist_state(out_dir: &Path) -> Result<Option<(String, s
 
     let active_content = std::fs::read_to_string(&active_final)
         .map_err(|e| format!("Failed to read active.json: {e}"))?;
-    let active_json: serde_json::Value = serde_json::from_str(&active_content)
-        .map_err(|e| format!("Corrupted active.json: {e}"))?;
+    let active_json: serde_json::Value =
+        serde_json::from_str(&active_content).map_err(|e| format!("Corrupted active.json: {e}"))?;
 
     let active_version = active_json
         .get("active_version")
@@ -1318,8 +1383,12 @@ pub fn recover_and_verify_dist_state(out_dir: &Path) -> Result<Option<(String, s
         ));
     }
 
-    let manifest_content = std::fs::read_to_string(&manifest_path)
-        .map_err(|e| format!("Failed to read active manifest {}: {e}", manifest_path.display()))?;
+    let manifest_content = std::fs::read_to_string(&manifest_path).map_err(|e| {
+        format!(
+            "Failed to read active manifest {}: {e}",
+            manifest_path.display()
+        )
+    })?;
     let manifest_json: serde_json::Value = serde_json::from_str(&manifest_content)
         .map_err(|e| format!("Corrupted manifest.json for '{active_version}': {e}"))?;
 
@@ -1358,7 +1427,10 @@ pub fn recover_and_verify_dist_state(out_dir: &Path) -> Result<Option<(String, s
 }
 
 /// Resolves the canonical path to an active component's `.wasm` binary solely via `active.json`.
-pub fn resolve_active_component_artifact(out_dir: &Path, component_id: &str) -> Result<std::path::PathBuf, String> {
+pub fn resolve_active_component_artifact(
+    out_dir: &Path,
+    component_id: &str,
+) -> Result<std::path::PathBuf, String> {
     let (_, manifest) = recover_and_verify_dist_state(out_dir)?
         .ok_or_else(|| format!("No active version published in {}", out_dir.display()))?;
 
@@ -1429,7 +1501,11 @@ pub fn build_all_components_with_options<A: ImplementationAgent>(
             let diags = irtool::verify_ir(&proposed_ir);
             if !diags.is_empty() {
                 current_diags = diags.clone();
-                last_error = Some(format!("IR verification failed with {} diagnostics: {:?}", diags.len(), diags));
+                last_error = Some(format!(
+                    "IR verification failed with {} diagnostics: {:?}",
+                    diags.len(),
+                    diags
+                ));
                 continue;
             }
 
@@ -1440,11 +1516,14 @@ pub fn build_all_components_with_options<A: ImplementationAgent>(
                     std::fs::write(&staged_wasm_path, &wasm_bytes).map_err(|e| e.to_string())?;
 
                     let staged_ir_path = temp_staging.join(format!("{comp_id}.ir.json"));
-                    let ir_bytes = serde_json::to_vec_pretty(&proposed_ir).map_err(|e| e.to_string())?;
+                    let ir_bytes =
+                        serde_json::to_vec_pretty(&proposed_ir).map_err(|e| e.to_string())?;
                     std::fs::write(&staged_ir_path, &ir_bytes).map_err(|e| e.to_string())?;
 
-                    let sha256 = format!("{:x}", <sha2::Sha256 as sha2::Digest>::digest(&wasm_bytes));
-                    let ir_sha256 = format!("{:x}", <sha2::Sha256 as sha2::Digest>::digest(&ir_bytes));
+                    let sha256 =
+                        format!("{:x}", <sha2::Sha256 as sha2::Digest>::digest(&wasm_bytes));
+                    let ir_sha256 =
+                        format!("{:x}", <sha2::Sha256 as sha2::Digest>::digest(&ir_bytes));
 
                     staged_components.push(StagedComponent {
                         component_id: comp_id.clone(),
@@ -1466,7 +1545,9 @@ pub fn build_all_components_with_options<A: ImplementationAgent>(
         if let Some(err) = last_error {
             let _ = std::fs::remove_dir_all(&temp_staging);
             all_diags.extend(current_diags);
-            return Err(format!("Component '{comp_id}' failed after {attempts} attempts: {err}"));
+            return Err(format!(
+                "Component '{comp_id}' failed after {attempts} attempts: {err}"
+            ));
         }
     }
 
@@ -1485,7 +1566,9 @@ pub fn build_all_components_with_options<A: ImplementationAgent>(
     for (idx, staged) in staged_components.iter().enumerate() {
         if fail_point == Some(BuildFailPoint::DuringVersionCopy) && idx == 0 {
             let _ = std::fs::remove_dir_all(&temp_staging);
-            return Err("Injected failure during version copy into versions/<version_id>/".to_string());
+            return Err(
+                "Injected failure during version copy into versions/<version_id>/".to_string(),
+            );
         }
 
         let src_wasm = temp_staging.join(format!("{}.wasm", staged.component_id));
@@ -1499,7 +1582,10 @@ pub fn build_all_components_with_options<A: ImplementationAgent>(
         versioned_artifacts.push(BuildArtifact {
             component_id: staged.component_id.clone(),
             wasm_file: format!("versions/{version_id}/{}.wasm", staged.component_id),
-            ir_file: Some(format!("versions/{version_id}/{}.ir.json", staged.component_id)),
+            ir_file: Some(format!(
+                "versions/{version_id}/{}.ir.json",
+                staged.component_id
+            )),
             ir_sha256: Some(staged.ir_sha256.clone()),
             bytes_len: staged.bytes_len,
             sha256: staged.sha256.clone(),
@@ -1509,7 +1595,9 @@ pub fn build_all_components_with_options<A: ImplementationAgent>(
 
     if fail_point == Some(BuildFailPoint::DuringManifestWrite) {
         let _ = std::fs::remove_dir_all(&temp_staging);
-        return Err("Injected failure before writing manifest.json in versions/<version_id>/".to_string());
+        return Err(
+            "Injected failure before writing manifest.json in versions/<version_id>/".to_string(),
+        );
     }
 
     let agent_metrics = agent.last_execution_metrics();
@@ -1526,7 +1614,8 @@ pub fn build_all_components_with_options<A: ImplementationAgent>(
         "artifacts": versioned_artifacts,
     });
     let manifest_bytes = serde_json::to_vec_pretty(&manifest).map_err(|e| e.to_string())?;
-    std::fs::write(version_path.join("manifest.json"), &manifest_bytes).map_err(|e| e.to_string())?;
+    std::fs::write(version_path.join("manifest.json"), &manifest_bytes)
+        .map_err(|e| e.to_string())?;
 
     // Write .active.json.tmp and atomically replace active.json without prior deletion
     let active_manifest = serde_json::json!({
@@ -1539,12 +1628,17 @@ pub fn build_all_components_with_options<A: ImplementationAgent>(
     });
     let active_temp = out_dir.join(".active.json.tmp");
     let active_final = out_dir.join("active.json");
-    std::fs::write(&active_temp, serde_json::to_vec_pretty(&active_manifest).map_err(|e| e.to_string())?)
-        .map_err(|e| e.to_string())?;
+    std::fs::write(
+        &active_temp,
+        serde_json::to_vec_pretty(&active_manifest).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())?;
 
     if fail_point == Some(BuildFailPoint::DuringActivePromote) {
         let _ = std::fs::remove_dir_all(&temp_staging);
-        return Err("Injected failure after writing .active.json.tmp before atomic promotion".to_string());
+        return Err(
+            "Injected failure after writing .active.json.tmp before atomic promotion".to_string(),
+        );
     }
 
     atomic_replace_file(&active_temp, &active_final)?;
@@ -1562,7 +1656,9 @@ pub fn build_all_components_with_options<A: ImplementationAgent>(
 
 pub fn chrono_or_iso_now() -> String {
     let now = std::time::SystemTime::now();
-    let duration = now.duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
+    let duration = now
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
     format!("{}.{}", duration.as_secs(), duration.subsec_millis())
 }
 
@@ -1592,11 +1688,17 @@ impl KaddoProjectAdapter {
                 if entry.file_type().is_ok_and(|t| t.is_dir()) {
                     let dir_name = entry.file_name().to_string_lossy().to_string();
                     if dir_name.starts_with("work-items") {
-                        for sub_entry in std::fs::read_dir(entry.path()).map_err(|e| e.to_string())? {
+                        for sub_entry in
+                            std::fs::read_dir(entry.path()).map_err(|e| e.to_string())?
+                        {
                             let sub_entry = sub_entry.map_err(|e| e.to_string())?;
                             if sub_entry.path().extension().is_some_and(|ext| ext == "md") {
-                                let content = std::fs::read_to_string(sub_entry.path()).map_err(|e| e.to_string())?;
-                                results.push((sub_entry.file_name().to_string_lossy().to_string(), content));
+                                let content = std::fs::read_to_string(sub_entry.path())
+                                    .map_err(|e| e.to_string())?;
+                                results.push((
+                                    sub_entry.file_name().to_string_lossy().to_string(),
+                                    content,
+                                ));
                             }
                         }
                     }
@@ -1654,7 +1756,9 @@ mod tests {
                 spec: &SystemSpec,
                 diags: &[irtool::Diagnostic],
             ) -> Result<serde_json::Value, String> {
-                let count = self.attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                let count = self
+                    .attempts
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                 if count == 0 {
                     // Inject a controlled discrepancy on first attempt: return IR with unknown operator
                     let mut bad = synthesize_shipping_ir(spec)?;
@@ -1662,7 +1766,10 @@ mod tests {
                     Ok(bad)
                 } else if count == 1 {
                     // Second attempt for shipping-calculator: verify diagnostics were supplied
-                    assert!(!diags.is_empty(), "Should receive diagnostics from failed attempt");
+                    assert!(
+                        !diags.is_empty(),
+                        "Should receive diagnostics from failed attempt"
+                    );
                     SynthesizerAgent.propose_ir(comp_id, spec, diags)
                 } else {
                     // Subsequent components (e.g. order-processor)
@@ -1699,8 +1806,8 @@ mod tests {
         // Step 2: Build initial components transactionally
         let build_dir = std::env::temp_dir().join("res_test_build");
         let _ = std::fs::remove_dir_all(&build_dir);
-        let summary_initial = build_all_components(&spec_initial, &build_dir)
-            .expect("Initial build must succeed");
+        let summary_initial =
+            build_all_components(&spec_initial, &build_dir).expect("Initial build must succeed");
         assert!(summary_initial.success);
         assert_eq!(summary_initial.artifacts.len(), 2);
 
@@ -1709,14 +1816,15 @@ mod tests {
         let spec_step1 = parse_work_items_consolidated(
             Some(&spec_initial),
             &[("WI-RES-01-quota-limit.md", wi1)],
-        ).expect("Valid WI-RES-01 reconciliation");
+        )
+        .expect("Valid WI-RES-01 reconciliation");
 
         let diff1 = compute_spec_diff(&spec_initial, &spec_step1);
         assert_eq!(diff1.modified_requirements, vec!["QUOTA-002".to_string()]);
         assert_eq!(diff1.affected_components, vec!["quota-engine".to_string()]);
 
-        let summary_step1 = build_all_components(&spec_step1, &build_dir)
-            .expect("Step 1 build must succeed");
+        let summary_step1 =
+            build_all_components(&spec_step1, &build_dir).expect("Step 1 build must succeed");
         assert!(summary_step1.success);
 
         // Step 4: Evolution Step 2 - WI-RES-02 (Add penalty points)
@@ -1724,14 +1832,18 @@ mod tests {
         let spec_step2 = parse_work_items_consolidated(
             Some(&spec_step1),
             &[("WI-RES-02-penalty-eligibility.md", wi2)],
-        ).expect("Valid WI-RES-02 reconciliation");
+        )
+        .expect("Valid WI-RES-02 reconciliation");
 
         let diff2 = compute_spec_diff(&spec_step1, &spec_step2);
         assert_eq!(diff2.modified_requirements, vec!["RES-004".to_string()]);
-        assert_eq!(diff2.affected_components, vec!["reservation-coordinator".to_string()]);
+        assert_eq!(
+            diff2.affected_components,
+            vec!["reservation-coordinator".to_string()]
+        );
 
-        let summary_step2 = build_all_components(&spec_step2, &build_dir)
-            .expect("Step 2 build must succeed");
+        let summary_step2 =
+            build_all_components(&spec_step2, &build_dir).expect("Step 2 build must succeed");
         assert!(summary_step2.success);
         assert_eq!(summary_step2.artifacts.len(), 2);
     }
@@ -1757,11 +1869,9 @@ mod tests {
 
         // Prepare evolved spec v2
         let wi1 = include_str!("../../../spec/work-items-res/WI-RES-01-quota-limit.md");
-        let spec_v2 = parse_work_items_consolidated(
-            Some(&spec_v1),
-            &[("WI-RES-01-quota-limit.md", wi1)],
-        )
-        .expect("Valid WI-RES-01");
+        let spec_v2 =
+            parse_work_items_consolidated(Some(&spec_v1), &[("WI-RES-01-quota-limit.md", wi1)])
+                .expect("Valid WI-RES-01");
 
         // 2. Simulate interrupted build during version copy
         let err_copy = build_all_components_with_options(
@@ -1792,7 +1902,8 @@ mod tests {
             active_content_v1,
             "active.json must remain byte-for-byte identical after manifest failure"
         );
-        let (recovered_after_manifest, _) = recover_and_verify_dist_state(&dist_dir).unwrap().unwrap();
+        let (recovered_after_manifest, _) =
+            recover_and_verify_dist_state(&dist_dir).unwrap().unwrap();
         assert_eq!(recovered_after_manifest, v1_id);
 
         // 4. Simulate interrupted build during active.json promotion (.active.json.tmp left on disk)
@@ -1803,13 +1914,17 @@ mod tests {
             Some(BuildFailPoint::DuringActivePromote),
         );
         assert!(err_promote.is_err());
-        assert!(dist_dir.join(".active.json.tmp").exists(), "Orphan .active.json.tmp simulated");
+        assert!(
+            dist_dir.join(".active.json.tmp").exists(),
+            "Orphan .active.json.tmp simulated"
+        );
         assert_eq!(
             std::fs::read_to_string(dist_dir.join("active.json")).unwrap(),
             active_content_v1,
             "active.json must never be deleted or modified when promotion fails"
         );
-        let (recovered_after_promote, _) = recover_and_verify_dist_state(&dist_dir).unwrap().unwrap();
+        let (recovered_after_promote, _) =
+            recover_and_verify_dist_state(&dist_dir).unwrap().unwrap();
         assert_eq!(recovered_after_promote, v1_id);
         assert!(
             !dist_dir.join(".active.json.tmp").exists(),
@@ -1823,13 +1938,26 @@ mod tests {
         assert_eq!(active_now, summary_v2.version_id);
 
         // Verify v1 directory and artifacts are still intact in versions/<v1_id>/
-        assert!(dist_dir.join("versions").join(&v1_id).join("manifest.json").exists());
-        assert!(dist_dir.join("versions").join(&v1_id).join("quota-engine.wasm").exists());
-        assert!(dist_dir.join("versions").join(&v1_id).join("reservation-coordinator.wasm").exists());
+        assert!(dist_dir
+            .join("versions")
+            .join(&v1_id)
+            .join("manifest.json")
+            .exists());
+        assert!(dist_dir
+            .join("versions")
+            .join(&v1_id)
+            .join("quota-engine.wasm")
+            .exists());
+        assert!(dist_dir
+            .join("versions")
+            .join(&v1_id)
+            .join("reservation-coordinator.wasm")
+            .exists());
 
         // Verify active component resolution points to v2
         let active_quota = resolve_active_component_artifact(&dist_dir, "quota-engine").unwrap();
-        assert!(active_quota.to_string_lossy().contains(&summary_v2.version_id));
+        assert!(active_quota
+            .to_string_lossy()
+            .contains(&summary_v2.version_id));
     }
 }
-

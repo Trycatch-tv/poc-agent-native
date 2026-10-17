@@ -35,6 +35,11 @@ Agent-Native v0.1.0 queda formalmente validado como un motor standalone de gener
    - Se eliminó la creación de archivos temporales `curlllm_*.cfg` en disco; las cabeceras HTTP se transmiten exclusivamente por `stdin` (`curl --config -`) en memoria.
    - `AgentExecutionMetrics` representa `prompt_tokens`, `completion_tokens` y `total_tokens` como `Option<usize>` junto con `tokens_reported: bool`, sin estimar jamás tokens mediante `prompt.len() / 4` (verificado en `agent::tests::test_unreported_tokens_are_none_never_estimated`).
 
+5. **Endurecimiento de Capacidades de Host en Runtime (`crates/runner/src/main.rs`):**
+   - Se eliminaron todos los fallbacks implícitos a `0`, `false` o resolución mediante `kv` para operaciones de host desconocidas o sin configurar en `register_component_imports()`.
+   - Las capacidades de host se resuelven mediante un registro explícito calificado por `(interfaz WIT, operación)` y propagan errores estructurados `[HostCapabilityError] interface=<iface> operation=<op> kind=<unregistered_capability|unconfigured_capability|capability_execution_failed|unsupported_capability_type>: <causa>`, registrando `passed: false` y `actual: None` en el reporte del runner.
+   - Verificado automáticamente en `tests::test_unknown_host_capabilities_fail_explicitly`.
+
 ---
 
 ## 2. Evidencia Persistida del Dominio Desconocido con LLM Real (`runs/unknown-domain-e2e/`)
@@ -55,17 +60,17 @@ Artefactos persistidos en el repositorio:
 
 ## 3. Cobertura de Pruebas Automatizadas del Workspace
 
-La suite de validación automatizada comprende **26 pruebas unitarias y de integración** en el workspace (`cargo test --workspace`):
+La suite de validación automatizada comprende **27 pruebas unitarias y de integración** en el workspace (`cargo test --workspace`):
 - **`irtool` (8/8 passed):** verificación sintáctica y semántica, contratos WIT, compilación determinista a Component Model.
 - **`orchestrator` (9/9 passed):** interpretación de narrativas no vistas, rechazo de narrativas incompatibles, reconciliación acumulativa, bucle de recuperación diagnóstica, modo LLM estricto sin API key, prohibición de estimación de tokens (`test_unreported_tokens_are_none_never_estimated`), promoción atómica y preservación de `active.json` ante fallas parciales de copia, manifiesto y promoción (`test_atomic_promotion_and_partial_failure_preservation`).
-- **`runner` (9/9 passed):** ejecución dinámica sobre Wasmtime Component Model, propagación estricta de errores de dependencias sin fallback a cero (`test_dependency_failures_never_fallback_to_zero`), evolución acumulativa v1 -> v2 -> v3 de reservas (`test_cumulative_reservation_evolution_v1_v2_v3`), y validación integral v1 y v2 del dominio desconocido generado por LLM (`test_unseen_llm_domain_canal_lock_v1_and_v2`).
+- **`runner` (10/10 passed):** ejecución dinámica sobre Wasmtime Component Model, propagación estricta de errores de dependencias sin fallback a cero (`test_dependency_failures_never_fallback_to_zero`), propagación explícita de errores en capacidades de host desconocidas o sin configurar (`test_unknown_host_capabilities_fail_explicitly`), evolución acumulativa v1 -> v2 -> v3 de reservas (`test_cumulative_reservation_evolution_v1_v2_v3`), y validación integral v1 y v2 del dominio desconocido generado por LLM (`test_unseen_llm_domain_canal_lock_v1_and_v2`).
 
 ---
 
 ## 4. Comandos de Reproducción
 
 ```bash
-# 1. Ejecutar toda la suite de pruebas del workspace (26 tests)
+# 1. Ejecutar toda la suite de pruebas del workspace (27 tests)
 cargo test --workspace
 
 # 2. Reproducir generación de especificación y construcción con LLM real sobre el dominio desconocido

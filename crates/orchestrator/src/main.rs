@@ -2,7 +2,10 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "orchestrator", about = "Agent-Native Orchestrator CLI for POC 005")]
+#[command(
+    name = "orchestrator",
+    about = "Agent-Native Orchestrator CLI for POC 005"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -91,7 +94,10 @@ target = "wasm32-wasip1"
 enabled = false
 "#;
             std::fs::write(&config_path, default_config)?;
-            println!("[orchestrator] Initialized Agent-Native project at {}", config_path.display());
+            println!(
+                "[orchestrator] Initialized Agent-Native project at {}",
+                config_path.display()
+            );
         }
 
         Commands::Spec {
@@ -104,13 +110,23 @@ enabled = false
         } => {
             let root = project_root.unwrap_or_else(|| PathBuf::from("."));
             if kaddo {
-                println!("[orchestrator] Running in Kaddo Integrated Mode (root: {})", root.display());
+                println!(
+                    "[orchestrator] Running in Kaddo Integrated Mode (root: {})",
+                    root.display()
+                );
             } else {
-                println!("[orchestrator] Running in Standalone Mode (root: {})", root.display());
+                println!(
+                    "[orchestrator] Running in Standalone Mode (root: {})",
+                    root.display()
+                );
             }
 
             let base_spec_obj = if let Some(ref b_path) = base_spec {
-                let actual_path = if b_path.is_relative() { root.join(b_path) } else { b_path.clone() };
+                let actual_path = if b_path.is_relative() {
+                    root.join(b_path)
+                } else {
+                    b_path.clone()
+                };
                 let content = std::fs::read_to_string(actual_path)?;
                 let parsed: orchestrator::SystemSpec = serde_json::from_str(&content)?;
                 Some(parsed)
@@ -119,13 +135,25 @@ enabled = false
             };
 
             let spec = if let Some(n_path) = narrative {
-                let actual_path = if n_path.is_relative() { root.join(&n_path) } else { n_path.clone() };
+                let actual_path = if n_path.is_relative() {
+                    root.join(&n_path)
+                } else {
+                    n_path.clone()
+                };
                 let content = std::fs::read_to_string(&actual_path)?;
-                let file_name = actual_path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                let file_name = actual_path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
                 orchestrator::parse_narrative(&content, &file_name)
                     .map_err(|e| format!("Error parsing narrative: {e}"))?
             } else if let Some(w_dir) = work_items_dir {
-                let actual_dir = if w_dir.is_relative() { root.join(&w_dir) } else { w_dir.clone() };
+                let actual_dir = if w_dir.is_relative() {
+                    root.join(&w_dir)
+                } else {
+                    w_dir.clone()
+                };
                 let mut items = Vec::new();
                 for entry in std::fs::read_dir(actual_dir)? {
                     let entry = entry?;
@@ -135,20 +163,30 @@ enabled = false
                         items.push((fname, content));
                     }
                 }
-                let items_ref: Vec<(&str, &str)> = items.iter().map(|(f, c)| (f.as_str(), c.as_str())).collect();
+                let items_ref: Vec<(&str, &str)> = items
+                    .iter()
+                    .map(|(f, c)| (f.as_str(), c.as_str()))
+                    .collect();
                 orchestrator::parse_work_items_consolidated(base_spec_obj.as_ref(), &items_ref)
                     .map_err(|e| format!("Error parsing work items: {e}"))?
             } else {
                 return Err("Either --narrative or --work-items-dir must be provided".into());
             };
 
-            let actual_out = if output.is_relative() { root.join(&output) } else { output.clone() };
+            let actual_out = if output.is_relative() {
+                root.join(&output)
+            } else {
+                output.clone()
+            };
             let json = serde_json::to_string_pretty(&spec)?;
             if let Some(parent) = actual_out.parent() {
                 std::fs::create_dir_all(parent)?;
             }
             std::fs::write(&actual_out, json)?;
-            println!("[orchestrator] Consolidated System Specification saved to {}", actual_out.display());
+            println!(
+                "[orchestrator] Consolidated System Specification saved to {}",
+                actual_out.display()
+            );
         }
 
         Commands::Build {
@@ -160,13 +198,27 @@ enabled = false
         } => {
             let root = project_root.unwrap_or_else(|| PathBuf::from("."));
             if kaddo {
-                println!("[orchestrator] Building components in Kaddo Integrated Mode (root: {})", root.display());
+                println!(
+                    "[orchestrator] Building components in Kaddo Integrated Mode (root: {})",
+                    root.display()
+                );
             } else {
-                println!("[orchestrator] Building components in Standalone Mode (root: {})", root.display());
+                println!(
+                    "[orchestrator] Building components in Standalone Mode (root: {})",
+                    root.display()
+                );
             }
 
-            let actual_spec_path = if spec.is_relative() { root.join(&spec) } else { spec.clone() };
-            let actual_out_dir = if out_dir.is_relative() { root.join(&out_dir) } else { out_dir.clone() };
+            let actual_spec_path = if spec.is_relative() {
+                root.join(&spec)
+            } else {
+                spec.clone()
+            };
+            let actual_out_dir = if out_dir.is_relative() {
+                root.join(&out_dir)
+            } else {
+                out_dir.clone()
+            };
 
             let spec_content = std::fs::read_to_string(&actual_spec_path)?;
             let system_spec: orchestrator::SystemSpec = serde_json::from_str(&spec_content)?;
@@ -192,7 +244,10 @@ enabled = false
 
             println!("[orchestrator] Build completed successfully:");
             for art in &summary.artifacts {
-                println!("  - Component: {} -> {} ({} bytes, sha256={})", art.component_id, art.wasm_file, art.bytes_len, art.sha256);
+                println!(
+                    "  - Component: {} -> {} ({} bytes, sha256={})",
+                    art.component_id, art.wasm_file, art.bytes_len, art.sha256
+                );
             }
         }
 
@@ -203,8 +258,16 @@ enabled = false
             project_root,
         } => {
             let root = project_root.unwrap_or_else(|| PathBuf::from("."));
-            let actual_before = if before.is_relative() { root.join(&before) } else { before.clone() };
-            let actual_after = if after.is_relative() { root.join(&after) } else { after.clone() };
+            let actual_before = if before.is_relative() {
+                root.join(&before)
+            } else {
+                before.clone()
+            };
+            let actual_after = if after.is_relative() {
+                root.join(&after)
+            } else {
+                after.clone()
+            };
 
             let before_content = std::fs::read_to_string(&actual_before)?;
             let after_content = std::fs::read_to_string(&actual_after)?;
@@ -214,7 +277,11 @@ enabled = false
 
             let diff_json = serde_json::to_string_pretty(&diff)?;
             if let Some(out_path) = output {
-                let actual_out = if out_path.is_relative() { root.join(&out_path) } else { out_path.clone() };
+                let actual_out = if out_path.is_relative() {
+                    root.join(&out_path)
+                } else {
+                    out_path.clone()
+                };
                 if let Some(parent) = actual_out.parent() {
                     std::fs::create_dir_all(parent)?;
                 }

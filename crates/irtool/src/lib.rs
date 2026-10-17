@@ -3,8 +3,8 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use wasm_encoder::{
-    BlockType, CodeSection, ConstExpr, CustomSection, EntityType, ExportKind, ExportSection, Function,
-    FunctionSection, GlobalSection, GlobalType, ImportSection, Instruction, MemArg,
+    BlockType, CodeSection, ConstExpr, CustomSection, EntityType, ExportKind, ExportSection,
+    Function, FunctionSection, GlobalSection, GlobalType, ImportSection, Instruction, MemArg,
     MemorySection, MemoryType, Module, TypeSection, ValType,
 };
 
@@ -133,7 +133,8 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
                 code: "E_SCHEMA_INVALID".to_string(),
                 function: None,
                 path: "$.ir_version".to_string(),
-                message: "ir_version must be \"0.1\", \"0.2\", \"0.3\", \"0.4\", or \"0.5\".".to_string(),
+                message: "ir_version must be \"0.1\", \"0.2\", \"0.3\", \"0.4\", or \"0.5\"."
+                    .to_string(),
                 expected: Some("\"0.1\" | \"0.2\" | \"0.3\" | \"0.4\" | \"0.5\"".to_string()),
                 found: Some(other.to_string()),
             });
@@ -165,7 +166,13 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
             ),
             "0.4" | "0.5" => matches!(
                 key.as_str(),
-                "ir_version" | "spec_version" | "wit_contract" | "capabilities" | "imports" | "types" | "functions"
+                "ir_version"
+                    | "spec_version"
+                    | "wit_contract"
+                    | "capabilities"
+                    | "imports"
+                    | "types"
+                    | "functions"
             ),
             _ => false,
         };
@@ -213,9 +220,15 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
     if ir_version == "0.4" || ir_version == "0.5" {
         if let Some(wit_val) = obj.get("wit_contract") {
             if let Some(wit_obj) = wit_val.as_object() {
-                let pkg = wit_obj.get("package").and_then(|v| v.as_str()).unwrap_or("");
+                let pkg = wit_obj
+                    .get("package")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
                 let world = wit_obj.get("world").and_then(|v| v.as_str()).unwrap_or("");
-                let exp_iface = wit_obj.get("export_interface").and_then(|v| v.as_str()).unwrap_or("");
+                let exp_iface = wit_obj
+                    .get("export_interface")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
                 let mut imp_ifaces = Vec::new();
                 if let Some(arr) = wit_obj.get("import_interfaces").and_then(|v| v.as_array()) {
                     for iface_val in arr {
@@ -224,7 +237,10 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
                         }
                     }
                 }
-                let wit_file = wit_obj.get("wit_file").and_then(|v| v.as_str()).map(|s| s.to_string());
+                let wit_file = wit_obj
+                    .get("wit_file")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
                 if pkg.is_empty() {
                     diags.push(Diagnostic {
                         code: "E_SCHEMA_INVALID".to_string(),
@@ -589,9 +605,7 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
                         code: "E_DUPLICATE_PARAM".to_string(),
                         function: Some(name.clone()),
                         path: format!("{p_path}.name"),
-                        message: format!(
-                            "Duplicate parameter '{p_name}' in function '{name}'."
-                        ),
+                        message: format!("Duplicate parameter '{p_name}' in function '{name}'."),
                         expected: Some("unique parameter name".to_string()),
                         found: Some(p_name.clone()),
                     });
@@ -697,7 +711,10 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
 
                 let module = imp_obj.get("module").and_then(|v| v.as_str()).unwrap_or("");
                 let name = imp_obj.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                let capability = imp_obj.get("capability").and_then(|v| v.as_str()).unwrap_or("");
+                let capability = imp_obj
+                    .get("capability")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
 
                 if !capabilities.contains(capability) {
                     diags.push(Diagnostic {
@@ -738,7 +755,10 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
                     }
                 }
 
-                let ret_str = imp_obj.get("returns").and_then(|v| v.as_str()).unwrap_or("i32");
+                let ret_str = imp_obj
+                    .get("returns")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("i32");
                 let ret_type = match IrType::from_str(ret_str, &known_record_names) {
                     Some(t) => t,
                     None => {
@@ -746,7 +766,9 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
                             code: "E_UNKNOWN_TYPE".to_string(),
                             function: None,
                             path: format!("{path}.returns"),
-                            message: format!("Unknown return type '{ret_str}' for import '{name}'."),
+                            message: format!(
+                                "Unknown return type '{ret_str}' for import '{name}'."
+                            ),
                             expected: Some("valid type".to_string()),
                             found: Some(ret_str.to_string()),
                         });
@@ -759,15 +781,18 @@ pub fn verify_ir(root: &Value) -> Vec<Diagnostic> {
                     .and_then(|v| v.as_str())
                     .map(|s| s.to_string());
 
-                imports.insert(name.to_string(), ImportSignature {
-                    module: module.to_string(),
-                    name: name.to_string(),
-                    capability: capability.to_string(),
-                    wit_interface,
-                    params: parsed_params,
-                    returns: ret_type,
-                    index: i_idx as u32,
-                });
+                imports.insert(
+                    name.to_string(),
+                    ImportSignature {
+                        module: module.to_string(),
+                        name: name.to_string(),
+                        capability: capability.to_string(),
+                        wit_interface,
+                        params: parsed_params,
+                        returns: ret_type,
+                        index: i_idx as u32,
+                    },
+                );
                 import_order.push(name.to_string());
             }
         }
@@ -1332,7 +1357,8 @@ fn check_expr(
                     code: "E_SCHEMA_INVALID".to_string(),
                     function: func_name.map(ToOwned::to_owned),
                     path: format!("{path}.import"),
-                    message: "'call_import' expression requires a string 'import' property.".to_string(),
+                    message: "'call_import' expression requires a string 'import' property."
+                        .to_string(),
                     expected: Some("import name string".to_string()),
                     found: None,
                 });
@@ -1444,7 +1470,9 @@ fn check_expr(
                     code: "E_UNKNOWN_TYPE".to_string(),
                     function: func_name.map(ToOwned::to_owned),
                     path: format!("{path}.type"),
-                    message: format!("Unknown record type '{rec_type_name}' in 'record.construct'."),
+                    message: format!(
+                        "Unknown record type '{rec_type_name}' in 'record.construct'."
+                    ),
                     expected: Some("declared record type".to_string()),
                     found: Some(rec_type_name.to_string()),
                 });
@@ -1477,7 +1505,14 @@ fn check_expr(
                         message: format!(
                             "Unknown field '{key}' for record type '{rec_type_name}'."
                         ),
-                        expected: Some(rec_def.fields.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>().join(" | ")),
+                        expected: Some(
+                            rec_def
+                                .fields
+                                .iter()
+                                .map(|(n, _)| n.as_str())
+                                .collect::<Vec<_>>()
+                                .join(" | "),
+                        ),
                         found: Some(key.clone()),
                     });
                     construct_ok = false;
@@ -1729,7 +1764,10 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
                         parsed_params.push((p_name, p_ty));
                     }
                 }
-                let ret_ty = match imp_obj.get("returns").and_then(|v| v.as_str()).unwrap_or("i32")
+                let ret_ty = match imp_obj
+                    .get("returns")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("i32")
                 {
                     "i32" => IrType::I32,
                     "bool" => IrType::Bool,
@@ -1757,13 +1795,18 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
     }
     let num_imports = import_order.len() as u32;
 
-    let functions = root["functions"].as_array().expect("verified functions array");
+    let functions = root["functions"]
+        .as_array()
+        .expect("verified functions array");
 
     let mut function_signatures: HashMap<String, FuncSignature> = HashMap::new();
     for (f_idx, func_val) in functions.iter().enumerate() {
         let func_obj = func_val.as_object().unwrap();
         let name = func_obj["name"].as_str().unwrap().to_string();
-        let is_export = func_obj.get("export").and_then(|v| v.as_bool()).unwrap_or(true);
+        let is_export = func_obj
+            .get("export")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
         let wit_interface = func_obj
             .get("wit_interface")
             .and_then(|v| v.as_str())
@@ -1798,17 +1841,38 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
     }
 
     let wit_contract_def = if ir_version == "0.4" || ir_version == "0.5" {
-        root.get("wit_contract").and_then(|v| v.as_object()).map(|obj| WitContractDef {
-            package: obj.get("package").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            world: obj.get("world").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            export_interface: obj.get("export_interface").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            import_interfaces: obj
-                .get("import_interfaces")
-                .and_then(|v| v.as_array())
-                .map(|arr| arr.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect())
-                .unwrap_or_default(),
-            wit_file: obj.get("wit_file").and_then(|v| v.as_str()).map(|s| s.to_string()),
-        })
+        root.get("wit_contract")
+            .and_then(|v| v.as_object())
+            .map(|obj| WitContractDef {
+                package: obj
+                    .get("package")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                world: obj
+                    .get("world")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                export_interface: obj
+                    .get("export_interface")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                import_interfaces: obj
+                    .get("import_interfaces")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|x| x.as_str().map(|s| s.to_string()))
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+                wit_file: obj
+                    .get("wit_file")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string()),
+            })
     } else {
         None
     };
@@ -1841,13 +1905,18 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
         types.ty().function(wasm_params, results);
 
         let (imp_mod, imp_field) = if ir_version == "0.4" || ir_version == "0.5" {
-            if let (Some(ref contract), Some(ref wit_iface)) = (&ctx.wit_contract, &imp_sig.wit_interface) {
+            if let (Some(ref contract), Some(ref wit_iface)) =
+                (&ctx.wit_contract, &imp_sig.wit_interface)
+            {
                 let pkg = if imp_sig.module.contains(':') && imp_sig.module.contains('@') {
                     &imp_sig.module
                 } else {
                     &contract.package
                 };
-                (wit_interface_id(pkg, wit_iface), imp_sig.name.replace('_', "-"))
+                (
+                    wit_interface_id(pkg, wit_iface),
+                    imp_sig.name.replace('_', "-"),
+                )
             } else {
                 (imp_sig.module.clone(), imp_sig.name.clone())
             }
@@ -1861,7 +1930,10 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
     for (func_idx, func_val) in functions.iter().enumerate() {
         let func_obj = func_val.as_object().unwrap();
         let name = func_obj["name"].as_str().unwrap();
-        let is_export = func_obj.get("export").and_then(|v| v.as_bool()).unwrap_or(true);
+        let is_export = func_obj
+            .get("export")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
         let params_arr = func_obj["params"].as_array().unwrap();
         let body = &func_obj["body"];
 
@@ -1881,9 +1953,20 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
         if is_export {
             exports.export(name, ExportKind::Func, num_imports + func_idx as u32);
             if ir_version == "0.4" || ir_version == "0.5" {
-                if let (Some(ref contract), Some(wit_iface)) = (&ctx.wit_contract, func_obj.get("wit_interface").and_then(|v| v.as_str())) {
-                    let wit_export_name = format!("{}#{}", wit_interface_id(&contract.package, wit_iface), name.replace('_', "-"));
-                    exports.export(&wit_export_name, ExportKind::Func, num_imports + func_idx as u32);
+                if let (Some(ref contract), Some(wit_iface)) = (
+                    &ctx.wit_contract,
+                    func_obj.get("wit_interface").and_then(|v| v.as_str()),
+                ) {
+                    let wit_export_name = format!(
+                        "{}#{}",
+                        wit_interface_id(&contract.package, wit_iface),
+                        name.replace('_', "-")
+                    );
+                    exports.export(
+                        &wit_export_name,
+                        ExportKind::Func,
+                        num_imports + func_idx as u32,
+                    );
                 }
             }
         }
@@ -1937,14 +2020,16 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
                 std::fs::read_to_string(p)
                     .or_else(|_| std::fs::read_to_string(format!("../../{p}")))
                     .or_else(|_| std::fs::read_to_string(format!("../../../{p}")))
-                    .map_err(|e| vec![Diagnostic {
-                        code: "E_WIT_NOT_FOUND".to_string(),
-                        function: None,
-                        path: "$.wit_contract.wit_file".to_string(),
-                        message: format!("Failed to read WIT file '{p}': {e}"),
-                        expected: Some("accessible .wit file".to_string()),
-                        found: None,
-                    }])?
+                    .map_err(|e| {
+                        vec![Diagnostic {
+                            code: "E_WIT_NOT_FOUND".to_string(),
+                            function: None,
+                            path: "$.wit_contract.wit_file".to_string(),
+                            message: format!("Failed to read WIT file '{p}': {e}"),
+                            expected: Some("accessible .wit file".to_string()),
+                            found: None,
+                        }]
+                    })?
             } else if ir_version == "0.4" {
                 include_str!("../../../wit/order.wit").to_string()
             } else {
@@ -1964,18 +2049,23 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
                     }])?
             };
             let mut resolve = wit_parser::Resolve::new();
-            let pkg = resolve.push_str("contract.wit", &wit_content)
-                .map_err(|e| vec![Diagnostic {
-                    code: "E_WIT_PARSE_ERROR".to_string(),
-                    function: None,
-                    path: "$.wit_contract".to_string(),
-                    message: format!("Failed to parse WIT contract: {e}"),
-                    expected: Some("valid WIT syntax".to_string()),
-                    found: None,
-                }])?;
+            let pkg = resolve
+                .push_str("contract.wit", &wit_content)
+                .map_err(|e| {
+                    vec![Diagnostic {
+                        code: "E_WIT_PARSE_ERROR".to_string(),
+                        function: None,
+                        path: "$.wit_contract".to_string(),
+                        message: format!("Failed to parse WIT contract: {e}"),
+                        expected: Some("valid WIT syntax".to_string()),
+                        found: None,
+                    }]
+                })?;
 
             let world_name = if wit_contract.world.is_empty() {
-                if ir_version == "0.4" { "order-processor" } else {
+                if ir_version == "0.4" {
+                    "order-processor"
+                } else {
                     return Err(vec![Diagnostic {
                         code: "E_WIT_CONTRACT_MISMATCH".to_string(),
                         function: None,
@@ -1989,29 +2079,33 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
                 &wit_contract.world
             };
 
-            let world = resolve.select_world(pkg, Some(world_name))
-                .map_err(|e| vec![Diagnostic {
+            let world = resolve.select_world(pkg, Some(world_name)).map_err(|e| {
+                vec![Diagnostic {
                     code: "E_WIT_WORLD_NOT_FOUND".to_string(),
                     function: None,
                     path: "$.wit_contract.world".to_string(),
                     message: format!("World '{world_name}' not found in WIT package: {e}"),
                     expected: Some(format!("world '{world_name}' in package")),
                     found: None,
-                }])?;
+                }]
+            })?;
 
             let encoded_metadata = wit_component::metadata::encode(
                 &resolve,
                 world,
                 wit_component::StringEncoding::UTF8,
                 None,
-            ).map_err(|e| vec![Diagnostic {
-                code: "E_WIT_METADATA_ENCODE".to_string(),
-                function: None,
-                path: "$.wit_contract".to_string(),
-                message: format!("Failed to encode WIT metadata: {e}"),
-                expected: None,
-                found: None,
-            }])?;
+            )
+            .map_err(|e| {
+                vec![Diagnostic {
+                    code: "E_WIT_METADATA_ENCODE".to_string(),
+                    function: None,
+                    path: "$.wit_contract".to_string(),
+                    message: format!("Failed to encode WIT metadata: {e}"),
+                    expected: None,
+                    found: None,
+                }]
+            })?;
 
             let custom = CustomSection {
                 name: format!("component-type:{world_name}").into(),
@@ -2035,17 +2129,23 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
     if ir_version == "0.4" || ir_version == "0.5" {
         let component_bytes = wit_component::ComponentEncoder::default()
             .module(&core_bytes)
-            .map_err(|e| vec![Diagnostic {
-                code: "E_COMPONENT_ENCODER".to_string(),
-                function: None,
-                path: "$".to_string(),
-                message: format!("Failed to create ComponentEncoder: {e}"),
-                expected: None,
-                found: None,
-            }])?
+            .map_err(|e| {
+                vec![Diagnostic {
+                    code: "E_COMPONENT_ENCODER".to_string(),
+                    function: None,
+                    path: "$".to_string(),
+                    message: format!("Failed to create ComponentEncoder: {e}"),
+                    expected: None,
+                    found: None,
+                }]
+            })?
             .encode()
             .map_err(|e| {
-                let msg = e.chain().map(|c| c.to_string()).collect::<Vec<_>>().join(" -> ");
+                let msg = e
+                    .chain()
+                    .map(|c| c.to_string())
+                    .collect::<Vec<_>>()
+                    .join(" -> ");
                 vec![Diagnostic {
                     code: "E_COMPONENT_ENCODE".to_string(),
                     function: None,
@@ -2246,10 +2346,14 @@ pub fn print_wasm_to_wat(bytes: &[u8]) -> Result<String, String> {
 
 /// Computes the lowercase hex SHA-256 digest of a byte slice.
 pub fn sha256_hex(bytes: &[u8]) -> String {
+    use std::fmt::Write as _;
     let mut hasher = Sha256::new();
     hasher.update(bytes);
     let digest = hasher.finalize();
-    digest.iter().map(|b| format!("{b:02x}")).collect()
+    digest.iter().fold(String::with_capacity(64), |mut acc, b| {
+        let _ = write!(acc, "{b:02x}");
+        acc
+    })
 }
 
 #[cfg(test)]
@@ -2275,7 +2379,10 @@ mod tests {
         });
 
         let diags = verify_ir(&ir);
-        assert!(diags.is_empty(), "smoke IR must have 0 diagnostics: {diags:?}");
+        assert!(
+            diags.is_empty(),
+            "smoke IR must have 0 diagnostics: {diags:?}"
+        );
 
         let wasm1 = compile_ir_to_wasm(&ir).expect("compile must succeed");
         let wasm2 = compile_ir_to_wasm(&ir).expect("compile must succeed");
@@ -2347,7 +2454,10 @@ mod tests {
         });
 
         let diags = verify_ir(&ir);
-        assert!(diags.is_empty(), "v0.2 smoke IR must have 0 diagnostics: {diags:?}");
+        assert!(
+            diags.is_empty(),
+            "v0.2 smoke IR must have 0 diagnostics: {diags:?}"
+        );
 
         let wasm = compile_ir_to_wasm(&ir).expect("compile must succeed");
         assert!(validate_wasm_bytes(&wasm).is_ok());
@@ -2368,7 +2478,9 @@ mod tests {
                 "body": { "op": "call", "function": "nonexistent", "args": [] }
             }]
         });
-        assert!(verify_ir(&unknown_func).iter().any(|d| d.code == "E_UNKNOWN_FUNCTION"));
+        assert!(verify_ir(&unknown_func)
+            .iter()
+            .any(|d| d.code == "E_UNKNOWN_FUNCTION"));
 
         // 2. E_CALL_ARITY
         let arity_err = json!({
@@ -2393,7 +2505,9 @@ mod tests {
                 }
             ]
         });
-        assert!(verify_ir(&arity_err).iter().any(|d| d.code == "E_CALL_ARITY"));
+        assert!(verify_ir(&arity_err)
+            .iter()
+            .any(|d| d.code == "E_CALL_ARITY"));
 
         // 3. E_UNKNOWN_FIELD in record.construct
         let unknown_field = json!({
@@ -2413,7 +2527,9 @@ mod tests {
                 }
             }]
         });
-        assert!(verify_ir(&unknown_field).iter().any(|d| d.code == "E_UNKNOWN_FIELD"));
+        assert!(verify_ir(&unknown_field)
+            .iter()
+            .any(|d| d.code == "E_UNKNOWN_FIELD"));
 
         // 4. E_MISSING_FIELD in record.construct
         let missing_field = json!({
@@ -2433,7 +2549,9 @@ mod tests {
                 }
             }]
         });
-        assert!(verify_ir(&missing_field).iter().any(|d| d.code == "E_MISSING_FIELD"));
+        assert!(verify_ir(&missing_field)
+            .iter()
+            .any(|d| d.code == "E_MISSING_FIELD"));
     }
 
     #[test]
@@ -2442,10 +2560,16 @@ mod tests {
         let ir: Value = serde_json::from_str(smoke_json_str).expect("smoke-v3 must be valid JSON");
 
         let diags = verify_ir(&ir);
-        assert!(diags.is_empty(), "smoke-v3 IR must have 0 diagnostics: {diags:?}");
+        assert!(
+            diags.is_empty(),
+            "smoke-v3 IR must have 0 diagnostics: {diags:?}"
+        );
 
         let wasm = compile_ir_to_wasm(&ir).expect("smoke-v3 compilation must succeed");
-        assert!(validate_wasm_bytes(&wasm).is_ok(), "smoke-v3 WASM must pass wasmparser validation");
+        assert!(
+            validate_wasm_bytes(&wasm).is_ok(),
+            "smoke-v3 WASM must pass wasmparser validation"
+        );
     }
 
     #[test]
@@ -2474,7 +2598,10 @@ mod tests {
             }]
         });
         let diags1 = verify_ir(&undeclared_cap_import);
-        assert!(diags1.iter().any(|d| d.code == "E_UNDECLARED_CAPABILITY"), "diags: {diags1:?}");
+        assert!(
+            diags1.iter().any(|d| d.code == "E_UNDECLARED_CAPABILITY"),
+            "diags: {diags1:?}"
+        );
 
         // 2. E_UNKNOWN_IMPORT in call_import
         let unknown_import_call = json!({
@@ -2504,7 +2631,10 @@ mod tests {
             }]
         });
         let diags2 = verify_ir(&unknown_import_call);
-        assert!(diags2.iter().any(|d| d.code == "E_UNKNOWN_IMPORT"), "diags: {diags2:?}");
+        assert!(
+            diags2.iter().any(|d| d.code == "E_UNKNOWN_IMPORT"),
+            "diags: {diags2:?}"
+        );
 
         // 3. E_CALL_ARITY in call_import
         let arity_err_call = json!({
@@ -2534,7 +2664,10 @@ mod tests {
             }]
         });
         let diags3 = verify_ir(&arity_err_call);
-        assert!(diags3.iter().any(|d| d.code == "E_CALL_ARITY"), "diags: {diags3:?}");
+        assert!(
+            diags3.iter().any(|d| d.code == "E_CALL_ARITY"),
+            "diags: {diags3:?}"
+        );
 
         // 4. E_TYPE_MISMATCH in call_import
         let type_mismatch_call = json!({
@@ -2564,7 +2697,10 @@ mod tests {
             }]
         });
         let diags4 = verify_ir(&type_mismatch_call);
-        assert!(diags4.iter().any(|d| d.code == "E_TYPE_MISMATCH"), "diags: {diags4:?}");
+        assert!(
+            diags4.iter().any(|d| d.code == "E_TYPE_MISMATCH"),
+            "diags: {diags4:?}"
+        );
     }
 
     #[test]
@@ -2581,7 +2717,8 @@ mod tests {
             "v0.4 must compile to a WebAssembly Component Model binary"
         );
 
-        let mut validator = wasmparser::Validator::new_with_features(wasmparser::WasmFeatures::all());
+        let mut validator =
+            wasmparser::Validator::new_with_features(wasmparser::WasmFeatures::all());
         validator.validate_all(&wasm).expect("valid wasm component");
     }
 
@@ -2603,14 +2740,10 @@ mod tests {
         let val: Value = serde_json::from_str(program_json).expect("valid JSON");
         let comp_bytes = compile_ir_to_wasm(&val).expect("compile to component");
         assert!(
-            comp_bytes.starts_with(b"\0asm\x0d\0\x01\0") || comp_bytes.starts_with(b"\0asm\r\0\x01\0"),
+            comp_bytes.starts_with(b"\0asm\x0d\0\x01\0")
+                || comp_bytes.starts_with(b"\0asm\r\0\x01\0"),
             "Compiled binary must have WebAssembly Component magic [0, 61, 73, 6d, 13, 0, 1, 0]"
         );
         assert!(comp_bytes.len() > 1000);
     }
 }
-
-
-
-
-

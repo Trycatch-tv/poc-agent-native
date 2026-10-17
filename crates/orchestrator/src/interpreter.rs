@@ -1,4 +1,7 @@
-use crate::{ComponentSpec, EntityField, EntitySpec, OperationParam, OperationSpec, RequirementSource, RequirementSpec, SpecMetadata, SystemSpec};
+use crate::{
+    ComponentSpec, EntityField, EntitySpec, OperationParam, OperationSpec, RequirementSource,
+    RequirementSpec, SpecMetadata, SystemSpec,
+};
 
 /// Trait defining the contract for interpreting natural language narratives into structured System Specifications
 pub trait RequirementsInterpreter {
@@ -66,7 +69,10 @@ impl RequirementsInterpreter for MarkdownRequirementsInterpreter {
                         current_section = "component";
                     } else if sec.contains("requisitos") || sec.contains("requirements") {
                         current_section = "requirements";
-                    } else if sec.contains("contratos") || sec.contains("wit") || sec.contains("interfaces") {
+                    } else if sec.contains("contratos")
+                        || sec.contains("wit")
+                        || sec.contains("interfaces")
+                    {
                         current_section = "wit";
                     } else if sec.contains("criterios") || sec.contains("acceptance") {
                         current_section = "acceptance";
@@ -91,7 +97,8 @@ impl RequirementsInterpreter for MarkdownRequirementsInterpreter {
                             current_component_id = Some(cid);
                         }
                     } else if current_section == "wit" {
-                        if let (Some(s), Some(e)) = (header_text.find('`'), header_text.rfind('`')) {
+                        if let (Some(s), Some(e)) = (header_text.find('`'), header_text.rfind('`'))
+                        {
                             if s < e {
                                 let candidate = header_text[s + 1..e].trim();
                                 if components.iter().any(|c| c.id == candidate) {
@@ -122,7 +129,9 @@ impl RequirementsInterpreter for MarkdownRequirementsInterpreter {
 
                 if sec.contains("componente") || sec.contains("component") {
                     // Extract component ID from backticks or from after colon
-                    let cid_opt = if let (Some(start), Some(end)) = (header_text.find('`'), header_text.rfind('`')) {
+                    let cid_opt = if let (Some(start), Some(end)) =
+                        (header_text.find('`'), header_text.rfind('`'))
+                    {
                         if start < end {
                             Some(header_text[start + 1..end].trim().to_string())
                         } else {
@@ -168,7 +177,9 @@ impl RequirementsInterpreter for MarkdownRequirementsInterpreter {
             }
 
             // In overview or component section, also discover components if listed e.g. "1. **Nombre (`id`):** Descripción"
-            if (current_section == "overview" || current_section == "other") && (line.contains("(`") && line.contains("`):")) {
+            if (current_section == "overview" || current_section == "other")
+                && (line.contains("(`") && line.contains("`):"))
+            {
                 if let (Some(start), Some(end)) = (line.find("(`"), line.find("`):")) {
                     let cid = line[start + 2..end].trim().to_string();
                     let name = line
@@ -195,25 +206,34 @@ impl RequirementsInterpreter for MarkdownRequirementsInterpreter {
             }
 
             // In entities section, extract record definitions
-            if current_section == "entities" {
-                if line.starts_with("- `") || line.starts_with("* `") {
-                    // E.g. - `subtotal_cents`: Monto neto consolidado
-                    if let Some(end_tick) = line[3..].find('`') {
-                        let fname = line[3..3 + end_tick].trim().to_string();
-                        let fdesc = line[3 + end_tick + 1..].trim_start_matches(':').trim().to_string();
-                        let ftype = if fname.ends_with("_code") || fname.ends_with("_cents") || fname.ends_with("_count") || fname.ends_with("_grams") || fname.ends_with("_mb") || fname.ends_with("_id") || fname.ends_with("_tier") {
-                            "i32".to_string()
-                        } else if fname.starts_with("is_") || fname.starts_with("has_") {
-                            "bool".to_string()
-                        } else {
-                            "i32".to_string()
-                        };
-                        current_entity_fields.push(EntityField {
-                            name: fname,
-                            field_type: ftype,
-                            description: fdesc,
-                        });
-                    }
+            if current_section == "entities" && (line.starts_with("- `") || line.starts_with("* `"))
+            {
+                // E.g. - `subtotal_cents`: Monto neto consolidado
+                if let Some(end_tick) = line[3..].find('`') {
+                    let fname = line[3..3 + end_tick].trim().to_string();
+                    let fdesc = line[3 + end_tick + 1..]
+                        .trim_start_matches(':')
+                        .trim()
+                        .to_string();
+                    let ftype = if fname.ends_with("_code")
+                        || fname.ends_with("_cents")
+                        || fname.ends_with("_count")
+                        || fname.ends_with("_grams")
+                        || fname.ends_with("_mb")
+                        || fname.ends_with("_id")
+                        || fname.ends_with("_tier")
+                    {
+                        "i32".to_string()
+                    } else if fname.starts_with("is_") || fname.starts_with("has_") {
+                        "bool".to_string()
+                    } else {
+                        "i32".to_string()
+                    };
+                    current_entity_fields.push(EntityField {
+                        name: fname,
+                        field_type: ftype,
+                        description: fdesc,
+                    });
                 }
             }
 
@@ -223,14 +243,19 @@ impl RequirementsInterpreter for MarkdownRequirementsInterpreter {
                     let raw_id_chunk = &line[4..4 + end_bold];
                     let clean_chunk = raw_id_chunk.replace('`', "");
                     let req_id = clean_chunk
-                        .split(|c: char| c == ' ' || c == '(' || c == ':')
+                        .split([' ', '(', ':'])
                         .next()
                         .unwrap_or(&clean_chunk)
                         .trim()
                         .to_string();
 
                     // Check if it's a valid requirement identifier format e.g. SHIP-001, TAX-001, RES-001
-                    if req_id.contains('-') && req_id.chars().next().is_some_and(|c| c.is_ascii_uppercase()) {
+                    if req_id.contains('-')
+                        && req_id
+                            .chars()
+                            .next()
+                            .is_some_and(|c| c.is_ascii_uppercase())
+                    {
                         let rest = line[4 + end_bold + 2..].trim();
                         let initial_statement = if let Some(stripped) = rest.strip_prefix(':') {
                             stripped.trim()
@@ -243,7 +268,11 @@ impl RequirementsInterpreter for MarkdownRequirementsInterpreter {
                         let mut j = i + 1;
                         while j < lines.len() {
                             let next_line = lines[j].trim();
-                            if next_line.starts_with("- **") || next_line.starts_with("* **") || next_line.starts_with('#') || next_line.starts_with("---") {
+                            if next_line.starts_with("- **")
+                                || next_line.starts_with("* **")
+                                || next_line.starts_with('#')
+                                || next_line.starts_with("---")
+                            {
                                 break;
                             }
                             if !next_line.is_empty() {
@@ -291,7 +320,11 @@ impl RequirementsInterpreter for MarkdownRequirementsInterpreter {
 
             // Extract WIT Interface blocks
             if line.starts_with("interface ") && line.ends_with('{') {
-                let iface_name = line.trim_start_matches("interface ").trim_end_matches('{').trim().to_string();
+                let iface_name = line
+                    .trim_start_matches("interface ")
+                    .trim_end_matches('{')
+                    .trim()
+                    .to_string();
                 let mut wit_body = String::new();
                 let mut j = i + 1;
                 while j < lines.len() {
@@ -347,10 +380,9 @@ impl RequirementsInterpreter for MarkdownRequirementsInterpreter {
                                         .trim()
                                         .replace("s32", "i32");
                                     let norm_cmp = raw_ret.replace('-', "").to_lowercase();
-                                    if let Some(ent) = entities
-                                        .iter()
-                                        .find(|e| e.name.replace('_', "").to_lowercase() == norm_cmp)
-                                    {
+                                    if let Some(ent) = entities.iter().find(|e| {
+                                        e.name.replace('_', "").to_lowercase() == norm_cmp
+                                    }) {
                                         returns = ent.name.clone();
                                     } else {
                                         returns = raw_ret;
@@ -453,8 +485,13 @@ impl RequirementsInterpreter for MarkdownRequirementsInterpreter {
                         || r.statement.contains("check_credit")
                         || r.statement.contains("tenant_status"))
             });
-            if uses_host && !comp.import_interfaces.contains(&"host-services".to_string()) {
-                comp.import_interfaces.insert(0, "host-services".to_string());
+            if uses_host
+                && !comp
+                    .import_interfaces
+                    .contains(&"host-services".to_string())
+            {
+                comp.import_interfaces
+                    .insert(0, "host-services".to_string());
             }
         }
 
@@ -523,7 +560,9 @@ interface collector-service {
 "#;
 
         let interpreter = MarkdownRequirementsInterpreter;
-        let spec = interpreter.interpret_narrative(md, "telemetry.md").expect("valid interpretation");
+        let spec = interpreter
+            .interpret_narrative(md, "telemetry.md")
+            .expect("valid interpretation");
 
         assert_eq!(spec.metadata.title, "Sistema de Telemetría Satelital");
         assert_eq!(spec.components.len(), 2);

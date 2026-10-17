@@ -1,8 +1,8 @@
+use crate::{ImplementationAgent, SystemSpec};
+use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::process::{Command, Stdio};
 use std::time::Instant;
-use serde::{Deserialize, Serialize};
-use crate::{SystemSpec, ImplementationAgent};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct AgentExecutionMetrics {
@@ -172,7 +172,11 @@ impl LlmImplementationAgent {
                     .iter()
                     .map(|f| format!("{}: {}", f.name, f.field_type))
                     .collect();
-                prompt.push_str(&format!("- {} {{ {} }}\n", ent.name, fields_desc.join(", ")));
+                prompt.push_str(&format!(
+                    "- {} {{ {} }}\n",
+                    ent.name,
+                    fields_desc.join(", ")
+                ));
             }
         }
 
@@ -318,7 +322,10 @@ impl LlmImplementationAgent {
 
     /// Performs real inference via local authenticated Claude Code CLI (`claude -p --output-format json`).
     /// Credentials are managed by the CLI keyring; the prompt is passed via stdin.
-    fn call_claude_cli(&self, prompt: &str) -> Result<(serde_json::Value, AgentExecutionMetrics), String> {
+    fn call_claude_cli(
+        &self,
+        prompt: &str,
+    ) -> Result<(serde_json::Value, AgentExecutionMetrics), String> {
         let start = Instant::now();
         let mut cmd = Command::new("claude");
         cmd.arg("-p")
@@ -366,14 +373,20 @@ impl LlmImplementationAgent {
         let envelope: serde_json::Value = serde_json::from_str(&resp_text)
             .map_err(|e| format!("Invalid JSON envelope from claude CLI: {e}"))?;
 
-        if envelope.get("is_error").and_then(|v| v.as_bool()).unwrap_or(false) {
+        if envelope
+            .get("is_error")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
             return Err(format!("claude CLI returned error response: {resp_text}"));
         }
 
         let result_str = envelope
             .get("result")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| "claude CLI JSON response did not contain string 'result' field".to_string())?;
+            .ok_or_else(|| {
+                "claude CLI JSON response did not contain string 'result' field".to_string()
+            })?;
 
         let clean_json_str = Self::extract_clean_json(result_str);
         let ir: serde_json::Value = serde_json::from_str(clean_json_str).map_err(|e| {
@@ -382,28 +395,29 @@ impl LlmImplementationAgent {
 
         // Extract exact token telemetry reported by provider (never estimate if missing)
         let usage_obj = envelope.get("usage");
-        let (tokens_reported, prompt_tokens, completion_tokens, total_tokens) = if let Some(u) = usage_obj {
-            let in_tok = u.get("input_tokens").and_then(|v| v.as_u64());
-            let out_tok = u.get("output_tokens").and_then(|v| v.as_u64());
-            let cache_create = u
-                .get("cache_creation_input_tokens")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0);
-            let cache_read = u
-                .get("cache_read_input_tokens")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0);
-            match (in_tok, out_tok) {
-                (Some(i), Some(o)) => {
-                    let p = (i + cache_create + cache_read) as usize;
-                    let c = o as usize;
-                    (true, Some(p), Some(c), Some(p + c))
+        let (tokens_reported, prompt_tokens, completion_tokens, total_tokens) =
+            if let Some(u) = usage_obj {
+                let in_tok = u.get("input_tokens").and_then(|v| v.as_u64());
+                let out_tok = u.get("output_tokens").and_then(|v| v.as_u64());
+                let cache_create = u
+                    .get("cache_creation_input_tokens")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0);
+                let cache_read = u
+                    .get("cache_read_input_tokens")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0);
+                match (in_tok, out_tok) {
+                    (Some(i), Some(o)) => {
+                        let p = (i + cache_create + cache_read) as usize;
+                        let c = o as usize;
+                        (true, Some(p), Some(c), Some(p + c))
+                    }
+                    _ => (false, None, None, None),
                 }
-                _ => (false, None, None, None),
-            }
-        } else {
-            (false, None, None, None)
-        };
+            } else {
+                (false, None, None, None)
+            };
 
         let detected_model = envelope
             .get("modelUsage")
@@ -429,7 +443,10 @@ impl LlmImplementationAgent {
     /// Performs real HTTP inference against an OpenAI-compatible /chat/completions endpoint
     /// or dispatches to `claude-cli` when configured.
     /// Credentials for HTTP are passed exclusively via stdin (`curl --config -`), never written to disk or CLI args.
-    pub fn call_real_llm(&self, prompt: &str) -> Result<(serde_json::Value, AgentExecutionMetrics), String> {
+    pub fn call_real_llm(
+        &self,
+        prompt: &str,
+    ) -> Result<(serde_json::Value, AgentExecutionMetrics), String> {
         if self.config.provider == "claude-cli" {
             return self.call_claude_cli(prompt);
         }
@@ -522,7 +539,8 @@ impl LlmImplementationAgent {
             .and_then(|v| v.as_u64())
             .map(|v| v as usize);
 
-        let (tokens_reported, prompt_tokens, completion_tokens, total_tokens) = match (p_tok, c_tok) {
+        let (tokens_reported, prompt_tokens, completion_tokens, total_tokens) = match (p_tok, c_tok)
+        {
             (Some(p), Some(c)) => (true, Some(p), Some(c), Some(p + c)),
             _ => (false, None, None, None),
         };
@@ -599,7 +617,12 @@ impl ImplementationAgent for LlmImplementationAgent {
                 }
             }
         } else if self.fallback_agent.is_none() {
-            if self.config.api_key.as_ref().is_some_and(|k| k.trim().is_empty()) {
+            if self
+                .config
+                .api_key
+                .as_ref()
+                .is_some_and(|k| k.trim().is_empty())
+            {
                 return Err(
                     "[LlmImplementationAgent] AGENT_NATIVE_LLM_KEY is empty, but strict LLM mode is active"
                         .to_string(),
@@ -613,7 +636,8 @@ impl ImplementationAgent for LlmImplementationAgent {
 
         // Delegate to deterministic fallback agent ONLY if explicitly configured (never in strict mode)
         let fallback = self.fallback_agent.as_ref().ok_or_else(|| {
-            "[LlmImplementationAgent] LLM inference failed and no fallback agent is configured".to_string()
+            "[LlmImplementationAgent] LLM inference failed and no fallback agent is configured"
+                .to_string()
         })?;
         let ir = fallback.propose_ir(component_id, spec, diagnostics)?;
 
@@ -687,9 +711,11 @@ mod tests {
 
     #[test]
     fn test_strict_llm_mode_fails_explicitly_without_api_key() {
-        let mut config = LlmConfig::default();
-        config.provider = "openai-http".to_string();
-        config.api_key = None;
+        let config = LlmConfig {
+            provider: "openai-http".to_string(),
+            api_key: None,
+            ..Default::default()
+        };
         let strict_agent = LlmImplementationAgent::strict(config);
 
         let spec = crate::parse_narrative(
@@ -709,9 +735,11 @@ mod tests {
 
     #[test]
     fn test_unreported_tokens_are_none_never_estimated() {
-        let mut config = LlmConfig::default();
-        config.provider = "openai-http".to_string();
-        config.api_key = None;
+        let config = LlmConfig {
+            provider: "openai-http".to_string(),
+            api_key: None,
+            ..Default::default()
+        };
         let agent = LlmImplementationAgent::with_config(config, Box::new(crate::SynthesizerAgent));
 
         let spec = crate::parse_narrative(
@@ -722,9 +750,21 @@ mod tests {
 
         let _ir = agent.propose_ir("shipping-calculator", &spec, &[]).unwrap();
         let metrics = agent.last_execution_metrics().expect("metrics recorded");
-        assert!(!metrics.tokens_reported, "Fallback must not claim tokens were reported");
-        assert!(metrics.prompt_tokens.is_none(), "Unreported prompt_tokens must be None, not estimated");
-        assert!(metrics.completion_tokens.is_none(), "Unreported completion_tokens must be None");
-        assert!(metrics.total_tokens.is_none(), "Unreported total_tokens must be None");
+        assert!(
+            !metrics.tokens_reported,
+            "Fallback must not claim tokens were reported"
+        );
+        assert!(
+            metrics.prompt_tokens.is_none(),
+            "Unreported prompt_tokens must be None, not estimated"
+        );
+        assert!(
+            metrics.completion_tokens.is_none(),
+            "Unreported completion_tokens must be None"
+        );
+        assert!(
+            metrics.total_tokens.is_none(),
+            "Unreported total_tokens must be None"
+        );
     }
 }
