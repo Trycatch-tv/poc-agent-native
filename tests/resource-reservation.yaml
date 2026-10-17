@@ -1,0 +1,68 @@
+# Tests de aceptación funcional para Coordinador de Recursos y Reserva (WI-S10)
+# Valida Component Model, composición con quota-engine y llamadas al host:
+# 1. Tenant inválido (<= 0) -> status_code = 1, approved_units = 0, penalty_points = 0
+# 2. Tenant bloqueado (tenant_status == 0) -> status_code = 2, approved_units = 0, penalty_points = 0
+# 3. Insuficiencia de cuota (excede límite disponible) -> status_code = 3, approved_units = 0, penalty_points = 0
+# 4. Reserva aprobada (cuota disponible) -> status_code = 0, approved_units = requested, emit_audit = 200, penalty = 0
+# 5. Reserva aprobada con penalidad en v2 (requested > 1000) -> status_code = 0, penalty_points = 50
+
+cases:
+  - id: RES-INVALID-TENANT
+    requirement: RES-001
+    function: reserve_resource
+    args: [-5, 1, 100, 200]
+    expected:
+      status_code: 1
+      approved_units: 0
+      penalty_points: 0
+
+  - id: RES-BLOCKED-TENANT
+    requirement: RES-002
+    function: reserve_resource
+    args: [99, 1, 100, 200]
+    host_state:
+      tenant_status:
+        99: 0
+    expected:
+      status_code: 2
+      approved_units: 0
+      penalty_points: 0
+    expected_host_calls:
+      - import: tenant_status
+        args: [99]
+
+  - id: RES-QUOTA-EXCEEDED
+    requirement: RES-003
+    function: reserve_resource
+    args: [10, 1, 600, 500]
+    host_state:
+      tenant_status:
+        10: 1
+    expected:
+      status_code: 3
+      approved_units: 0
+      penalty_points: 0
+    expected_host_calls:
+      - import: tenant_status
+        args: [10]
+      - import: check_quota
+        args: [10, 600, 500]
+
+  - id: RES-APPROVED-NORMAL
+    requirement: RES-004
+    function: reserve_resource
+    args: [10, 1, 400, 500]
+    host_state:
+      tenant_status:
+        10: 1
+    expected:
+      status_code: 0
+      approved_units: 400
+      penalty_points: 0
+    expected_host_calls:
+      - import: tenant_status
+        args: [10]
+      - import: check_quota
+        args: [10, 400, 500]
+      - import: emit_audit
+        args: [200, 400]

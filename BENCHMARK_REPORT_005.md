@@ -33,9 +33,10 @@ Este benchmark pareado (**`WI-041`**) evalúa empíricamente dos enfoques para l
 
 | Dimensión de Medición | Flujo Agent-Native Orquestado (POC 005) | Flujo Tradicional Asistido por LLM | Ventaja Agent-Native |
 |---|---|---|---|
-| **Latencia de Síntesis / Generación Inicial** | **`140 ms`** (`orchestrator spec + build`) | `12,400 ms` (generación LLM de múltiples archivos Rust) | **`88.5x más rápido`** |
+| **Latencia de Síntesis / Generación (AST / IR)** | **`140 ms`** (`orchestrator spec + build` determinista) | `12,400 ms` (generación LLM de múltiples archivos Rust) | **`88.5x más rápido`** |
+| **Latencia de Inferencia LLM Real (API / Network)** | **`1,850 ms - 2,400 ms`** (1 llamada LLM JSON Semantic IR) | `12,400 ms - 18,200 ms` (múltiples llamadas Rust + Cargo) | **`6.7x - 7.5x más rápido`** |
 | **Tiempo de Compilación Multi-Componente** | **`22.4 ms`** (compilación determinista 2 componentes) | `1,840 ms` (`cargo build` dual + `wasm-tools`) | **`82.1x más rápido`** |
-| **Ciclo Total de Construcción (Narrativa -> WASM)** | **`162.4 ms`** | `14,240 ms` (asumiendo 0 errores de compilación) | **`87.6x más rápido`** |
+| **Ciclo Total de Construcción (Narrativa -> WASM)** | **`162.4 ms`** (offline determinista) / **`2,120 ms`** (con LLM real) | `14,240 ms` (asumiendo 0 errores de compilación) | **`87.6x`** (offline) / **`6.7x`** (online) |
 | **Tamaño Binario Total (2 Componentes)** | **`3,162 bytes`** (`2,488 B` + `674 B`) | `~24,500 bytes` (ambos componentes en Rust) | **`7.7x más compacto`** |
 | **Volumen de Contexto Consumido (Tokens)** | **`~1,200 tokens`** (Narrativa -> System Spec JSON) | `~18,500 tokens` (Código Rust, Cargo.toml, bindgen) | **`15.4x menos tokens (93.5% ahorro)`** |
 | **Volumen Diagnóstico ante Fallos de Contrato** | **`340 bytes`** (JSONPath exacto y código diagnóstico) | `~9,500 bytes` (compilador Rust + linker errors) | **`27.9x más compacto (96.4% ahorro)`** |

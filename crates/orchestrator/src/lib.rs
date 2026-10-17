@@ -1258,12 +1258,50 @@ pub fn build_all_components_with_agent<A: ImplementationAgent>(
         }
     }
 
-    // Atomic promotion: move staged artifacts to final out_dir
-    for art in &artifacts {
+    // Transactional publication: create versioned directory under versions/build-<timestamp>
+    let version_id = format!("build-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis());
+    let versions_dir = out_dir.join("versions");
+    let version_path = versions_dir.join(&version_id);
+    std::fs::create_dir_all(&version_path).map_err(|e| e.to_string())?;
+
+    // Copy staged artifacts to versioned folder and final out_dir
+    for art in &mut artifacts {
         let src = temp_staging.join(format!("{}.wasm", art.component_id));
-        let dst = out_dir.join(format!("{}.wasm", art.component_id));
-        std::fs::copy(&src, &dst).map_err(|e| e.to_string())?;
+        let ver_dst = version_path.join(format!("{}.wasm", art.component_id));
+        let top_dst = out_dir.join(format!("{}.wasm", art.component_id));
+        std::fs::copy(&src, &ver_dst).map_err(|e| e.to_string())?;
+        std::fs::copy(&src, &top_dst).map_err(|e| e.to_string())?;
+        art.wasm_file = top_dst.to_string_lossy().to_string();
     }
+
+    // Write manifest.json inside version directory
+    let manifest = serde_json::json!({
+        "version_id": version_id,
+        "created_at": chrono_or_iso_now(),
+        "spec_version": spec.spec_version,
+        "spec_source": spec.metadata.source_type,
+        "components_count": artifacts.len(),
+        "artifacts": artifacts,
+    });
+    let manifest_bytes = serde_json::to_vec_pretty(&manifest).map_err(|e| e.to_string())?;
+    std::fs::write(version_path.join("manifest.json"), &manifest_bytes).map_err(|e| e.to_string())?;
+
+    // Atomically promote active.json
+    let active_manifest = serde_json::json!({
+        "active_version": version_id,
+        "promoted_at": chrono_or_iso_now(),
+        "manifest_path": format!("versions/{version_id}/manifest.json"),
+        "artifacts": artifacts,
+    });
+    let active_temp = out_dir.join(".active.json.tmp");
+    let active_final = out_dir.join("active.json");
+    std::fs::write(&active_temp, serde_json::to_vec_pretty(&active_manifest).map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
+    if active_final.exists() {
+        let _ = std::fs::remove_file(&active_final);
+    }
+    std::fs::rename(&active_temp, &active_final).map_err(|e| e.to_string())?;
+
     let _ = std::fs::remove_dir_all(&temp_staging);
 
     Ok(BuildSummary {
@@ -1271,6 +1309,12 @@ pub fn build_all_components_with_agent<A: ImplementationAgent>(
         artifacts,
         diagnostics: all_diags,
     })
+}
+
+pub fn chrono_or_iso_now() -> String {
+    let now = std::time::SystemTime::now();
+    let duration = now.duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
+    format!("{}.{}", duration.as_secs(), duration.subsec_millis())
 }
 
 pub fn build_all_components(spec: &SystemSpec, out_dir: &Path) -> Result<BuildSummary, String> {

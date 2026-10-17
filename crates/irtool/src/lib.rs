@@ -1937,9 +1937,14 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
                 std::fs::read_to_string(p)
                     .or_else(|_| std::fs::read_to_string(format!("../../{p}")))
                     .or_else(|_| std::fs::read_to_string(format!("../../../{p}")))
-                    .unwrap_or_else(|_| {
-                        include_str!("../../../wit/order.wit").to_string()
-                    })
+                    .map_err(|e| vec![Diagnostic {
+                        code: "E_WIT_NOT_FOUND".to_string(),
+                        function: None,
+                        path: "$.wit_contract.wit_file".to_string(),
+                        message: format!("Failed to read WIT file '{p}': {e}"),
+                        expected: Some("accessible .wit file".to_string()),
+                        found: None,
+                    }])?
             } else if ir_version == "0.4" {
                 include_str!("../../../wit/order.wit").to_string()
             } else {
@@ -1949,26 +1954,79 @@ pub fn compile_ir_to_wasm(root: &Value) -> Result<Vec<u8>, Vec<Diagnostic>> {
                     .or_else(|_| std::fs::read_to_string(&p2))
                     .or_else(|_| std::fs::read_to_string(format!("../../{p1}")))
                     .or_else(|_| std::fs::read_to_string(format!("../../{p2}")))
-                    .unwrap_or_else(|_| include_str!("../../../wit/order.wit").to_string())
+                    .map_err(|_| vec![Diagnostic {
+                        code: "E_WIT_NOT_FOUND".to_string(),
+                        function: None,
+                        path: "$.wit_contract".to_string(),
+                        message: format!("No WIT file found for world '{}' or export interface '{}'. Fallback defaults are disabled in IR v0.5.", wit_contract.world, wit_contract.export_interface),
+                        expected: Some(format!("wit/{}.wit or wit/{}.wit", wit_contract.world, wit_contract.export_interface)),
+                        found: None,
+                    }])?
             };
             let mut resolve = wit_parser::Resolve::new();
-            if let Ok(pkg) = resolve.push_str("contract.wit", &wit_content) {
-                let world_name = if wit_contract.world.is_empty() { "order-processor" } else { &wit_contract.world };
-                if let Ok(world) = resolve.select_world(pkg, Some(world_name)) {
-                    if let Ok(encoded_metadata) = wit_component::metadata::encode(
-                        &resolve,
-                        world,
-                        wit_component::StringEncoding::UTF8,
-                        None,
-                    ) {
-                        let custom = CustomSection {
-                            name: format!("component-type:{world_name}").into(),
-                            data: encoded_metadata.into(),
-                        };
-                        module.section(&custom);
-                    }
+            let pkg = resolve.push_str("contract.wit", &wit_content)
+                .map_err(|e| vec![Diagnostic {
+                    code: "E_WIT_PARSE_ERROR".to_string(),
+                    function: None,
+                    path: "$.wit_contract".to_string(),
+                    message: format!("Failed to parse WIT contract: {e}"),
+                    expected: Some("valid WIT syntax".to_string()),
+                    found: None,
+                }])?;
+
+            let world_name = if wit_contract.world.is_empty() {
+                if ir_version == "0.4" { "order-processor" } else {
+                    return Err(vec![Diagnostic {
+                        code: "E_WIT_CONTRACT_MISMATCH".to_string(),
+                        function: None,
+                        path: "$.wit_contract.world".to_string(),
+                        message: "World name cannot be empty in Semantic IR v0.5.".to_string(),
+                        expected: Some("non-empty world identifier".to_string()),
+                        found: None,
+                    }]);
                 }
-            }
+            } else {
+                &wit_contract.world
+            };
+
+            let world = resolve.select_world(pkg, Some(world_name))
+                .map_err(|e| vec![Diagnostic {
+                    code: "E_WIT_WORLD_NOT_FOUND".to_string(),
+                    function: None,
+                    path: "$.wit_contract.world".to_string(),
+                    message: format!("World '{world_name}' not found in WIT package: {e}"),
+                    expected: Some(format!("world '{world_name}' in package")),
+                    found: None,
+                }])?;
+
+            let encoded_metadata = wit_component::metadata::encode(
+                &resolve,
+                world,
+                wit_component::StringEncoding::UTF8,
+                None,
+            ).map_err(|e| vec![Diagnostic {
+                code: "E_WIT_METADATA_ENCODE".to_string(),
+                function: None,
+                path: "$.wit_contract".to_string(),
+                message: format!("Failed to encode WIT metadata: {e}"),
+                expected: None,
+                found: None,
+            }])?;
+
+            let custom = CustomSection {
+                name: format!("component-type:{world_name}").into(),
+                data: encoded_metadata.into(),
+            };
+            module.section(&custom);
+        } else if ir_version == "0.5" {
+            return Err(vec![Diagnostic {
+                code: "E_WIT_CONTRACT_MISSING".to_string(),
+                function: None,
+                path: "$".to_string(),
+                message: "Semantic IR v0.5 requires a valid 'wit_contract' declaration. Defaults are forbidden.".to_string(),
+                expected: Some("wit_contract object".to_string()),
+                found: None,
+            }]);
         }
     }
 

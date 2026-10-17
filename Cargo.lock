@@ -672,6 +672,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "irtool",
+ "orchestrator",
  "serde",
  "serde_json",
  "serde_yaml",

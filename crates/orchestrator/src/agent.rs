@@ -119,6 +119,116 @@ impl LlmImplementationAgent {
         prompt.push_str("\nOutput ONLY the valid JSON object for Semantic IR v0.5 without markdown formatting.\n");
         prompt
     }
+
+    /// Performs real HTTP inference against an OpenAI-compatible /chat/completions endpoint.
+    /// Extracts token usage and parses the resulting Semantic IR v0.5 JSON document.
+    pub fn call_real_llm(&self, prompt: &str) -> Result<(serde_json::Value, AgentExecutionMetrics), String> {
+        let api_key = self.config.api_key.as_deref().ok_or_else(|| {
+            "No LLM API key configured (set AGENT_NATIVE_LLM_KEY or pass in LlmConfig)".to_string()
+        })?;
+
+        let request_body = serde_json::json!({
+            "model": self.config.model,
+            "temperature": self.config.temperature,
+            "max_tokens": self.config.max_tokens,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are the Agent-Native implementation agent. You generate valid Semantic IR v0.5 JSON."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "response_format": { "type": "json_object" }
+        });
+
+        let payload_str = serde_json::to_string(&request_body).map_err(|e| e.to_string())?;
+
+        // Dispatch via curl command line to avoid heavy native SSL dependencies and compile friction
+        let start = Instant::now();
+        let child = std::process::Command::new("curl")
+            .arg("-s")
+            .arg("-X")
+            .arg("POST")
+            .arg(&self.config.endpoint)
+            .arg("-H")
+            .arg("Content-Type: application/json")
+            .arg("-H")
+            .arg(format!("Authorization: Bearer {}", api_key))
+            .arg("-d")
+            .arg(&payload_str)
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("Failed to spawn curl for LLM inference: {e}"))?;
+
+        let output = child
+            .wait_with_output()
+            .map_err(|e| format!("Failed waiting for curl output: {e}"))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("curl request failed (exit code {:?}): {}", output.status.code(), stderr));
+        }
+
+        let resp_text = String::from_utf8_lossy(&output.stdout);
+        let resp_json: serde_json::Value = serde_json::from_str(&resp_text)
+            .map_err(|e| format!("Invalid JSON received from LLM endpoint: {e} (response was: {resp_text})"))?;
+
+        if let Some(err_obj) = resp_json.get("error") {
+            return Err(format!("LLM API returned error: {err_obj}"));
+        }
+
+        let prompt_tokens = resp_json
+            .pointer("/usage/prompt_tokens")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(prompt.len() as u64 / 4) as usize;
+
+        let completion_tokens = resp_json
+            .pointer("/usage/completion_tokens")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as usize;
+
+        let content_str = resp_json
+            .pointer("/choices/0/message/content")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| "LLM response did not contain choices[0].message.content".to_string())?;
+
+        // Extract JSON from Markdown code blocks if present
+        let clean_json_str = if let Some(start_idx) = content_str.find("```json") {
+            let remainder = &content_str[start_idx + 7..];
+            if let Some(end_idx) = remainder.find("```") {
+                &remainder[..end_idx]
+            } else {
+                remainder
+            }
+        } else if let Some(start_idx) = content_str.find("```") {
+            let remainder = &content_str[start_idx + 3..];
+            if let Some(end_idx) = remainder.find("```") {
+                &remainder[..end_idx]
+            } else {
+                remainder
+            }
+        } else {
+            content_str.trim()
+        };
+
+        let ir: serde_json::Value = serde_json::from_str(clean_json_str)
+            .map_err(|e| format!("Failed parsing Semantic IR JSON from LLM: {e}"))?;
+
+        let metrics = AgentExecutionMetrics {
+            prompt_tokens,
+            completion_tokens,
+            total_tokens: prompt_tokens + completion_tokens,
+            latency_ms: start.elapsed().as_millis(),
+            attempts: 1,
+            recovered_from_diagnostics: false,
+        };
+
+        Ok((ir, metrics))
+    }
 }
 
 impl ImplementationAgent for LlmImplementationAgent {
@@ -135,13 +245,17 @@ impl ImplementationAgent for LlmImplementationAgent {
         let start = Instant::now();
         let prompt = self.build_prompt(component_id, spec, diagnostics);
 
-        // If an API key is configured and endpoint is available, attempt real inference
+        // If an API key is configured, perform genuine LLM inference
         if let Some(ref api_key) = self.config.api_key {
             if !api_key.trim().is_empty() {
-                // In production or CI with real keys, this would dispatch HTTP request.
-                // To guarantee zero external dependencies and zero network flakiness in local test suites,
-                // we log the invocation prompt and fall back deterministically if network is unreachable.
-                eprintln!("[LlmImplementationAgent] Prepared LLM prompt ({} bytes)", prompt.len());
+                match self.call_real_llm(&prompt) {
+                    Ok((ir, _metrics)) => {
+                        return Ok(ir);
+                    }
+                    Err(e) => {
+                        eprintln!("[LlmImplementationAgent] Real LLM inference error: {e}. Falling back to synthesizer.");
+                    }
+                }
             }
         }
 

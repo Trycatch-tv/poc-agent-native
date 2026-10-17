@@ -55,6 +55,7 @@ struct ParsedHostState {
     kv: HashMap<i32, i32>,
     credit_limits: HashMap<i32, i32>,
     credit_ok: Option<bool>,
+    tenant_status: HashMap<i32, i32>,
 }
 
 #[derive(Debug, Default)]
@@ -62,8 +63,10 @@ struct HostStoreData {
     kv: HashMap<i32, i32>,
     credit_limits: HashMap<i32, i32>,
     credit_ok: Option<bool>,
+    tenant_status: HashMap<i32, i32>,
     all_calls: Vec<HostCallRecord>,
     shipping_wasm_bytes: Option<Vec<u8>>,
+    linked_wasm_bytes: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -184,6 +187,26 @@ fn parse_host_state(val: Option<&YamlValue>) -> ParsedHostState {
         {
             state.credit_ok = Some(b);
         }
+        if let Some(ts_map) = map
+            .get(&YamlValue::String("tenant_status".to_string()))
+            .and_then(|v| v.as_mapping())
+        {
+            for (k, v) in ts_map {
+                let key_i32 = match k {
+                    YamlValue::Number(n) => n.as_i64().and_then(|i| i32::try_from(i).ok()),
+                    YamlValue::String(s) => s.parse::<i32>().ok(),
+                    _ => None,
+                };
+                let val_i32 = match v {
+                    YamlValue::Number(n) => n.as_i64().and_then(|i| i32::try_from(i).ok()),
+                    YamlValue::String(s) => s.parse::<i32>().ok(),
+                    _ => None,
+                };
+                if let (Some(k), Some(v)) = (key_i32, val_i32) {
+                    state.tenant_status.insert(k, v);
+                }
+            }
+        }
     }
     state
 }
@@ -243,6 +266,20 @@ mod poc005_order {
     wasmtime::component::bindgen!({
         path: "../../wit/order-processor.wit",
         world: "order-processor",
+    });
+}
+
+mod poc005_quota {
+    wasmtime::component::bindgen!({
+        path: "../../wit/quota-engine.wit",
+        world: "quota-engine",
+    });
+}
+
+mod poc005_res_coord {
+    wasmtime::component::bindgen!({
+        path: "../../wit/reservation-coordinator.wit",
+        world: "reservation-coordinator",
     });
 }
 
@@ -345,6 +382,54 @@ impl poc005_order::kaddo::commercial::shipping_service::Host for HostStoreData {
     }
 }
 
+impl poc005_res_coord::kaddo::resources::host_services::Host for HostStoreData {
+    fn tenant_status(&mut self, tenant_id: i32) -> i32 {
+        let status = *self.tenant_status.get(&tenant_id).unwrap_or(&1);
+        self.all_calls.push(HostCallRecord {
+            import: "tenant_status".to_string(),
+            args: vec![serde_json::json!(tenant_id)],
+        });
+        status
+    }
+
+    fn emit_audit(&mut self, event_type: i32, entity_id: i32) -> i32 {
+        self.all_calls.push(HostCallRecord {
+            import: "emit_audit".to_string(),
+            args: vec![serde_json::json!(event_type), serde_json::json!(entity_id)],
+        });
+        1
+    }
+}
+
+impl poc005_res_coord::kaddo::resources::quota_service::Host for HostStoreData {
+    fn check_quota(&mut self, tenant_id: i32, requested_units: i32, current_usage: i32) -> i32 {
+        self.all_calls.push(HostCallRecord {
+            import: "check_quota".to_string(),
+            args: vec![
+                serde_json::json!(tenant_id),
+                serde_json::json!(requested_units),
+                serde_json::json!(current_usage),
+            ],
+        });
+
+        let bytes = self
+            .linked_wasm_bytes
+            .as_ref()
+            .expect("Dependency 'quota-engine' component must be provided for reservation coordinator execution");
+        let engine = Engine::default();
+        let comp = wasmtime::component::Component::from_binary(&engine, bytes)
+            .expect("Valid quota-engine component binary required");
+        let mut qstore = Store::new(&engine, ());
+        let qlinker = wasmtime::component::Linker::new(&engine);
+        let quota_inst = poc005_quota::QuotaEngine::instantiate(&mut qstore, &comp, &qlinker)
+            .expect("Failed to instantiate quota-engine component");
+        quota_inst
+            .kaddo_resources_quota_service()
+            .call_check_quota(&mut qstore, tenant_id, requested_units, current_usage)
+            .expect("Failed to execute quota-engine.check_quota")
+    }
+}
+
 fn run_suite_component(
     wasm_bytes: &[u8],
     test_cases: &[TestCaseInput],
@@ -359,6 +444,9 @@ fn run_suite_component(
     });
     let is_poc005_shipping = test_cases.iter().any(|c| {
         (c.function == "quote_shipping" || c.function == "quote-shipping") && c.args.len() == 3
+    });
+    let is_poc005_reservation = test_cases.iter().any(|c| {
+        (c.function == "reserve_resource" || c.function == "reserve-resource") && c.args.len() == 4
     });
 
     let mut passed_count = 0usize;
@@ -406,8 +494,10 @@ fn run_suite_component(
             kv: parsed_host_state.kv,
             credit_limits: parsed_host_state.credit_limits,
             credit_ok: parsed_host_state.credit_ok,
+            tenant_status: parsed_host_state.tenant_status,
             all_calls: Vec::new(),
             shipping_wasm_bytes: linked_wasm_bytes.clone(),
+            linked_wasm_bytes: linked_wasm_bytes.clone(),
         };
 
         let (actual_json, mut is_pass, mut err, store_calls) = if is_poc005_order {
@@ -537,6 +627,79 @@ fn run_suite_component(
                 other => (None, false, Some(format!("Unknown shipping exported function '{other}'"))),
             };
             (act, pass, er, Vec::new())
+        } else if is_poc005_reservation {
+            let mut store = Store::new(&engine, initial_store_data);
+            let mut linker = wasmtime::component::Linker::new(&engine);
+            if let Err(e) = poc005_res_coord::ReservationCoordinator::add_to_linker(&mut linker, |state: &mut HostStoreData| state) {
+                failed_count += 1;
+                results.push(CaseResult {
+                    id: tc.id.clone(),
+                    requirement: tc.requirement.clone(),
+                    function: tc.function.clone(),
+                    args: json_args,
+                    expected: expected_json,
+                    actual: None,
+                    expected_host_calls: expected_calls,
+                    actual_host_calls: None,
+                    passed: false,
+                    error: Some(format!("Failed to link reservation coordinator imports: {e}")),
+                });
+                continue;
+            }
+
+            let coordinator = match poc005_res_coord::ReservationCoordinator::instantiate(&mut store, &component, &linker) {
+                Ok(c) => c,
+                Err(e) => {
+                    failed_count += 1;
+                    results.push(CaseResult {
+                        id: tc.id.clone(),
+                        requirement: tc.requirement.clone(),
+                        function: tc.function.clone(),
+                        args: json_args,
+                        expected: expected_json,
+                        actual: None,
+                        expected_host_calls: expected_calls,
+                        actual_host_calls: None,
+                        passed: false,
+                        error: Some(format!("Failed to instantiate reservation coordinator component: {e}")),
+                    });
+                    continue;
+                }
+            };
+
+            let res_service = coordinator.kaddo_resources_reservation_service();
+            let (act, pass, er) = match tc.function.as_str() {
+                "reserve_resource" | "reserve-resource" => {
+                    if i32_args.len() != 4 {
+                        (
+                            None,
+                            false,
+                            Some(format!("reserve_resource requires 4 arguments, found {}", i32_args.len())),
+                        )
+                    } else {
+                        match res_service.call_reserve_resource(
+                            &mut store,
+                            i32_args[0],
+                            i32_args[1],
+                            i32_args[2],
+                            i32_args[3],
+                        ) {
+                            Ok(res) => {
+                                let mut map = serde_json::Map::new();
+                                map.insert("status_code".to_string(), serde_json::json!(res.status_code));
+                                map.insert("approved_units".to_string(), serde_json::json!(res.approved_units));
+                                map.insert("penalty_points".to_string(), serde_json::json!(res.penalty_points));
+                                let act_val = serde_json::Value::Object(map);
+                                let p = act_val == expected_json;
+                                (Some(act_val), p, None)
+                            }
+                            Err(e) => (None, false, Some(format!("Component execution trap: {e}"))),
+                        }
+                    }
+                }
+                other => (None, false, Some(format!("Unknown reservation exported function '{other}'"))),
+            };
+            (act, pass, er, store.data().all_calls.clone())
         } else {
             // POC 004 legacy
             let mut store = Store::new(&engine, initial_store_data);
@@ -639,6 +802,8 @@ fn run_suite_component(
         let actual_matched_calls = if let Some(ref exp_calls) = expected_calls {
             let has_kv_assertion = exp_calls.iter().any(|c| c.import == "kv_get");
             let has_shipping_assertion = exp_calls.iter().any(|c| c.import == "quote_shipping");
+            let has_quota_assertion = exp_calls.iter().any(|c| c.import == "check_quota");
+            let has_tenant_assertion = exp_calls.iter().any(|c| c.import == "tenant_status");
             let filtered: Vec<HostCallRecord> = store_calls
                 .into_iter()
                 .filter(|c| {
@@ -646,6 +811,12 @@ fn run_suite_component(
                         return false;
                     }
                     if !has_shipping_assertion && c.import == "quote_shipping" {
+                        return false;
+                    }
+                    if !has_quota_assertion && c.import == "check_quota" {
+                        return false;
+                    }
+                    if !has_tenant_assertion && c.import == "tenant_status" {
                         return false;
                     }
                     true
@@ -760,8 +931,10 @@ fn run_suite_core(wasm_bytes: &[u8], test_cases: &[TestCaseInput], start: Instan
             kv: parsed_host_state.kv,
             credit_limits: parsed_host_state.credit_limits,
             credit_ok: parsed_host_state.credit_ok,
+            tenant_status: parsed_host_state.tenant_status,
             all_calls: Vec::new(),
             shipping_wasm_bytes: None,
+            linked_wasm_bytes: None,
         };
 
         let mut store = Store::new(&engine, initial_store_data);
@@ -1333,6 +1506,37 @@ cases:
             report.failed,
             0,
             "Narrative-005 failures: {:?}",
+            report.cases.iter().filter(|c| !c.passed).collect::<Vec<_>>()
+        );
+        assert_eq!(report.passed, cases.len());
+    }
+
+    #[test]
+    fn executes_reservation_coordinator_in_wasmtime() {
+        let narrative = include_str!("../../../spec/narrative-resource-reservation.md");
+        let spec = orchestrator::parse_narrative(narrative, "narrative-resource-reservation.md")
+            .expect("parse resource narrative");
+
+        let quota_ir = orchestrator::synthesize_quota_engine_ir("quota-engine", &spec)
+            .expect("synthesize quota IR");
+        let quota_wasm = irtool::compile_ir_to_wasm(&quota_ir)
+            .expect("compile quota-engine to wasm component");
+
+        let coord_ir = orchestrator::synthesize_reservation_coordinator_ir("reservation-coordinator", &spec)
+            .expect("synthesize reservation coordinator IR");
+        let coord_wasm = irtool::compile_ir_to_wasm(&coord_ir)
+            .expect("compile reservation-coordinator to wasm component");
+
+        let yaml = include_str!("../../../tests/resource-reservation.yaml");
+        let cases = parse_cases(yaml).expect("parse resource-reservation YAML");
+
+        let report = run_suite_with_link(&coord_wasm, &cases, Some(quota_wasm))
+            .expect("run suite resource-reservation with composed quota-engine");
+
+        assert_eq!(
+            report.failed,
+            0,
+            "Resource reservation failures: {:?}",
             report.cases.iter().filter(|c| !c.passed).collect::<Vec<_>>()
         );
         assert_eq!(report.passed, cases.len());
