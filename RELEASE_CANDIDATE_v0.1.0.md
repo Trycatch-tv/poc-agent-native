@@ -59,10 +59,10 @@ Todos los artefactos binarios generados por el compilador determinista en la ver
 
 ## 3. Cobertura de Pruebas y Aprobación de Conformidad
 
-La suite de validación automatizada comprende **20 pruebas de integración y unittests** distribuidas a lo largo del workspace:
+La suite de validación automatizada comprende **22 pruebas de integración y unittests** distribuidas a lo largo del workspace:
 - **`irtool`:** 8/8 passed (verificación sintáctica, tipado estricto, detección de violaciones WIT, compilación a Component Model).
-- **`orchestrator`:** 6/6 passed (ingesta de narrativas desconocidas, rechazo de narrativas incompatibles sin invención de componentes, reconciliación acumulativa, bucle de auto-reparación diagnóstica).
-- **`runner`:** 6/6 passed (operadores v0.1, records v0.2, imports/audits v0.3, Component Model v0.4, composición comercial v0.5, composición de reservas v0.5).
+- **`orchestrator`:** 7/7 passed (ingesta de narrativas desconocidas, rechazo de narrativas incompatibles sin invención de componentes, reconciliación acumulativa, bucle de auto-reparación diagnóstica, validación estricta de modo LLM sin fallbacks implícitos).
+- **`runner`:** 7/7 passed (operadores v0.1, records v0.2, imports/audits v0.3, Component Model v0.4, composición comercial v0.5, composición de reservas v0.5, validación acumulativa integral v1 -> v2 [WI-RES-01] -> v3 [WI-RES-02]).
 - **Prueba Standalone:** 9/9 casos de aceptación ejecutados con éxito en `runs/standalone-validation/`.
 
 ---
@@ -89,14 +89,14 @@ Para extraer Agent-Native a un repositorio independiente (`agent-native-core`):
    ```bash
    orchestrator init --project-root ./my-agent-native-app
    orchestrator spec --narrative ./my-agent-native-app/spec/narrative.md --output ./my-agent-native-app/spec/system-spec.json
-   orchestrator build --spec ./my-agent-native-app/spec/system-spec.json --out-dir ./my-agent-native-app/dist
-   runner test --wasm ./my-agent-native-app/dist/app.wasm --cases ./my-agent-native-app/tests/acceptance.yaml --output ./my-agent-native-app/dist/results.json
+   orchestrator build --spec ./my-agent-native-app/spec/system-spec.json --out-dir ./my-agent-native-app/dist --agent deterministic
+   runner test --wasm ./my-agent-native-app/dist/order-processor.wasm --link ./my-agent-native-app/dist/shipping-calculator.wasm --cases ./my-agent-native-app/tests/acceptance.yaml --output ./my-agent-native-app/dist/results.json
    ```
 
 ---
 
 ## 5. Decisión de Arquitectura: GO
 
-Con la finalización de los Work Items **WI-S09, WI-S10, WI-S11 y WI-S12**, se declara **cerrada la POC 005 y concluida la fase de estabilización**.
+Con la finalización de los Work Items **WI-S13, WI-S14, WI-S15 y WI-S16** (remediación final y validación de estabilidad v0.1.0), se declara **formalmente cerrada la POC 005 y concluida la fase de estabilización definitiva**.
 
-Agent-Native v0.1.0 cumple con todos los criterios de suficiencia técnica, determinismo y desacople funcional para su evolución como proyecto y repositorio independiente.
+Agent-Native v0.1.0 cumple con todos los criterios de suficiencia técnica, determinismo, seguridad de credenciales, publicación atómica e inmutable, y desacople funcional para su evolución como proyecto y repositorio independiente.

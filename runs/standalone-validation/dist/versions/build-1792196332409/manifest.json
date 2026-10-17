@@ -1,0 +1,21 @@
+{
+  "artifacts": [
+    {
+      "bytes_len": 674,
+      "component_id": "shipping-calculator",
+      "sha256": "b9ae16245dc4b800a31d5362384a45188dabb765e119885b933fdb969c90979e",
+      "wasm_file": ".\\runs/standalone-validation/dist\\shipping-calculator.wasm"
+    },
+    {
+      "bytes_len": 2488,
+      "component_id": "order-processor",
+      "sha256": "a075570a554a67251a66d24c2fbcd9c46569e4a88cd69d15230b3abdae9a8751",
+      "wasm_file": ".\\runs/standalone-validation/dist\\order-processor.wasm"
+    }
+  ],
+  "components_count": 2,
+  "created_at": "1792196332.414",
+  "spec_source": "narrative",
+  "spec_version": "1.0.0",
+  "version_id": "build-1792196332409"
+}

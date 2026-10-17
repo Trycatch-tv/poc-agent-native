@@ -1,0 +1,336 @@
+{
+  "$schema": "./system-spec.schema.json",
+  "spec_version": "1.0.0",
+  "metadata": {
+    "title": "Especificación Narrativa del Sistema Comercial (POC 005)",
+    "description": "System specification automatically synthesized by Agent-Native RequirementsInterpreter from narrative-005.md",
+    "source_type": "narrative",
+    "source_files": [
+      "narrative-005.md"
+    ],
+    "last_updated": "2026-10-16"
+  },
+  "components": [
+    {
+      "id": "shipping-calculator",
+      "name": "Calculador de Envíos",
+      "description": "** Determina el costo del flete en centavos a partir del subtotal del pedido, el peso en gramos del paquete y la modalidad de entrega (estándar o exprés).",
+      "wit_file": "wit/shipping-calculator.wit",
+      "world": "shipping-calculator",
+      "export_interfaces": [],
+      "import_interfaces": [],
+      "capabilities": [],
+      "dependencies": []
+    },
+    {
+      "id": "order-processor",
+      "name": "Procesador de Órdenes",
+      "description": "** Valida la integridad de las líneas de pedido, calcula los subtotales, aplica deducciones por fidelidad o promociones mediante consultas a catálogos externos, aplica las alícuotas impositivas vigentes, delega la cotización del envío al componente especializado de fletes, valida la solvencia crediticia del cliente y registra eventos auditables para control financiero.",
+      "wit_file": "wit/order-processor.wit",
+      "world": "order-processor",
+      "export_interfaces": [
+        "shipping-service",
+        "order-calculator"
+      ],
+      "import_interfaces": [],
+      "capabilities": [],
+      "dependencies": [
+        "shipping-calculator"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "SHIP-001",
+      "component": "shipping-calculator",
+      "title": "SHIP-001 (Validación de entrada):",
+      "statement": "Si el peso en gramos es menor o igual a cero (`weight_grams <= 0`), la operación debe retornar un código de error `-1` (o señalar flete inválido).",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref_target": "narrative-005.md#ship-001"
+      },
+      "acceptance_criteria": [
+        "Si el peso en gramos es menor o igual a cero (`weight_grams <= 0`), la operación debe retornar un código de error `-1` (o señalar flete inválido)."
+      ]
+    },
+    {
+      "id": "SHIP-002",
+      "component": "shipping-calculator",
+      "title": "SHIP-002 (Flete gratuito por volumen de compra):",
+      "statement": "Si el subtotal de compra es mayor o igual a 50,000 centavos (\\$500.00) y el servicio no es exprés (`is_express == 0`), el envío estándar es completamente gratuito (`shipping = 0`).",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref_target": "narrative-005.md#ship-002"
+      },
+      "acceptance_criteria": [
+        "Si el subtotal de compra es mayor o igual a 50,000 centavos (\\$500.00) y el servicio no es exprés (`is_express == 0`), el envío estándar es completamente gratuito (`shipping = 0`)."
+      ]
+    },
+    {
+      "id": "SHIP-003",
+      "component": "shipping-calculator",
+      "title": "SHIP-003 (Tarifa estándar por peso):",
+      "statement": "- Paquetes livianos (`weight_grams <= 2000`): Flete base de 500 centavos (\\$5.00). - Paquetes medianos (`2000 < weight_grams <= 5000`): Flete base de 800 centavos (\\$8.00). - Paquetes pesados (`weight_grams > 5000`): Flete base de 1,200 centavos (\\$12.00).",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref_target": "narrative-005.md#ship-003"
+      },
+      "acceptance_criteria": [
+        "- Paquetes livianos (`weight_grams <= 2000`): Flete base de 500 centavos (\\$5.00). - Paquetes medianos (`2000 < weight_grams <= 5000`): Flete base de 800 centavos (\\$8.00). - Paquetes pesados (`weight_grams > 5000`): Flete base de 1,200 centavos (\\$12.00)."
+      ]
+    },
+    {
+      "id": "SHIP-004",
+      "component": "shipping-calculator",
+      "title": "SHIP-004 (Recargo de entrega exprés):",
+      "statement": "Si se solicita modalidad exprés (`is_express == 1`), se añade un recargo fijo de 600 centavos (\\$6.00) sobre la tarifa base calculada según el peso (sin exoneración por volumen).",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref_target": "narrative-005.md#ship-004"
+      },
+      "acceptance_criteria": [
+        "Si se solicita modalidad exprés (`is_express == 1`), se añade un recargo fijo de 600 centavos (\\$6.00) sobre la tarifa base calculada según el peso (sin exoneración por volumen)."
+      ]
+    },
+    {
+      "id": "LINE-001",
+      "component": "order-processor",
+      "title": "LINE-001 (Integridad de líneas):",
+      "statement": "Ambas líneas de compra deben poseer precio y cantidad positivos (`price1 > 0`, `qty1 > 0`, `price2 > 0`, `qty2 > 0`). Si alguna línea viola esta condición, la orden aborta con `status_code = 1` y todos los importes en 0.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref_target": "narrative-005.md#line-001"
+      },
+      "acceptance_criteria": [
+        "Ambas líneas de compra deben poseer precio y cantidad positivos (`price1 > 0`, `qty1 > 0`, `price2 > 0`, `qty2 > 0`). Si alguna línea viola esta condición, la orden aborta con `status_code = 1` y todos los importes en 0."
+      ]
+    },
+    {
+      "id": "LINE-002",
+      "component": "order-processor",
+      "title": "LINE-002 (Cálculo de subtotal):",
+      "statement": "`(price1 * qty1) + (price2 * qty2)`.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref_target": "narrative-005.md#line-002"
+      },
+      "acceptance_criteria": [
+        "`(price1 * qty1) + (price2 * qty2)`."
+      ]
+    },
+    {
+      "id": "DISC-001",
+      "component": "order-processor",
+      "title": "DISC-001 (Consulta externa de beneficios):",
+      "statement": "Para clientes registrados (`customer_id > 0`), el sistema consulta el almacén de beneficios del host (`kv_get(customer_id)`) para obtener la tasa de descuento porcentual asignada.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref_target": "narrative-005.md#disc-001"
+      },
+      "acceptance_criteria": [
+        "Para clientes registrados (`customer_id > 0`), el sistema consulta el almacén de beneficios del host (`kv_get(customer_id)`) para obtener la tasa de descuento porcentual asignada."
+      ]
+    },
+    {
+      "id": "DISC-002",
+      "component": "order-processor",
+      "title": "DISC-002 (Tope de descuento):",
+      "statement": "El descuento no puede superar el 20 % del subtotal (`discount_cents = min(subtotal * discount_rate / 100, subtotal * 20 / 100)`). Si el cliente no registra descuento (`kv_get <= 0`), `discount_cents = 0`.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref_target": "narrative-005.md#disc-002"
+      },
+      "acceptance_criteria": [
+        "El descuento no puede superar el 20 % del subtotal (`discount_cents = min(subtotal * discount_rate / 100, subtotal * 20 / 100)`). Si el cliente no registra descuento (`kv_get <= 0`), `discount_cents = 0`."
+      ]
+    },
+    {
+      "id": "TAX-001",
+      "component": "order-processor",
+      "title": "TAX-001 (Liquidación fiscal):",
+      "statement": "El impuesto al valor agregado se calcula como el 15 % del subtotal imponible (`(subtotal_cents - discount_cents) * 15 / 100`).",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref_target": "narrative-005.md#tax-001"
+      },
+      "acceptance_criteria": [
+        "El impuesto al valor agregado se calcula como el 15 % del subtotal imponible (`(subtotal_cents - discount_cents) * 15 / 100`)."
+      ]
+    },
+    {
+      "id": "SHIP-DELEGATE",
+      "component": "order-processor",
+      "title": "SHIP-DELEGATE (Delegación de flete):",
+      "statement": "El procesador de órdenes no implementa la lógica de fletes; invoca directamente al componente `shipping-calculator` mediante el contrato de interfaz WIT `quote-shipping`. Si el componente de fletes retorna error (`< 0`), la orden finaliza con `status_code = 2`.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref_target": "narrative-005.md#ship-delegate"
+      },
+      "acceptance_criteria": [
+        "El procesador de órdenes no implementa la lógica de fletes; invoca directamente al componente `shipping-calculator` mediante el contrato de interfaz WIT `quote-shipping`. Si el componente de fletes retorna error (`< 0`), la orden finaliza con `status_code = 2`."
+      ]
+    },
+    {
+      "id": "CREDIT-001",
+      "component": "order-processor",
+      "title": "CREDIT-001 (Verificación de solvencia):",
+      "statement": "Antes de confirmar la orden, se invoca el servicio de crédito del host `check_credit(customer_id, total_cents)`. Si el crédito es denegado (`false`), la orden aborta con `status_code = 3`.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref_target": "narrative-005.md#credit-001"
+      },
+      "acceptance_criteria": [
+        "Antes de confirmar la orden, se invoca el servicio de crédito del host `check_credit(customer_id, total_cents)`. Si el crédito es denegado (`false`), la orden aborta con `status_code = 3`."
+      ]
+    },
+    {
+      "id": "AUDIT-001",
+      "component": "order-processor",
+      "title": "AUDIT-001 (Registro auditable):",
+      "statement": "Para cada orden aprobada (`status_code = 0`), el sistema debe emitir obligatoriamente un evento de auditoría al host `emit_audit(100, total_cents)`. Si la orden fue rechazada por crédito insuficiente (`status_code = 3`), emite `emit_audit(999, total_cents)`.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref_target": "narrative-005.md#audit-001"
+      },
+      "acceptance_criteria": [
+        "Para cada orden aprobada (`status_code = 0`), el sistema debe emitir obligatoriamente un evento de auditoría al host `emit_audit(100, total_cents)`. Si la orden fue rechazada por crédito insuficiente (`status_code = 3`), emite `emit_audit(999, total_cents)`."
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "name": "LineItem",
+      "description": "",
+      "fields": [
+        {
+          "name": "price_cents",
+          "type": "i32",
+          "description": "Precio unitario en centavos (debe ser estrictamente mayor a 0)."
+        },
+        {
+          "name": "quantity",
+          "type": "i32",
+          "description": "Cantidad solicitada (debe ser estrictamente mayor a 0)."
+        }
+      ]
+    },
+    {
+      "name": "OrderResult",
+      "description": "",
+      "fields": [
+        {
+          "name": "status_code",
+          "type": "i32",
+          "description": "Código numérico que indica el estado del pedido:"
+        },
+        {
+          "name": "0",
+          "type": "i32",
+          "description": "Pedido exitoso y liquidado (`ORDER_OK`)."
+        },
+        {
+          "name": "1",
+          "type": "i32",
+          "description": "Error por línea de pedido inválida (`ERR_INVALID_LINE`)."
+        },
+        {
+          "name": "2",
+          "type": "i32",
+          "description": "Error por flete inválido o peso inconsistente (`ERR_INVALID_SHIPPING`)."
+        },
+        {
+          "name": "3",
+          "type": "i32",
+          "description": "Error por límite de crédito excedido o cliente sin solvencia (`ERR_CREDIT_LIMIT_EXCEEDED`)."
+        },
+        {
+          "name": "subtotal_cents",
+          "type": "i32",
+          "description": "Monto neto consolidado de las líneas de producto."
+        },
+        {
+          "name": "discount_cents",
+          "type": "i32",
+          "description": "Deducción aplicada según beneficios del cliente o promociones."
+        },
+        {
+          "name": "tax_cents",
+          "type": "i32",
+          "description": "Impuesto liquidado sobre el subtotal neto."
+        },
+        {
+          "name": "shipping_cents",
+          "type": "i32",
+          "description": "Tarifa de flete calculada por el componente de envíos."
+        },
+        {
+          "name": "total_cents",
+          "type": "i32",
+          "description": "Monto final exigible (`subtotal - discount + tax + shipping`)."
+        }
+      ]
+    }
+  ],
+  "operations": [
+    {
+      "name": "quote_shipping",
+      "component": "order-processor",
+      "wit_interface": "shipping-service",
+      "params": [],
+      "returns": "i32",
+      "rules_applied": [
+        "LINE-001",
+        "LINE-002",
+        "DISC-001",
+        "DISC-002",
+        "TAX-001",
+        "SHIP-DELEGATE",
+        "CREDIT-001",
+        "AUDIT-001"
+      ],
+      "effects": []
+    },
+    {
+      "name": "calculate_order",
+      "component": "order-processor",
+      "wit_interface": "order-calculator",
+      "params": [],
+      "returns": "i32",
+      "rules_applied": [
+        "LINE-001",
+        "LINE-002",
+        "DISC-001",
+        "DISC-002",
+        "TAX-001",
+        "SHIP-DELEGATE",
+        "CREDIT-001",
+        "AUDIT-001"
+      ],
+      "effects": []
+    }
+  ]
+}

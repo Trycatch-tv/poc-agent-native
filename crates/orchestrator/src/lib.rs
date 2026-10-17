@@ -1264,43 +1264,56 @@ pub fn build_all_components_with_agent<A: ImplementationAgent>(
     let version_path = versions_dir.join(&version_id);
     std::fs::create_dir_all(&version_path).map_err(|e| e.to_string())?;
 
-    // Copy staged artifacts to versioned folder and final out_dir
-    for art in &mut artifacts {
+    // Copy staged artifacts strictly into the immutable versioned directory first
+    let mut versioned_artifacts = Vec::with_capacity(artifacts.len());
+    for art in &artifacts {
         let src = temp_staging.join(format!("{}.wasm", art.component_id));
         let ver_dst = version_path.join(format!("{}.wasm", art.component_id));
-        let top_dst = out_dir.join(format!("{}.wasm", art.component_id));
         std::fs::copy(&src, &ver_dst).map_err(|e| e.to_string())?;
-        std::fs::copy(&src, &top_dst).map_err(|e| e.to_string())?;
-        art.wasm_file = top_dst.to_string_lossy().to_string();
+        versioned_artifacts.push(BuildArtifact {
+            component_id: art.component_id.clone(),
+            wasm_file: format!("versions/{version_id}/{}.wasm", art.component_id),
+            bytes_len: art.bytes_len,
+            sha256: art.sha256.clone(),
+        });
     }
 
-    // Write manifest.json inside version directory
+    // Write manifest.json inside the version directory
     let manifest = serde_json::json!({
         "version_id": version_id,
         "created_at": chrono_or_iso_now(),
         "spec_version": spec.spec_version,
         "spec_source": spec.metadata.source_type,
-        "components_count": artifacts.len(),
-        "artifacts": artifacts,
+        "components_count": versioned_artifacts.len(),
+        "artifacts": versioned_artifacts,
     });
     let manifest_bytes = serde_json::to_vec_pretty(&manifest).map_err(|e| e.to_string())?;
     std::fs::write(version_path.join("manifest.json"), &manifest_bytes).map_err(|e| e.to_string())?;
 
-    // Atomically promote active.json
+    // Atomically promote active.json referencing the immutable version
     let active_manifest = serde_json::json!({
         "active_version": version_id,
         "promoted_at": chrono_or_iso_now(),
         "manifest_path": format!("versions/{version_id}/manifest.json"),
-        "artifacts": artifacts,
+        "artifacts": versioned_artifacts,
     });
     let active_temp = out_dir.join(".active.json.tmp");
     let active_final = out_dir.join("active.json");
     std::fs::write(&active_temp, serde_json::to_vec_pretty(&active_manifest).map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())?;
+
+    // Safe cross-platform atomic replace: on Windows rename over existing file can fail
     if active_final.exists() {
         let _ = std::fs::remove_file(&active_final);
     }
     std::fs::rename(&active_temp, &active_final).map_err(|e| e.to_string())?;
+
+    // Now that promotion is committed, expose convenience top-level symlinks/copies
+    for art in &artifacts {
+        let src = temp_staging.join(format!("{}.wasm", art.component_id));
+        let top_dst = out_dir.join(format!("{}.wasm", art.component_id));
+        let _ = std::fs::copy(&src, &top_dst);
+    }
 
     let _ = std::fs::remove_dir_all(&temp_staging);
 

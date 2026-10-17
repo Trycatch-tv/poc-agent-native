@@ -1,0 +1,19 @@
+{
+  "active_version": "build-1792203648818",
+  "artifacts": [
+    {
+      "bytes_len": 674,
+      "component_id": "shipping-calculator",
+      "sha256": "b9ae16245dc4b800a31d5362384a45188dabb765e119885b933fdb969c90979e",
+      "wasm_file": "versions/build-1792203648818/shipping-calculator.wasm"
+    },
+    {
+      "bytes_len": 2488,
+      "component_id": "order-processor",
+      "sha256": "a075570a554a67251a66d24c2fbcd9c46569e4a88cd69d15230b3abdae9a8751",
+      "wasm_file": "versions/build-1792203648818/order-processor.wasm"
+    }
+  ],
+  "manifest_path": "versions/build-1792203648818/manifest.json",
+  "promoted_at": "1792203648.822"
+}

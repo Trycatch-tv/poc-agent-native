@@ -19,6 +19,7 @@ pub struct LlmConfig {
     pub api_key: Option<String>,
     pub temperature: f64,
     pub max_tokens: usize,
+    pub timeout_secs: u64,
 }
 
 impl Default for LlmConfig {
@@ -31,6 +32,10 @@ impl Default for LlmConfig {
             api_key: std::env::var("AGENT_NATIVE_LLM_KEY").ok(),
             temperature: 0.0,
             max_tokens: 4096,
+            timeout_secs: std::env::var("AGENT_NATIVE_LLM_TIMEOUT")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(60),
         }
     }
 }
@@ -39,16 +44,27 @@ impl Default for LlmConfig {
 /// and Diagnostic Telemetry & Recovery.
 pub struct LlmImplementationAgent {
     pub config: LlmConfig,
-    pub fallback_agent: Box<dyn ImplementationAgent + Send + Sync>,
+    pub fallback_agent: Option<Box<dyn ImplementationAgent + Send + Sync>>,
     pub record_telemetry: bool,
+    pub last_metrics: std::sync::Mutex<Option<AgentExecutionMetrics>>,
 }
 
 impl LlmImplementationAgent {
     pub fn new(fallback_agent: Box<dyn ImplementationAgent + Send + Sync>) -> Self {
         Self {
             config: LlmConfig::default(),
-            fallback_agent,
+            fallback_agent: Some(fallback_agent),
             record_telemetry: true,
+            last_metrics: std::sync::Mutex::new(None),
+        }
+    }
+
+    pub fn strict(config: LlmConfig) -> Self {
+        Self {
+            config,
+            fallback_agent: None,
+            record_telemetry: true,
+            last_metrics: std::sync::Mutex::new(None),
         }
     }
 
@@ -58,8 +74,9 @@ impl LlmImplementationAgent {
     ) -> Self {
         Self {
             config,
-            fallback_agent,
+            fallback_agent: Some(fallback_agent),
             record_telemetry: true,
+            last_metrics: std::sync::Mutex::new(None),
         }
     }
 
@@ -146,27 +163,44 @@ impl LlmImplementationAgent {
 
         let payload_str = serde_json::to_string(&request_body).map_err(|e| e.to_string())?;
 
-        // Dispatch via curl command line to avoid heavy native SSL dependencies and compile friction
+        // Dispatch via curl using a temporary config file to prevent credentials from leaking in process tables or CLI args
         let start = Instant::now();
+        let temp_cfg = std::env::temp_dir().join(format!("curlllm_{}_{}.cfg", std::process::id(), start.elapsed().as_nanos()));
+        let cfg_content = format!("header = \"Authorization: Bearer {}\"\n", api_key);
+        if let Err(e) = std::fs::write(&temp_cfg, cfg_content) {
+            return Err(format!("Failed to write secure temporary curl config: {e}"));
+        }
+
+        let timeout_str = self.config.timeout_secs.to_string();
         let child = std::process::Command::new("curl")
             .arg("-s")
             .arg("-X")
             .arg("POST")
             .arg(&self.config.endpoint)
+            .arg("--max-time")
+            .arg(&timeout_str)
             .arg("-H")
             .arg("Content-Type: application/json")
-            .arg("-H")
-            .arg(format!("Authorization: Bearer {}", api_key))
+            .arg("--config")
+            .arg(&temp_cfg)
             .arg("-d")
             .arg(&payload_str)
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("Failed to spawn curl for LLM inference: {e}"))?;
+            .spawn();
 
-        let output = child
-            .wait_with_output()
-            .map_err(|e| format!("Failed waiting for curl output: {e}"))?;
+        let child = match child {
+            Ok(c) => c,
+            Err(e) => {
+                let _ = std::fs::remove_file(&temp_cfg);
+                return Err(format!("Failed to spawn curl for LLM inference: {e}"));
+            }
+        };
+
+        let output = child.wait_with_output();
+        let _ = std::fs::remove_file(&temp_cfg);
+
+        let output = output.map_err(|e| format!("Failed waiting for curl output: {e}"))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -245,28 +279,42 @@ impl ImplementationAgent for LlmImplementationAgent {
         let start = Instant::now();
         let prompt = self.build_prompt(component_id, spec, diagnostics);
 
-        // If an API key is configured, perform genuine LLM inference
+        // If an API key is configured or strict mode is set
         if let Some(ref api_key) = self.config.api_key {
             if !api_key.trim().is_empty() {
                 match self.call_real_llm(&prompt) {
-                    Ok((ir, _metrics)) => {
+                    Ok((ir, metrics)) => {
+                        if let Ok(mut lock) = self.last_metrics.lock() {
+                            *lock = Some(metrics);
+                        }
                         return Ok(ir);
                     }
                     Err(e) => {
+                        // If no fallback is permitted (strict mode), fail immediately with explicit error
+                        if self.fallback_agent.is_none() {
+                            return Err(format!("[LlmImplementationAgent] Real LLM inference failed in strict mode: {e}"));
+                        }
                         eprintln!("[LlmImplementationAgent] Real LLM inference error: {e}. Falling back to synthesizer.");
                     }
                 }
+            } else if self.fallback_agent.is_none() {
+                return Err("[LlmImplementationAgent] AGENT_NATIVE_LLM_KEY is empty, but strict LLM mode is active".to_string());
             }
+        } else if self.fallback_agent.is_none() {
+            return Err("[LlmImplementationAgent] No API key configured (AGENT_NATIVE_LLM_KEY is required for --agent llm)".to_string());
         }
 
-        // Delegate to deterministic fallback agent (SynthesizerAgent or custom agent)
-        let ir = self.fallback_agent.propose_ir(component_id, spec, diagnostics)?;
+        // Delegate to deterministic fallback agent if configured
+        let fallback = self.fallback_agent.as_ref().ok_or_else(|| {
+            "[LlmImplementationAgent] LLM inference failed and no fallback agent is configured".to_string()
+        })?;
+        let ir = fallback.propose_ir(component_id, spec, diagnostics)?;
 
         let elapsed = start.elapsed().as_millis();
         let estimated_prompt_tokens = prompt.len() / 4;
         let estimated_completion_tokens = serde_json::to_string(&ir).map(|s| s.len() / 4).unwrap_or(0);
 
-        let _metrics = AgentExecutionMetrics {
+        let metrics = AgentExecutionMetrics {
             prompt_tokens: estimated_prompt_tokens,
             completion_tokens: estimated_completion_tokens,
             total_tokens: estimated_prompt_tokens + estimated_completion_tokens,
@@ -274,6 +322,10 @@ impl ImplementationAgent for LlmImplementationAgent {
             attempts: if diagnostics.is_empty() { 1 } else { 2 },
             recovered_from_diagnostics: !diagnostics.is_empty(),
         };
+
+        if let Ok(mut lock) = self.last_metrics.lock() {
+            *lock = Some(metrics);
+        }
 
         Ok(ir)
     }
@@ -316,5 +368,27 @@ impl ImplementationAgent for MockDiagnosticAgent {
             // Self-repair: return valid IR
             self.fallback.propose_ir(component_id, spec, diagnostics)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_strict_llm_mode_fails_explicitly_without_api_key() {
+        let mut config = LlmConfig::default();
+        config.api_key = None;
+        let strict_agent = LlmImplementationAgent::strict(config);
+
+        let spec = crate::parse_narrative(
+            include_str!("../../../spec/narrative-005.md"),
+            "narrative-005.md"
+        ).unwrap();
+
+        let result = strict_agent.propose_ir("shipping-calculator", &spec, &[]);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("AGENT_NATIVE_LLM_KEY is required"), "Error was: {err}");
     }
 }

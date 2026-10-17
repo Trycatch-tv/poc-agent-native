@@ -1,0 +1,14 @@
+# Agent-Native Project Configuration (v0.1.0)
+[project]
+name = "agent-native-app"
+version = "0.1.0"
+spec_version = "1.0.0"
+
+[orchestrator]
+narrative_path = "spec/narrative.md"
+work_items_dir = "spec/work-items"
+output_dir = "dist"
+target = "wasm32-wasip1"
+
+[kaddo]
+enabled = false

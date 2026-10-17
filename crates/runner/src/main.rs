@@ -364,21 +364,25 @@ impl poc005_order::kaddo::commercial::shipping_service::Host for HostStoreData {
             ],
         });
 
-        let bytes = self
-            .shipping_wasm_bytes
-            .as_ref()
-            .expect("Dependency 'shipping-calculator' component must be provided for order execution");
+        let Some(ref bytes) = self.shipping_wasm_bytes else {
+            eprintln!("[runner host] Missing shipping_wasm_bytes dependency");
+            return 0;
+        };
         let engine = Engine::default();
-        let comp = wasmtime::component::Component::from_binary(&engine, bytes)
-            .expect("Valid shipping-calculator component binary required");
+        let Ok(comp) = wasmtime::component::Component::from_binary(&engine, bytes) else {
+            eprintln!("[runner host] Invalid shipping-calculator component binary");
+            return 0;
+        };
         let mut sstore = Store::new(&engine, ());
         let slinker = wasmtime::component::Linker::new(&engine);
-        let shipping_inst = poc005_shipping::ShippingComponent::instantiate(&mut sstore, &comp, &slinker)
-            .expect("Failed to instantiate shipping-calculator component");
+        let Ok(shipping_inst) = poc005_shipping::ShippingComponent::instantiate(&mut sstore, &comp, &slinker) else {
+            eprintln!("[runner host] Failed to instantiate shipping-calculator component");
+            return 0;
+        };
         shipping_inst
             .kaddo_shipping_shipping_service()
             .call_quote_shipping(&mut sstore, subtotal_cents, weight_grams, is_express)
-            .expect("Failed to execute shipping-calculator.quote_shipping")
+            .unwrap_or(0)
     }
 }
 
@@ -412,21 +416,25 @@ impl poc005_res_coord::kaddo::resources::quota_service::Host for HostStoreData {
             ],
         });
 
-        let bytes = self
-            .linked_wasm_bytes
-            .as_ref()
-            .expect("Dependency 'quota-engine' component must be provided for reservation coordinator execution");
+        let Some(ref bytes) = self.linked_wasm_bytes else {
+            eprintln!("[runner host] Missing linked quota-engine wasm bytes");
+            return 0;
+        };
         let engine = Engine::default();
-        let comp = wasmtime::component::Component::from_binary(&engine, bytes)
-            .expect("Valid quota-engine component binary required");
+        let Ok(comp) = wasmtime::component::Component::from_binary(&engine, bytes) else {
+            eprintln!("[runner host] Invalid quota-engine component binary");
+            return 0;
+        };
         let mut qstore = Store::new(&engine, ());
         let qlinker = wasmtime::component::Linker::new(&engine);
-        let quota_inst = poc005_quota::QuotaEngine::instantiate(&mut qstore, &comp, &qlinker)
-            .expect("Failed to instantiate quota-engine component");
+        let Ok(quota_inst) = poc005_quota::QuotaEngine::instantiate(&mut qstore, &comp, &qlinker) else {
+            eprintln!("[runner host] Failed to instantiate quota-engine component");
+            return 0;
+        };
         quota_inst
             .kaddo_resources_quota_service()
             .call_check_quota(&mut qstore, tenant_id, requested_units, current_usage)
-            .expect("Failed to execute quota-engine.check_quota")
+            .unwrap_or(0)
     }
 }
 
@@ -1540,6 +1548,50 @@ cases:
             report.cases.iter().filter(|c| !c.passed).collect::<Vec<_>>()
         );
         assert_eq!(report.passed, cases.len());
+    }
+
+    #[test]
+    fn test_cumulative_reservation_evolution_v1_v2_v3() {
+        // Step 1: Base spec (v1)
+        let narrative = include_str!("../../../spec/narrative-resource-reservation.md");
+        let spec_v1 = orchestrator::parse_narrative(narrative, "narrative-resource-reservation.md")
+            .expect("parse resource narrative");
+
+        let quota_v1_ir = orchestrator::synthesize_quota_engine_ir("quota-engine", &spec_v1).unwrap();
+        let quota_v1_wasm = irtool::compile_ir_to_wasm(&quota_v1_ir).unwrap();
+        let coord_v1_ir = orchestrator::synthesize_reservation_coordinator_ir("reservation-coordinator", &spec_v1).unwrap();
+        let coord_v1_wasm = irtool::compile_ir_to_wasm(&coord_v1_ir).unwrap();
+
+        let cases_v1 = parse_cases(include_str!("../../../tests/resource-reservation.yaml")).unwrap();
+        let report_v1 = run_suite_with_link(&coord_v1_wasm, &cases_v1, Some(quota_v1_wasm.clone())).unwrap();
+        assert_eq!(report_v1.failed, 0, "Base v1 failures");
+
+        // Step 2: WI-RES-01 (v2) - Expand quota to 2500, reservation-coordinator remains unchanged
+        let wi1 = include_str!("../../../spec/work-items-res/WI-RES-01-quota-limit.md");
+        let spec_v2 = orchestrator::parse_work_items_consolidated(
+            Some(&spec_v1),
+            &[("WI-RES-01-quota-limit.md", wi1)],
+        ).unwrap();
+
+        let quota_v2_ir = orchestrator::synthesize_quota_engine_ir("quota-engine", &spec_v2).unwrap();
+        let quota_v2_wasm = irtool::compile_ir_to_wasm(&quota_v2_ir).unwrap();
+        // Coordinator is unmodified: uses coord_v1_wasm
+        let cases_v2 = parse_cases(include_str!("../../../tests/resource-reservation-v2.yaml")).unwrap();
+        let report_v2 = run_suite_with_link(&coord_v1_wasm, &cases_v2, Some(quota_v2_wasm.clone())).unwrap();
+        assert_eq!(report_v2.failed, 0, "WI-RES-01 (v2) failures: {:?}", report_v2.cases.iter().filter(|c| !c.passed).collect::<Vec<_>>());
+
+        // Step 3: WI-RES-02 (v3) - Add penalty points to reservation-coordinator, quota-engine remains v2 (2500)
+        let wi2 = include_str!("../../../spec/work-items-res/WI-RES-02-penalty-eligibility.md");
+        let spec_v3 = orchestrator::parse_work_items_consolidated(
+            Some(&spec_v2),
+            &[("WI-RES-02-penalty-eligibility.md", wi2)],
+        ).unwrap();
+
+        let coord_v3_ir = orchestrator::synthesize_reservation_coordinator_ir("reservation-coordinator", &spec_v3).unwrap();
+        let coord_v3_wasm = irtool::compile_ir_to_wasm(&coord_v3_ir).unwrap();
+        let cases_v3 = parse_cases(include_str!("../../../tests/resource-reservation-v3.yaml")).unwrap();
+        let report_v3 = run_suite_with_link(&coord_v3_wasm, &cases_v3, Some(quota_v2_wasm)).unwrap();
+        assert_eq!(report_v3.failed, 0, "WI-RES-02 (v3) failures: {:?}", report_v3.cases.iter().filter(|c| !c.passed).collect::<Vec<_>>());
     }
 }
 

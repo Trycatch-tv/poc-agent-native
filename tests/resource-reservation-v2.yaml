@@ -1,0 +1,67 @@
+# Tests de aceptación funcional para Coordinador de Recursos y Reserva — Paso 1 (WI-RES-01)
+# Expansión de cuota máxima de 1000 a 2500 unidades
+# 1. Tenant inválido -> status_code = 1
+# 2. Tenant bloqueado -> status_code = 2
+# 3. Cuota aprobada en rango ampliado (1200 + 1000 = 2200 <= 2500) -> status_code = 0, penalty_points = 0 (v1 coordinator)
+# 4. Cuota excedida (> 2500: 2000 + 600 = 2600) -> status_code = 3
+
+cases:
+  - id: RES-INVALID-TENANT
+    requirement: RES-001
+    function: reserve_resource
+    args: [-5, 1, 100, 200]
+    expected:
+      status_code: 1
+      approved_units: 0
+      penalty_points: 0
+
+  - id: RES-BLOCKED-TENANT
+    requirement: RES-002
+    function: reserve_resource
+    args: [99, 1, 100, 200]
+    host_state:
+      tenant_status:
+        99: 0
+    expected:
+      status_code: 2
+      approved_units: 0
+      penalty_points: 0
+    expected_host_calls:
+      - import: tenant_status
+        args: [99]
+
+  - id: RES-QUOTA-EXPANDED-APPROVED
+    requirement: QUOTA-002
+    function: reserve_resource
+    args: [10, 1, 1200, 1000]
+    host_state:
+      tenant_status:
+        10: 1
+    expected:
+      status_code: 0
+      approved_units: 1200
+      penalty_points: 0
+    expected_host_calls:
+      - import: tenant_status
+        args: [10]
+      - import: check_quota
+        args: [10, 1200, 1000]
+      - import: emit_audit
+        args: [200, 1200]
+
+  - id: RES-QUOTA-EXPANDED-EXCEEDED
+    requirement: QUOTA-002
+    function: reserve_resource
+    args: [10, 1, 2000, 600]
+    host_state:
+      tenant_status:
+        10: 1
+    expected:
+      status_code: 3
+      approved_units: 0
+      penalty_points: 0
+    expected_host_calls:
+      - import: tenant_status
+        args: [10]
+      - import: check_quota
+        args: [10, 2000, 600]

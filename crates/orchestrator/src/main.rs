@@ -48,6 +48,9 @@ enum Commands {
 
         #[arg(long, default_value_t = false)]
         kaddo: bool,
+
+        #[arg(long, default_value = "deterministic")]
+        agent: String,
     },
     /// Compares two System Specifications and outputs the diff
     Diff {
@@ -153,6 +156,7 @@ enabled = false
             out_dir,
             project_root,
             kaddo,
+            agent,
         } => {
             let root = project_root.unwrap_or_else(|| PathBuf::from("."));
             if kaddo {
@@ -166,8 +170,22 @@ enabled = false
 
             let spec_content = std::fs::read_to_string(&actual_spec_path)?;
             let system_spec: orchestrator::SystemSpec = serde_json::from_str(&spec_content)?;
-            let summary = orchestrator::build_all_components(&system_spec, &actual_out_dir)
-                .map_err(|e| format!("Build failed: {e}"))?;
+
+            let summary = match agent.as_str() {
+                "deterministic" => {
+                    println!("[orchestrator] Using SynthesizerAgent (deterministic mode)");
+                    orchestrator::build_all_components(&system_spec, &actual_out_dir)
+                }
+                "llm" => {
+                    println!("[orchestrator] Using LlmImplementationAgent (strict LLM mode)");
+                    let config = orchestrator::agent::LlmConfig::default();
+                    let llm_agent = orchestrator::agent::LlmImplementationAgent::strict(config);
+                    orchestrator::build_all_components_with_agent(&llm_agent, &system_spec, &actual_out_dir)
+                }
+                other => {
+                    return Err(format!("Unknown agent mode '{other}'. Supported values are 'deterministic' and 'llm'.").into());
+                }
+            }.map_err(|e| format!("Build failed: {e}"))?;
 
             println!("[orchestrator] Build completed successfully:");
             for art in &summary.artifacts {

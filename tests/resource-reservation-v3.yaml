@@ -1,0 +1,87 @@
+# Tests de aceptación funcional para Coordinador de Recursos y Reserva — Paso 2 (WI-RES-02)
+# Preserva cuota ampliada de 2500 e incorpora penalización de 50 puntos si requested_units > 1000
+# 1. Tenant inválido -> status_code = 1, approved_units = 0, penalty = 0
+# 2. Tenant bloqueado -> status_code = 2, approved_units = 0, penalty = 0
+# 3. Cuota aprobada sin penalización (requested <= 1000: 800 + 500 = 1300 <= 2500) -> status = 0, approved = 800, penalty = 0
+# 4. Cuota aprobada CON penalización (requested > 1000: 1200 + 1000 = 2200 <= 2500) -> status = 0, approved = 1200, penalty = 50
+# 5. Cuota excedida (> 2500: 2000 + 600 = 2600) -> status = 3, approved = 0, penalty = 0
+
+cases:
+  - id: RES-INVALID-TENANT
+    requirement: RES-001
+    function: reserve_resource
+    args: [-5, 1, 100, 200]
+    expected:
+      status_code: 1
+      approved_units: 0
+      penalty_points: 0
+
+  - id: RES-BLOCKED-TENANT
+    requirement: RES-002
+    function: reserve_resource
+    args: [99, 1, 100, 200]
+    host_state:
+      tenant_status:
+        99: 0
+    expected:
+      status_code: 2
+      approved_units: 0
+      penalty_points: 0
+    expected_host_calls:
+      - import: tenant_status
+        args: [99]
+
+  - id: RES-APPROVED-NO-PENALTY
+    requirement: RES-004
+    function: reserve_resource
+    args: [10, 1, 800, 500]
+    host_state:
+      tenant_status:
+        10: 1
+    expected:
+      status_code: 0
+      approved_units: 800
+      penalty_points: 0
+    expected_host_calls:
+      - import: tenant_status
+        args: [10]
+      - import: check_quota
+        args: [10, 800, 500]
+      - import: emit_audit
+        args: [200, 800]
+
+  - id: RES-APPROVED-WITH-PENALTY
+    requirement: RES-004
+    function: reserve_resource
+    args: [10, 1, 1200, 1000]
+    host_state:
+      tenant_status:
+        10: 1
+    expected:
+      status_code: 0
+      approved_units: 1200
+      penalty_points: 50
+    expected_host_calls:
+      - import: tenant_status
+        args: [10]
+      - import: check_quota
+        args: [10, 1200, 1000]
+      - import: emit_audit
+        args: [200, 1200]
+
+  - id: RES-QUOTA-EXPANDED-EXCEEDED
+    requirement: QUOTA-002
+    function: reserve_resource
+    args: [10, 1, 2000, 600]
+    host_state:
+      tenant_status:
+        10: 1
+    expected:
+      status_code: 3
+      approved_units: 0
+      penalty_points: 0
+    expected_host_calls:
+      - import: tenant_status
+        args: [10]
+      - import: check_quota
+        args: [10, 2000, 600]
