@@ -1,0 +1,30 @@
+package kaddo:canal@0.1.0;
+
+interface hydro-service {
+    compute-flow-index: func(water-level-cm: s32, gate-pressure-kpa: s32) -> s32;
+}
+
+interface host-services {
+    kv-get: func(key: s32) -> s32;
+    emit-audit: func(event-type: s32) -> s32;
+}
+
+interface lock-service {
+    record transit-decision {
+        status-code: s32,
+        flow-index: s32,
+        ballast-fee: s32,
+    }
+
+    evaluate-lock-transit: func(
+        vessel-draft-cm: s32,
+        water-level-cm: s32,
+        gate-pressure-kpa: s32
+    ) -> transit-decision;
+}
+
+world lock-controller {
+    import hydro-service;
+    import host-services;
+    export lock-service;
+}

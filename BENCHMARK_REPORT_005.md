@@ -1,97 +1,94 @@
 # Benchmark Report 005 — Agent-Native Orchestrator vs Desarrollo Tradicional Asistido por LLM
 
-> **Experimento:** `KADDO-AGENT-NATIVE-POC-005` (Work Item `WI-041`)
+> **Iniciativa:** `KADDO-AGENT-NATIVE-FINAL-CLOSURE` (`WI-041` + Remediación Final `WI-S17`)
 >
 > **Entorno:** `Wasmtime 27.0.0`, Windows x86_64, `rustc 1.93.0-nightly`, `wit-component 0.221.0`
 >
-> **Sujeto de prueba:** Ciclo de vida completo: desde especificación narrativa en lenguaje natural (`spec/narrative-005.md`) y Work Items incrementales (`spec/work-items-e2/`, `e3/`, `e4/`) hasta composición multi-componente WebAssembly nativa con Canonical ABI, y síntesis autónoma de nuevo dominio (`spec/narrative-subscription-service.md`).
+> **Sujeto de prueba:** Ciclo de vida completo: desde especificación narrativa en lenguaje natural (`spec/narrative-005.md`, `spec/narrative-resource-reservation.md`, `runs/unknown-domain-e2e/spec/narrative-canal-lock.md`) y Work Items incrementales hasta composición multi-componente WebAssembly nativa con Canonical ABI y ejecución dinámica por introspección WIT.
 
 ---
 
-## 1. Motivación y Metodología
+## 1. Motivación y Distinción Explícita de Modos de Ejecución
 
-La POC 005 marca la transición de Agent-Native desde un compilador experimental de Semantic IR hacia un **sistema de desarrollo orquestado** capaz de construir y evolucionar software ejecutable a partir de narrativas funcionales o secuencias de Work Items sin intervención humana directa sobre la representación intermedia.
+Este reporte distingue de manera estricta y auditable los dos modos de operación de Agent-Native v0.1.0:
 
-Este benchmark pareado (**`WI-041`**) evalúa empíricamente dos enfoques para llevar requerimientos narrativos a software ejecutable multi-componente:
+1. **Modo Determinista Offline (`--agent synthesizer` / `SynthesizerAgent`):**
+   - Opera exclusivamente sobre dominios de referencia incluidos en el sintetizador determinista (`shipping-calculator`, `order-processor`, `usage-tracker`, `subscription-billing`, `quota-engine`, `reservation-coordinator`).
+   - No realiza llamadas de red ni inferencia LLM; mide el costo puro de interpretación de especificación, verificación estática (`irtool::verify_ir`) y compilación determinista a WebAssembly Component Model (`irtool::compile_ir_to_wasm`).
+   - Rechaza explícitamente cualquier componente de dominio desconocido sin usar plantillas genéricas falsas.
 
-1. **Ruta Agent-Native Orquestada:**
-   - **Entrada:** Documento Markdown funcional (`spec/narrative-005.md`) o colección de Work Items (`spec/work-items-e2/`).
-   - **Orquestación:** `orchestrator spec` sintetiza y versiona la `System Specification` consolidada.
-   - **Generación:** `orchestrator build` utiliza un agente de implementación (`ImplementationAgent`) y el sintetizador AST (`SynthesizerAgent`) para producir Semantic IR v0.5 estructuradas con contratos WIT.
-   - **Compilación Determinista:** `irtool compile` genera los componentes WebAssembly nativos con Canonical ABI (`shipping-calculator.wasm`, `order-processor.wasm`).
-   - **Composición y Runtime:** `runner test` enlaza los componentes mediante `wasmtime::component::Linker` y ejecuta suites de aceptación y regresión en memoria sin fallbacks silenciosos.
-
-2. **Ruta Tradicional Asistida por LLM (Generación de Código Fuente Rust/Go):**
-   - **Entrada:** Misma narrativa funcional.
-   - **Generación de Código:** LLM genera código fuente imperativo (Rust `#![no_std]`, crates múltiples, Cargo.toml, `wit-bindgen`, macros).
-   - **Toolchain Estándar:** `cargo build --target wasm32-unknown-unknown` + `wasm-tools component new` + adaptadores de linker.
-   - **Ciclos de Reparación:** Resolución de errores del compilador (`borrow checker`, lifetimes, macros, discrepancias de firmas).
+2. **Modo de Inferencia LLM Real (`--agent llm` / `LlmImplementationAgent`):**
+   - Opera sin fallback al sintetizador determinista y sin escribir credenciales en archivos temporales en disco (transmisión exclusiva por `stdin` en memoria).
+   - Fue validado de extremo a extremo sobre un **dominio completamente desconocido** (`runs/unknown-domain-e2e/`: **Control de Esclusas e Hidrología de Canal**, componentes `hydro-sensor` y `lock-controller`), ausente tanto de `SynthesizerAgent` como de `runner`.
+   - Registra telemetría real reportada por el proveedor (`tokens_reported: true`, `Option<usize>` para `prompt_tokens`, `completion_tokens` y `total_tokens`), prohibiendo cualquier estimación heurística (`prompt.len() / 4`).
 
 ---
 
-## 2. Resultados Cuantitativos Observados y Verificados
+## 2. Comparativa Separada: Modo Determinista Offline vs Modo LLM Real
 
-| Dimensión de Medición | Flujo Agent-Native Orquestado (POC 005) | Flujo Tradicional Asistido por LLM | Ventaja Agent-Native |
-|---|---|---|---|
-| **Latencia de Síntesis / Generación (AST / IR)** | **`140 ms`** (`orchestrator spec + build` determinista) | `12,400 ms` (generación LLM de múltiples archivos Rust) | **`88.5x más rápido`** |
-| **Latencia de Inferencia LLM Real (API / Network)** | **`1,850 ms - 2,400 ms`** (1 llamada LLM JSON Semantic IR) | `12,400 ms - 18,200 ms` (múltiples llamadas Rust + Cargo) | **`6.7x - 7.5x más rápido`** |
-| **Tiempo de Compilación Multi-Componente** | **`22.4 ms`** (compilación determinista 2 componentes) | `1,840 ms` (`cargo build` dual + `wasm-tools`) | **`82.1x más rápido`** |
-| **Ciclo Total de Construcción (Narrativa -> WASM)** | **`162.4 ms`** (offline determinista) / **`2,120 ms`** (con LLM real) | `14,240 ms` (asumiendo 0 errores de compilación) | **`87.6x`** (offline) / **`6.7x`** (online) |
-| **Tamaño Binario Total (2 Componentes)** | **`3,162 bytes`** (`2,488 B` + `674 B`) | `~24,500 bytes` (ambos componentes en Rust) | **`7.7x más compacto`** |
-| **Volumen de Contexto Consumido (Tokens)** | **`~1,200 tokens`** (Narrativa -> System Spec JSON) | `~18,500 tokens` (Código Rust, Cargo.toml, bindgen) | **`15.4x menos tokens (93.5% ahorro)`** |
-| **Volumen Diagnóstico ante Fallos de Contrato** | **`340 bytes`** (JSONPath exacto y código diagnóstico) | `~9,500 bytes` (compilador Rust + linker errors) | **`27.9x más compacto (96.4% ahorro)`** |
-| **Tasa de Reparación en Bucle Diagnóstico** | **`100 %`** (Auto-recuperación verificada con agente y diagnósticos estructurados) | `~65 %` (requiere bucles de corrección de código) | **Determinismo estricto** |
-| **Aislamiento en Mantenimiento Acumulativo (E4 sobre E3)** | **`0 bytes modificados`** en componente dependiente (`order-processor.wasm` conserva SHA `25ae47ee...` de E3) | Frecuentes rupturas de compilación y re-linqueo | **Encapsulamiento perfecto** |
-| **Reproducibilidad Binaria SHA-256** | **`3/3 builds deterministas (100 % idéntico)`** | Variable según metadata de timestamps de toolchains | **Determinismo criptográfico** |
-| **Pass Rate de Pruebas (E1, E2, E3, E4)** | **`9/9 en cada hito (100 %)`** en Wasmtime Component Model | `9/9 (100 %)` | **Empate (100 % corrección funcional)** |
+### 2.1. Métricas del Modo Determinista Offline (`--agent synthesizer`)
+
+| Dimensión de Medición | Valor Observado (`SynthesizerAgent` + `irtool` + `runner`) | Alcance |
+|---|---|---|
+| **Interpretación + Síntesis AST (`orchestrator spec + build`)** | **`140.0 ms`** | Dominios de referencia pre-registrados (sin red) |
+| **Compilación Determinista Multi-Componente (`irtool`)** | **`22.4 ms`** (2 componentes `.wasm` con Canonical ABI) | 100 % determinista y reproducible bit a bit |
+| **Tamaño Binario Total (2 Componentes)** | **`2,223 B – 3,162 B`** (`605 B` a `2,488 B` por componente) | Componentes WASM estándar sin runtime pesado |
+| **Tokens Consumidos** | **`None` (`tokens_reported: false`)** | No invoca proveedor de IA |
+| **Reproducibilidad Binaria SHA-256** | **`3/3 builds idénticos (100 %)`** | Determinismo criptográfico |
+
+### 2.2. Métricas Reales Observadas del Modo LLM (`--agent llm` en Dominio Desconocido `runs/unknown-domain-e2e/`)
+
+Corrida ejecutada con `provider = "claude-cli"`, `model = "claude-sonnet-4-6"`, sin ramas de dominio en `SynthesizerAgent` ni en `runner`:
+
+| Hito / Versión | Componente | Proveedor / Modelo | Intentos (`attempts`) | Recuperado de Diagnósticos | Latencia Real (`latency_ms`) | `prompt_tokens` | `completion_tokens` | `total_tokens` | `tokens_reported` |
+|---|---|---|---|---|---|---|---|---|---|
+| **v1 Base (`build-1792206976764513300`)** | `hydro-sensor` | `claude-cli` / `claude-sonnet-4-6` | `1` | `false` | **`41,095 ms`** | `17,347` | `3,388` | `20,735` | `true` |
+| **v1 Base (`build-1792206976764513300`)** | `lock-controller` | `claude-cli` / `claude-sonnet-4-6` | `1` | `false` | **`128,149 ms`** | `17,903` | `10,244` | `28,147` | `true` |
+| **v2 Evolución `WI-LOCK-01` (`build-1792207389433634100`)** | `hydro-sensor` | `claude-cli` / `claude-sonnet-4-6` | `1` | `false` | **`39,538 ms`** | `17,401` | `2,959` | `20,360` | `true` |
+| **v2 Evolución `WI-LOCK-01` (`build-1792207389433634100`)** | `lock-controller` | `claude-cli` / `claude-sonnet-4-6` | `1` | `false` | **`93,999 ms`** | `17,903` | `7,859` | `25,762` | `true` |
+
+- **Ejecución de pruebas de aceptación sobre binarios generados por LLM (`runner test` dinámico):**
+  - **v1 (`acceptance-v1.yaml`):** **5/5 casos aprobados (0 fallidos)** en **`70 ms`** (`runs/unknown-domain-e2e/results/acceptance-v1-report.json`).
+  - **v2 (`acceptance-v2.yaml` tras `WI-LOCK-01`):** **5/5 casos aprobados (0 fallidos)** en **`38 ms`** (`runs/unknown-domain-e2e/results/acceptance-v2-report.json`).
 
 ---
 
-## 3. Matriz Criptográfica de Artefactos de la Secuencia Experimental
+## 3. Matriz Criptográfica de Artefactos Verificados
+
+### 3.1. Artefactos Generados por Inferencia LLM Real (`--agent llm`, Dominio Desconocido)
+
+| Versión Publicada | Componente | Tamaño WASM | SHA-256 `.wasm` | SHA-256 `.ir.json` |
+|---|---|---|---|---|
+| `build-1792206976764513300` (v1 Base) | `hydro-sensor` | 611 B | `af44b40b0b4fa3754fbeabaf44e6633307f910fa2ed43bae0381004e6ae975af` | `a3ab9191377e7968270540752933ff2464ae27b43ef6c64181908033e7f2dafa` |
+| `build-1792206976764513300` (v1 Base) | `lock-controller` | 1,613 B | `2e301bf2c836f9c023cc4c89199e4be1be1a20a0302cc0a3d992c063e1af9f3a` | `663eb98b16350b2867fe0125f402b7665c419d390996b37353a233d3df835a0e` |
+| `build-1792207389433634100` (v2 `WI-LOCK-01`) | `hydro-sensor` | 605 B | `4ae71032e4cb83385721ce25848f906230e5fbcb74a2af55787f3cbcb3873641` | `58315f1fc2783220d83722b22b61dcb7315a2a37b35167e40ac7a8728be7904c` |
+| `build-1792207389433634100` (v2 `WI-LOCK-01`) | `lock-controller` | 1,618 B | `d4fb2fc0e20837f9b637cbbe2a2a0e3a3f88405bd768b2add44b77ddb29b6f37` | `b130a61a9c07f97006b979e8ecb26bfe49558c09fbc23d42e3311614b838f528` |
+
+### 3.2. Artefactos de Suites de Conformidad Deterministas (`--agent synthesizer`)
 
 | Hito Experimental | Componente | Tamaño (Bytes) | SHA-256 Observado | Estado de Aislamiento |
 |---|---|---|---|---|
-| **E1 (Narrativa)** | `shipping-calculator.wasm` | 674 B | `b9ae16245dc4b800a31d5362384a45188dabb765e119885b933fdb969c90979e` | Freeze inicial |
-| **E1 (Narrativa)** | `order-processor.wasm` | 2,488 B | `a075570a554a67251a66d24c2fbcd9c46569e4a88cd69d15230b3abdae9a8751` | Freeze inicial (IVA 15%) |
-| **E2 (Work Items)** | `shipping-calculator.wasm` | 674 B | `b9ae16245dc4b800a31d5362384a45188dabb765e119885b933fdb969c90979e` | 100% idéntico a E1 |
-| **E2 (Work Items)** | `order-processor.wasm` | 2,488 B | `a075570a554a67251a66d24c2fbcd9c46569e4a88cd69d15230b3abdae9a8751` | 100% idéntico a E1 |
-| **E3 (Evolución IVA)** | `shipping-calculator.wasm` | 674 B | `b9ae16245dc4b800a31d5362384a45188dabb765e119885b933fdb969c90979e` | Inalterado (aislamiento total) |
+| **E1 / E2 (Comercial Base)** | `shipping-calculator.wasm` | 674 B | `b9ae16245dc4b800a31d5362384a45188dabb765e119885b933fdb969c90979e` | Freeze inicial |
+| **E1 / E2 (Comercial Base)** | `order-processor.wasm` | 2,488 B | `a075570a554a67251a66d24c2fbcd9c46569e4a88cd69d15230b3abdae9a8751` | Freeze inicial (IVA 15%) |
 | **E3 (Evolución IVA)** | `order-processor.wasm` | 2,488 B | `25ae47ee79b232225ad8de23430b2f4ee5c766a81e73a19b5cbe0b617f274454` | Actualizado (IVA 18%) |
-| **E4 (Evolución Acumulativa)** | `shipping-calculator.wasm` | 674 B | `31bba5071664f51e60e303e321d32dfa94a1854baf9e268895d05afa6f9b36ba` | Actualizado (550c/850c) |
-| **E4 (Evolución Acumulativa)** | `order-processor.wasm` | 2,488 B | `25ae47ee79b232225ad8de23430b2f4ee5c766a81e73a19b5cbe0b617f274454` | **Exacto a E3 (preserva IVA 18%)** |
-| **Nuevo Dominio (SaaS)** | `usage-tracker.wasm` | 592 B | `731f726e10affbd6bfc0c5d9f3f2b188d60cf2390a1bf884df0c982c5d9ee5a1` | Sintetizado desde cero |
-| **Nuevo Dominio (SaaS)** | `subscription-billing.wasm` | 1,280 B | `b248eac924829eac3e1a15152bc0f4b3a185c1b06271b36bb8f359b87e96ef5b` | Sintetizado desde cero |
-| **Validación Independiente (WI-S07)** | `quota-engine.wasm` | 741 B | `cf3c3b0df3f9154f8a37e1a7ba89ea730efd9516668e0d4bb8bb1f26a798ee3e` | Inicial (límite 1000) |
-| **Validación Independiente (WI-S07)** | `reservation-coordinator.wasm` | 2,216 B | `fa1d7ac207038e129ae35c755c3c0dfb6c6b4455ae0dfaa31f13b63b27b5006d` | Inicial (sin penalización) |
-| **WI-RES-01 (Evolución Cuota)** | `quota-engine.wasm` | 741 B | `70fa6e129aa18055bf09b0b4a68ebae71f54cf796c342f567b45cc16a192ee71` | Actualizado (límite 2500) |
-| **WI-RES-01 (Evolución Cuota)** | `reservation-coordinator.wasm` | 2,216 B | `fa1d7ac207038e129ae35c755c3c0dfb6c6b4455ae0dfaa31f13b63b27b5006d` | **Inalterado (aislamiento total)** |
-| **WI-RES-02 (Evolución Penalidad)** | `quota-engine.wasm` | 741 B | `70fa6e129aa18055bf09b0b4a68ebae71f54cf796c342f567b45cc16a192ee71` | **Inalterado (preserva límite 2500)** |
-| **WI-RES-02 (Evolución Penalidad)** | `reservation-coordinator.wasm` | 2,234 B | `44ce415fa9fbe65961314d3527b137f86641e406208bb78bc2b7747e92383c27` | Actualizado (+50 penalidad) |
+| **E4 (Evolución Flete)** | `shipping-calculator.wasm` | 674 B | `31bba5071664f51e60e303e321d32dfa94a1854baf9e268895d05afa6f9b36ba` | Actualizado (550c/850c) |
+| **SaaS** | `usage-tracker.wasm` | 592 B | `731f726e10affbd6bfc0c5d9f3f2b188d60cf2390a1bf884df0c982c5d9ee5a1` | Sintetizado determinista |
+| **SaaS** | `subscription-billing.wasm` | 1,280 B | `b248eac924829eac3e1a15152bc0f4b3a185c1b06271b36bb8f359b87e96ef5b` | Sintetizado determinista |
+| **Reservas v1** | `quota-engine.wasm` | 741 B | `cf3c3b0df3f9154f8a37e1a7ba89ea730efd9516668e0d4bb8bb1f26a798ee3e` | Inicial (límite 1000) |
+| **Reservas v1** | `reservation-coordinator.wasm` | 2,216 B | `fa1d7ac207038e129ae35c755c3c0dfb6c6b4455ae0dfaa31f13b63b27b5006d` | Inicial (sin penalización) |
+| **WI-RES-01 (v2)** | `quota-engine.wasm` | 741 B | `70fa6e129aa18055bf09b0b4a68ebae71f54cf796c342f567b45cc16a192ee71` | Actualizado (límite 2500) |
+| **WI-RES-02 (v3)** | `reservation-coordinator.wasm` | 2,234 B | `44ce415fa9fbe65961314d3527b137f86641e406208bb78bc2b7747e92383c27` | Actualizado (+50 penalidad) |
 
 ---
 
-## 4. Análisis de Hallazgos de Ingeniería
+## 4. Garantías de Hardening Verificadas en WI-S17
 
-### A. Eliminación del Código Fuente como Pasivo Accidental
-En el flujo tradicional asistido por LLM, el código fuente en Rust/Go actúa como un pasivo: el modelo debe lidiar con la sintaxis, el borrow checker, macros de expansión, imports de crates externos y flags de compilación. En el flujo Agent-Native, el modelo y el orquestador manipulan únicamente la **intención funcional estructurada** (System Specification y Semantic IR declarativa). Las herramientas deterministas congeladas (`irtool`, `ComponentEncoder`) asumen el 100 % de la emisión binaria, eliminando por completo los errores de sintaxis y tipado de bajo nivel.
-
-### B. Mantenimiento Quirúrgico Multi-Componente Acumulativo
-En ambas secuencias de evolución (`E4 sobre E3` en el dominio comercial y `WI-RES-02 sobre WI-RES-01` en el dominio de reserva de recursos), el orquestador parte de la especificación acumulada previa. El diff multidimensional identifica con exactitud los requisitos modificados y los componentes afectados, aislando completamente a los componentes dependientes e invariantes:
-- En `E4`, `order-processor.wasm` conservó exactamente el hash SHA-256 de `E3` (`25ae47ee...`) preservando la regla de IVA del 18 %.
-- En `WI-RES-01`, `reservation-coordinator.wasm` conservó exactamente su hash SHA-256 (`fa1d7ac2...`) mientras `quota-engine` se actualizaba al límite de 2,500 unidades.
-- En `WI-RES-02`, `quota-engine.wasm` conservó su hash SHA-256 (`70fa6e12...`) mientras `reservation-coordinator` evolucionaba para liquidar penalidades.
-
-### C. Generalización de Dominio Agnóstica
-El orquestador fue validado con especificaciones narrativas completamente ajenas a dominios comerciales previos:
-1. Dominio SaaS (`spec/narrative-subscription-service.md`): `usage-tracker` y `subscription-billing`.
-2. Dominio Cloud/Infraestructura (`spec/narrative-resource-reservation.md`): `quota-engine` y `reservation-coordinator`.
-3. Dominio Satelital (`telemetry.md` en pruebas automatizadas): `packet-collector` y `data-distributor`.
-El sistema extrajo los requisitos, generó la System Specification y compiló componentes WebAssembly válidos sin introducir dependencias específicas de dominio ni modificar manualmente el compilador.
-
----
-
-## 5. Conclusión y Recomendación de Extracción
-
-El benchmark y la fase de estabilización demuestran con evidencia empírica verificable que Agent-Native v0.1.0 opera como un motor independiente de software compilado a WebAssembly. La tecnología supera en dos órdenes de magnitud la velocidad de ciclo tradicional (**87.6x más rápido**), garantiza reproducibilidad binaria absoluta (100% SHA-256 reproducible) y proporciona un aislamiento arquitectónico verificado.
-
-**Decisión final: GO.** Se recomienda proceder con la extracción de Agent-Native a su repositorio independiente como motor de software autónomo.
+1. **Ausencia Total de Fallbacks Silenciosos en Runtime (`crates/runner/src/main.rs`):**
+   - El runner ejecuta cualquier componente WebAssembly dinámicamente mediante introspección de tipos de `wasmtime::component::Component` (sin `bindgen!` por dominio).
+   - Se eliminaron todos los `return 0` y `unwrap_or(0)` ante fallos de dependencias. Cualquier dependencia ausente (`missing_dependency`), binario corrupto (`invalid_binary`), discrepancia de contrato (`instantiation_failed`) o trap de ejecución (`execution_trap`) aborta la invocación y reporta un error técnico estructurado `[DependencyError]` con `actual: None` y `passed: false`.
+2. **Promoción Atómica y Fuente Única de Verdad (`crates/orchestrator/src/lib.rs`):**
+   - `active.json` se reemplaza atómicamente mediante `MoveFileExW(..., MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)` en Windows y `rename` en POSIX, sin eliminar previamente `active.json`.
+   - Se eliminaron las copias de conveniencia en la raíz de `out_dir`; todos los artefactos residen inmutablemente en `versions/<version_id>/`.
+3. **Higiene de Credenciales y Telemetría Exacta (`crates/orchestrator/src/agent.rs`):**
+   - Ninguna credencial ni token se escribe jamás en archivos temporales en disco ni en argumentos de proceso.
+   - Los tokens no reportados por un proveedor se serializan como `null` (`None`) con `tokens_reported: false`, sin estimaciones heurísticas.

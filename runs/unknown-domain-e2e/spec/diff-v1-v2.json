@@ -1,0 +1,13 @@
+{
+  "added_requirements": [],
+  "modified_requirements": [
+    "HYDRO-002"
+  ],
+  "deprecated_requirements": [],
+  "affected_components": [
+    "hydro-sensor"
+  ],
+  "modified_operations": [],
+  "modified_entities": [],
+  "modified_contracts": []
+}

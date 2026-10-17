@@ -1,6 +1,6 @@
 # Release Candidate v0.1.0 — Agent-Native
 
-**Iniciativa:** `KADDO-AGENT-NATIVE-STABILIZATION-CLOSURE`  
+**Iniciativa:** `KADDO-AGENT-NATIVE-FINAL-CLOSURE` (`WI-S17`)  
 **Versión Objetivo:** Agent-Native v0.1.0  
 **Fecha de Publicación:** 2026-10-16  
 **Decisión Final del Equipo:** **GO para extracción a repositorio independiente**  
@@ -8,95 +8,74 @@
 
 ---
 
-## 1. Declaración de Conformidad y Alcance
+## 1. Declaración de Conformidad y Alcance Validado (v0.1.0)
 
-Agent-Native v0.1.0 queda formalmente estabilizado y validado como una tecnología autónoma de construcción y evolución de software a partir de lenguaje natural y Work Items estructurados, sin intervención manual sobre la representación intermedia (`Semantic IR`) ni dependencia obligatoria del ecosistema Kaddo.
+Agent-Native v0.1.0 queda formalmente validado como un motor standalone de generación, verificación determinista, compilación a WebAssembly Component Model, ejecución dinámica y evolución acumulativa de componentes dentro del alcance de **Semantic IR v0.5** (`i32`, `bool`, `Record`, aritmética/comparación, condicionales, capacidades de host `kv_get`/`emit_audit`/`check_credit`/`tenant_status` y composición WIT `component_call`).
 
-### Capacidades Demostradas y Verificadas (v0.1.0)
-1. **Compilación Determinista Multi-Componente (`irtool`):**
-   - Validación sintáctica y semántica estricta sobre contratos WIT (`WIT-0.1.0`).
-   - Resolución WIT obligatoria sin fallbacks silenciosos a archivos predefinidos (`E_WIT_NOT_FOUND`, `E_WIT_PARSE_ERROR`, `E_WIT_WORLD_NOT_FOUND`).
-   - Emisión determinista de binarios WebAssembly Component Model con Canonical ABI.
-   - Diagnósticos estructurados con código de error y JSONPath exacto para auto-recuperación de agentes.
+### Garantías Técnicas Cerradas en WI-S17
 
-2. **Orquestación y Reconciliación Incremental (`orchestrator`):**
-   - Ingesta de narrativas funcionales en Markdown (`spec/narrative-005.md`, `spec/narrative-resource-reservation.md`).
-   - Ingesta y reconciliación acumulativa de Work Items (`spec/work-items-e2/`, `e3/`, `e4/`, `work-items-res/`).
-   - Detección de colisiones de versión, dependencias rotas y diff multidimensional de requisitos.
-   - Publicación transaccional con carpetas versionadas `versions/build-<timestamp>/manifest.json` y actualización atómica de `active.json`.
-   - Inferencia LLM real desacoplada (`LlmImplementationAgent`) con adaptador OpenAI-compatible, medición de tokens observados y bucle de auto-reparación diagnóstica.
+1. **Ajuste A — Propagación Estricta de Fallas de Dependencias en Runtime (`crates/runner/src/main.rs`):**
+   - Se eliminaron todos los `return 0` y `.unwrap_or(0)` en la resolución e invocación de componentes enlazados.
+   - Toda falla técnica de dependencia propaga un error estructurado `[DependencyError] component=<iface> operation=<func> kind=<missing_dependency|invalid_binary|instantiation_failed|execution_trap>: <detalle>`, produciendo `actual: None` y `passed: false`, sin confundirse jamás con un rechazo de negocio válido (`0`).
+   - Verificado automáticamente en `tests::test_dependency_failures_never_fallback_to_zero`.
 
-3. **Runtime Generalizado y Composición en Memoria (`runner`):**
-   - Ejecución completa sobre `Wasmtime 27.0.0` Component Model.
-   - Invocación y composición nativa entre componentes (`shipping-calculator` + `order-processor`, `quota-engine` + `reservation-coordinator`).
-   - Mockeo configurable de estado del host mediante YAML (`kv`, `credit_limits`, `credit_ok`, `tenant_status`, `emit_audit`).
-   - Verificación estricta de llamadas e interfaces importadas.
+2. **Ajuste B — Promoción Atómica de Versiones y Fuente Única de Verdad (`crates/orchestrator/src/lib.rs`):**
+   - Se eliminó el patrón `remove_file` + `rename` sobre `active.json`.
+   - `atomic_replace_file()` utiliza `MoveFileExW` con `MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH` en Windows y `std::fs::rename` atómico en Unix/POSIX.
+   - Se eliminaron las copias de conveniencia en la raíz de `out_dir`: `active.json` apunta exclusivamente a `versions/<version_id>/manifest.json` y a los artefactos inmutables `versions/<version_id>/<component>.wasm` y `<component>.ir.json`.
+   - `recover_and_verify_dist_state()` limpia archivos temporales huérfanos (`.staging`, `.active.json.tmp`) y verifica la integridad SHA-256 de la versión activa.
+   - Verificado ante fallos inyectados en copia, manifiesto y promoción en `tests::test_atomic_promotion_and_partial_failure_preservation`.
 
-4. **Operación Standalone Validada:**
-   - Creación de proyecto independiente mediante `orchestrator init --project-root <dir>`.
-   - Generación de especificación, compilación y suite de pruebas ejecutadas de forma completamente desacoplada de Kaddo.
+3. **Ajuste C — Generación y Ejecución E2E de un Dominio Desconocido con LLM Real (`runs/unknown-domain-e2e/`):**
+   - El runtime (`crates/runner/src/main.rs`) fue refactorizado para ejecutar cualquier componente WebAssembly dinámicamente mediante introspección de `wasmtime::component::Component` (eliminando todos los bloques `bindgen!` específicos de dominio).
+   - Se creó el escenario **Control de Esclusas e Hidrología de Canal** (`hydro-sensor` + `lock-controller` en paquete WIT `kaddo:canal@0.1.0`), ausente de `SynthesizerAgent` y de `runner`.
+   - `orchestrator build --spec ... --out-dir ... --agent llm` invocó inferencia real con `claude-sonnet-4-6` (`provider = "claude-cli"`), generando Semantic IR v0.5 válida en el primer intento (`attempts = 1`), verificada y compilada por `irtool` y ejecutada por `runner test` con **5/5 pruebas aprobadas en v1** y **5/5 pruebas aprobadas en v2** tras aplicar el Work Item evolutivo `WI-LOCK-01`.
 
----
-
-## 2. Manifiesto Criptográfico de Artefactos de Referencia
-
-Todos los artefactos binarios generados por el compilador determinista en la versión v0.1.0 exhiben reproducibilidad bit-a-bit (100% SHA-256 match en builds repetidas):
-
-| Componente | Dominio / Escenario | Tamaño (Bytes) | SHA-256 Digest |
-|---|---|---|---|
-| `shipping-calculator.wasm` | Comercial / Flete (Base E1/E2) | 674 B | `b9ae16245dc4b800a31d5362384a45188dabb765e119885b933fdb969c90979e` |
-| `order-processor.wasm` | Comercial / Liquidación (Base E1/E2) | 2,488 B | `a075570a554a67251a66d24c2fbcd9c46569e4a88cd69d15230b3abdae9a8751` |
-| `order-processor.wasm` | Comercial / Evolución E3 (IVA 18%) | 2,488 B | `25ae47ee79b232225ad8de23430b2f4ee5c766a81e73a19b5cbe0b617f274454` |
-| `shipping-calculator.wasm` | Comercial / Evolución E4 (Tarifas 550c/850c) | 674 B | `31bba5071664f51e60e303e321d32dfa94a1854baf9e268895d05afa6f9b36ba` |
-| `usage-tracker.wasm` | Facturación SaaS / Uso | 592 B | `731f726e10affbd6bfc0c5d9f3f2b188d60cf2390a1bf884df0c982c5d9ee5a1` |
-| `subscription-billing.wasm` | Facturación SaaS / Facturación | 1,280 B | `b248eac924829eac3e1a15152bc0f4b3a185c1b06271b36bb8f359b87e96ef5b` |
-| `quota-engine.wasm` | Infraestructura / Cuotas v1 (Límite 1000) | 741 B | `cf3c3b0df3f9154f8a37e1a7ba89ea730efd9516668e0d4bb8bb1f26a798ee3e` |
-| `reservation-coordinator.wasm` | Infraestructura / Reserva v1 | 2,216 B | `fa1d7ac207038e129ae35c755c3c0dfb6c6b4455ae0dfaa31f13b63b27b5006d` |
-| `quota-engine.wasm` | Infraestructura / Cuotas v2 (Límite 2500) | 741 B | `70fa6e129aa18055bf09b0b4a68ebae71f54cf796c342f567b45cc16a192ee71` |
-| `reservation-coordinator.wasm` | Infraestructura / Reserva v2 (+50 penalidad) | 2,234 B | `44ce415fa9fbe65961314d3527b137f86641e406208bb78bc2b7747e92383c27` |
+4. **Ajuste D — Higiene de Credenciales, Telemetría Exacta y Evidencia Persistida (`crates/orchestrator/src/agent.rs`):**
+   - Se eliminó la creación de archivos temporales `curlllm_*.cfg` en disco; las cabeceras HTTP se transmiten exclusivamente por `stdin` (`curl --config -`) en memoria.
+   - `AgentExecutionMetrics` representa `prompt_tokens`, `completion_tokens` y `total_tokens` como `Option<usize>` junto con `tokens_reported: bool`, sin estimar jamás tokens mediante `prompt.len() / 4` (verificado en `agent::tests::test_unreported_tokens_are_none_never_estimated`).
 
 ---
 
-## 3. Cobertura de Pruebas y Aprobación de Conformidad
+## 2. Evidencia Persistida del Dominio Desconocido con LLM Real (`runs/unknown-domain-e2e/`)
 
-La suite de validación automatizada comprende **22 pruebas de integración y unittests** distribuidas a lo largo del workspace:
-- **`irtool`:** 8/8 passed (verificación sintáctica, tipado estricto, detección de violaciones WIT, compilación a Component Model).
-- **`orchestrator`:** 7/7 passed (ingesta de narrativas desconocidas, rechazo de narrativas incompatibles sin invención de componentes, reconciliación acumulativa, bucle de auto-reparación diagnóstica, validación estricta de modo LLM sin fallbacks implícitos).
-- **`runner`:** 7/7 passed (operadores v0.1, records v0.2, imports/audits v0.3, Component Model v0.4, composición comercial v0.5, composición de reservas v0.5, validación acumulativa integral v1 -> v2 [WI-RES-01] -> v3 [WI-RES-02]).
-- **Prueba Standalone:** 9/9 casos de aceptación ejecutados con éxito en `runs/standalone-validation/`.
+| Versión | Componente | Proveedor / Modelo | Latencia (`ms`) | `prompt_tokens` | `completion_tokens` | `total_tokens` | Bytes WASM | SHA-256 `.wasm` | SHA-256 `.ir.json` |
+|---|---|---|---|---|---|---|---|---|---|
+| `build-1792206976764513300` (v1 Base) | `hydro-sensor` | `claude-cli` / `claude-sonnet-4-6` | `41,095` | `17,347` | `3,388` | `20,735` | 611 B | `af44b40b0b4fa3754fbeabaf44e6633307f910fa2ed43bae0381004e6ae975af` | `a3ab9191377e7968270540752933ff2464ae27b43ef6c64181908033e7f2dafa` |
+| `build-1792206976764513300` (v1 Base) | `lock-controller` | `claude-cli` / `claude-sonnet-4-6` | `128,149` | `17,903` | `10,244` | `28,147` | 1,613 B | `2e301bf2c836f9c023cc4c89199e4be1be1a20a0302cc0a3d992c063e1af9f3a` | `663eb98b16350b2867fe0125f402b7665c419d390996b37353a233d3df835a0e` |
+| `build-1792207389433634100` (v2 `WI-LOCK-01`) | `hydro-sensor` | `claude-cli` / `claude-sonnet-4-6` | `39,538` | `17,401` | `2,959` | `20,360` | 605 B | `4ae71032e4cb83385721ce25848f906230e5fbcb74a2af55787f3cbcb3873641` | `58315f1fc2783220d83722b22b61dcb7315a2a37b35167e40ac7a8728be7904c` |
+| `build-1792207389433634100` (v2 `WI-LOCK-01`) | `lock-controller` | `claude-cli` / `claude-sonnet-4-6` | `93,999` | `17,903` | `7,859` | `25,762` | 1,618 B | `d4fb2fc0e20837f9b637cbbe2a2a0e3a3f88405bd768b2add44b77ddb29b6f37` | `b130a61a9c07f97006b979e8ecb26bfe49558c09fbc23d42e3311614b838f528` |
 
----
-
-## 4. Guía de Extracción hacia Nuevo Repositorio
-
-Para extraer Agent-Native a un repositorio independiente (`agent-native-core`):
-
-1. **Estructura a migrar:**
-   - `crates/irtool/` -> Motor de Semantic IR y compilador WebAssembly.
-   - `crates/orchestrator/` -> Motor de consolidación de System Specification y agentes de implementación.
-   - `crates/runner/` -> Runtime determinista sobre Wasmtime Component Model.
-   - `spec/` -> Esquemas JSON de Semantic IR v0.5 y System Spec v1.0.0.
-   - `wit/` -> Contratos de interfaces WIT fundamentales.
-   - `BENCHMARK_REPORT_005.md` -> Evidencia empírica de rendimiento y aislamiento.
-   - `RELEASE_CANDIDATE_v0.1.0.md` -> Declaración de release y trazabilidad de hashes.
-
-2. **Dependencias requeridas:**
-   - Rust 1.80+ (edición 2021).
-   - Wasmtime 27.0.0 (Component Model activado).
-   - `wit-component 0.221.0` y `wasm-encoder 0.221.0`.
-
-3. **Comando de inicialización de nuevo proyecto en downstream:**
-   ```bash
-   orchestrator init --project-root ./my-agent-native-app
-   orchestrator spec --narrative ./my-agent-native-app/spec/narrative.md --output ./my-agent-native-app/spec/system-spec.json
-   orchestrator build --spec ./my-agent-native-app/spec/system-spec.json --out-dir ./my-agent-native-app/dist --agent deterministic
-   runner test --wasm ./my-agent-native-app/dist/order-processor.wasm --link ./my-agent-native-app/dist/shipping-calculator.wasm --cases ./my-agent-native-app/tests/acceptance.yaml --output ./my-agent-native-app/dist/results.json
-   ```
+Artefactos persistidos en el repositorio:
+- Especificación y evolución: `runs/unknown-domain-e2e/spec/narrative-canal-lock.md`, `runs/unknown-domain-e2e/spec/work-items/WI-LOCK-01-hydro-damping.md`, `system-spec-v1.json`, `system-spec-v2.json`, `diff-v1-v2.json`.
+- Versiones inmutables y puntero atómico: `runs/unknown-domain-e2e/dist/active.json`, `runs/unknown-domain-e2e/dist/versions/build-1792206976764513300/manifest.json`, `runs/unknown-domain-e2e/dist/versions/build-1792207389433634100/manifest.json`.
+- Reportes de aceptación ejecutados: `runs/unknown-domain-e2e/results/acceptance-v1-report.json` (5/5 passed) y `runs/unknown-domain-e2e/results/acceptance-v2-report.json` (5/5 passed).
 
 ---
 
-## 5. Decisión de Arquitectura: GO
+## 3. Cobertura de Pruebas Automatizadas del Workspace
 
-Con la finalización de los Work Items **WI-S13, WI-S14, WI-S15 y WI-S16** (remediación final y validación de estabilidad v0.1.0), se declara **formalmente cerrada la POC 005 y concluida la fase de estabilización definitiva**.
+La suite de validación automatizada comprende **26 pruebas unitarias y de integración** en el workspace (`cargo test --workspace`):
+- **`irtool` (8/8 passed):** verificación sintáctica y semántica, contratos WIT, compilación determinista a Component Model.
+- **`orchestrator` (9/9 passed):** interpretación de narrativas no vistas, rechazo de narrativas incompatibles, reconciliación acumulativa, bucle de recuperación diagnóstica, modo LLM estricto sin API key, prohibición de estimación de tokens (`test_unreported_tokens_are_none_never_estimated`), promoción atómica y preservación de `active.json` ante fallas parciales de copia, manifiesto y promoción (`test_atomic_promotion_and_partial_failure_preservation`).
+- **`runner` (9/9 passed):** ejecución dinámica sobre Wasmtime Component Model, propagación estricta de errores de dependencias sin fallback a cero (`test_dependency_failures_never_fallback_to_zero`), evolución acumulativa v1 -> v2 -> v3 de reservas (`test_cumulative_reservation_evolution_v1_v2_v3`), y validación integral v1 y v2 del dominio desconocido generado por LLM (`test_unseen_llm_domain_canal_lock_v1_and_v2`).
 
-Agent-Native v0.1.0 cumple con todos los criterios de suficiencia técnica, determinismo, seguridad de credenciales, publicación atómica e inmutable, y desacople funcional para su evolución como proyecto y repositorio independiente.
+---
+
+## 4. Comandos de Reproducción
+
+```bash
+# 1. Ejecutar toda la suite de pruebas del workspace (26 tests)
+cargo test --workspace
+
+# 2. Reproducir generación de especificación y construcción con LLM real sobre el dominio desconocido
+cargo run --bin orchestrator -- spec --narrative runs/unknown-domain-e2e/spec/narrative-canal-lock.md --output runs/unknown-domain-e2e/spec/system-spec-v1.json
+cargo run --bin orchestrator -- build --spec runs/unknown-domain-e2e/spec/system-spec-v1.json --out-dir runs/unknown-domain-e2e/dist --agent llm
+
+# 3. Ejecutar pruebas de aceptación sobre los componentes publicados
+cargo run --bin runner -- test \
+  --wasm runs/unknown-domain-e2e/dist/versions/build-1792206976764513300/lock-controller.wasm \
+  --link runs/unknown-domain-e2e/dist/versions/build-1792206976764513300/hydro-sensor.wasm \
+  --cases runs/unknown-domain-e2e/tests/acceptance-v1.yaml \
+  --output runs/unknown-domain-e2e/results/acceptance-v1-report.json
+```

@@ -1,0 +1,195 @@
+{
+  "$schema": "./system-spec.schema.json",
+  "spec_version": "1.0.0",
+  "metadata": {
+    "title": "Sistema de Control de Esclusas e Hidrología de Canal",
+    "description": "System specification automatically synthesized by Agent-Native RequirementsInterpreter from narrative-canal-lock.md",
+    "source_type": "work-items",
+    "source_files": [
+      "WI-LOCK-01-hydro-damping.md"
+    ],
+    "last_updated": "2026-10-16"
+  },
+  "components": [
+    {
+      "id": "hydro-sensor",
+      "name": "Sensor Hidrológico",
+      "description": "** Calcula el índice de flujo hidrodinámico a partir del nivel de agua y la presión en compuerta.",
+      "wit_file": "wit/hydro-sensor.wit",
+      "world": "hydro-sensor",
+      "export_interfaces": [
+        "hydro-service"
+      ],
+      "import_interfaces": [],
+      "capabilities": [],
+      "dependencies": []
+    },
+    {
+      "id": "lock-controller",
+      "name": "Controlador de Esclusa",
+      "description": "** Coordina la autorización de paso de buques, consulta el índice de flujo en `hydro-sensor`, obtiene recargos de lastre desde el host (`kv_get`) y registra auditorías de apertura (`emit_audit`).",
+      "wit_file": "wit/lock-controller.wit",
+      "world": "lock-controller",
+      "export_interfaces": [
+        "lock-service"
+      ],
+      "import_interfaces": [
+        "host-services",
+        "hydro-service"
+      ],
+      "capabilities": [],
+      "dependencies": [
+        "hydro-sensor"
+      ]
+    }
+  ],
+  "requirements": [
+    {
+      "id": "HYDRO-001",
+      "component": "hydro-sensor",
+      "title": "HYDRO-001 (Validación de lecturas físicas):",
+      "statement": "Si `water_level_cm <= 0` o `gate_pressure_kpa < 0`, la función `compute_flow_index` debe retornar `0`.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref_target": "narrative-canal-lock.md#hydro-001"
+      },
+      "acceptance_criteria": [
+        "Si `water_level_cm <= 0` o `gate_pressure_kpa < 0`, la función `compute_flow_index` debe retornar `0`."
+      ]
+    },
+    {
+      "id": "HYDRO-002",
+      "component": "hydro-sensor",
+      "title": "HYDRO-002 (Cálculo de índice de flujo con tope de seguridad):",
+      "statement": "Con las válvulas de amortiguación activadas, cuando `water_level_cm > 0` y `gate_pressure_kpa >= 0`, `compute_flow_index` calcula el índice de flujo amortiguado como `water_level_cm + gate_pressure_kpa` (factor lineal 1x en lugar de multiplicar `water_level_cm * 2`). Si `water_level_cm + gate_pressure_kpa >= 1000`, retorna el tope máximo `1000`; en caso contrario retorna `water_level_cm + gate_pressure_kpa`.",
+      "status": "active",
+      "version": 2,
+      "source": {
+        "type": "work-item",
+        "ref_target": "WI-LOCK-01-hydro-damping.md#hydro-002"
+      },
+      "acceptance_criteria": [
+        "Con las válvulas de amortiguación activadas, cuando `water_level_cm > 0` y `gate_pressure_kpa >= 0`, `compute_flow_index` calcula el índice de flujo amortiguado como `water_level_cm + gate_pressure_kpa` (factor lineal 1x en lugar de multiplicar `water_level_cm * 2`). Si `water_level_cm + gate_pressure_kpa >= 1000`, retorna el tope máximo `1000`; en caso contrario retorna `water_level_cm + gate_pressure_kpa`."
+      ]
+    },
+    {
+      "id": "LOCK-001",
+      "component": "lock-controller",
+      "title": "LOCK-001 (Validación de calado y nivel mínimo de cámara):",
+      "statement": "Si `vessel_draft_cm <= 0` o `water_level_cm < vessel_draft_cm`, rechaza inmediatamente el tránsito retornando un registro `TransitDecision` con `status_code = 1`, `flow_index = 0`, `ballast_fee = 0`, sin emitir auditoría.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref_target": "narrative-canal-lock.md#lock-001"
+      },
+      "acceptance_criteria": [
+        "Si `vessel_draft_cm <= 0` o `water_level_cm < vessel_draft_cm`, rechaza inmediatamente el tránsito retornando un registro `TransitDecision` con `status_code = 1`, `flow_index = 0`, `ballast_fee = 0`, sin emitir auditoría."
+      ]
+    },
+    {
+      "id": "LOCK-002",
+      "component": "lock-controller",
+      "title": "LOCK-002 (Evaluación hidrodinámica delegada a hydro-sensor):",
+      "statement": "Si el calado es válido (`vessel_draft_cm > 0` y `water_level_cm >= vessel_draft_cm`), invoca la operación importada `compute_flow_index(water_level_cm, gate_pressure_kpa)` del componente `hydro-sensor` (`wit_interface: \"hydro-service\"`, `capability: \"component_call\"`). Si el valor retornado es `<= 0` o `>= 1000`, rechaza el tránsito por turbulencia retornando `TransitDecision` con `status_code = 2`, `flow_index = compute_flow_index(water_level_cm, gate_pressure_kpa)`, `ballast_fee = 0`, sin emitir auditoría.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref_target": "narrative-canal-lock.md#lock-002"
+      },
+      "acceptance_criteria": [
+        "Si el calado es válido (`vessel_draft_cm > 0` y `water_level_cm >= vessel_draft_cm`), invoca la operación importada `compute_flow_index(water_level_cm, gate_pressure_kpa)` del componente `hydro-sensor` (`wit_interface: \"hydro-service\"`, `capability: \"component_call\"`). Si el valor retornado es `<= 0` o `>= 1000`, rechaza el tránsito por turbulencia retornando `TransitDecision` con `status_code = 2`, `flow_index = compute_flow_index(water_level_cm, gate_pressure_kpa)`, `ballast_fee = 0`, sin emitir auditoría."
+      ]
+    },
+    {
+      "id": "LOCK-003",
+      "component": "lock-controller",
+      "title": "LOCK-003 (Aprobación, cálculo de tarifa con kv_get y auditoría emit_audit):",
+      "statement": "Si `compute_flow_index(water_level_cm, gate_pressure_kpa)` está entre `1` y `999` inclusive, aprueba el tránsito: consulta el recargo por calado invocando `kv_get(vessel_draft_cm)` (`wit_interface: \"host-services\"`, `capability: \"kv_store\"`), emite el evento de auditoría `emit_audit(300)` (`wit_interface: \"host-services\"`, `capability: \"audit_log\"`) integrando la llamada en la expresión del registro (por ejemplo sumando `emit_audit(300) * 0` a `status_code` para que `status_code` sea `0`), y retorna `TransitDecision` con `status_code = 0`, `flow_index = compute_flow_index(water_level_cm, gate_pressure_kpa)` y `ballast_fee = (vessel_draft_cm * 3) + kv_get(vessel_draft_cm)`.",
+      "status": "active",
+      "version": 1,
+      "source": {
+        "type": "narrative",
+        "ref_target": "narrative-canal-lock.md#lock-003"
+      },
+      "acceptance_criteria": [
+        "Si `compute_flow_index(water_level_cm, gate_pressure_kpa)` está entre `1` y `999` inclusive, aprueba el tránsito: consulta el recargo por calado invocando `kv_get(vessel_draft_cm)` (`wit_interface: \"host-services\"`, `capability: \"kv_store\"`), emite el evento de auditoría `emit_audit(300)` (`wit_interface: \"host-services\"`, `capability: \"audit_log\"`) integrando la llamada en la expresión del registro (por ejemplo sumando `emit_audit(300) * 0` a `status_code` para que `status_code` sea `0`), y retorna `TransitDecision` con `status_code = 0`, `flow_index = compute_flow_index(water_level_cm, gate_pressure_kpa)` y `ballast_fee = (vessel_draft_cm * 3) + kv_get(vessel_draft_cm)`."
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "name": "TransitDecision",
+      "description": "",
+      "fields": [
+        {
+          "name": "status_code",
+          "type": "i32",
+          "description": "Código de resultado (0 = aprobado, 1 = calado inválido o nivel insuficiente, 2 = turbulencia excesiva)."
+        },
+        {
+          "name": "flow_index",
+          "type": "i32",
+          "description": "Índice de flujo hidrodinámico reportado por el sensor."
+        },
+        {
+          "name": "ballast_fee",
+          "type": "i32",
+          "description": "Tarifa de lastre calculada en centavos."
+        }
+      ]
+    }
+  ],
+  "operations": [
+    {
+      "name": "compute_flow_index",
+      "component": "hydro-sensor",
+      "wit_interface": "hydro-service",
+      "params": [
+        {
+          "name": "water_level_cm",
+          "type": "i32"
+        },
+        {
+          "name": "gate_pressure_kpa",
+          "type": "i32"
+        }
+      ],
+      "returns": "i32",
+      "rules_applied": [
+        "HYDRO-001",
+        "HYDRO-002"
+      ],
+      "effects": []
+    },
+    {
+      "name": "evaluate_lock_transit",
+      "component": "lock-controller",
+      "wit_interface": "lock-service",
+      "params": [
+        {
+          "name": "vessel_draft_cm",
+          "type": "i32"
+        },
+        {
+          "name": "water_level_cm",
+          "type": "i32"
+        },
+        {
+          "name": "gate_pressure_kpa",
+          "type": "i32"
+        }
+      ],
+      "returns": "TransitDecision",
+      "rules_applied": [
+        "LOCK-001",
+        "LOCK-002",
+        "LOCK-003"
+      ],
+      "effects": []
+    }
+  ]
+}

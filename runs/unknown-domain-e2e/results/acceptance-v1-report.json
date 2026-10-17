@@ -1,0 +1,137 @@
+{
+  "passed": 5,
+  "failed": 0,
+  "total": 5,
+  "execution_ms": 70,
+  "cases": [
+    {
+      "id": "LOCK-TC-001",
+      "requirement": "LOCK-001",
+      "function": "evaluate_lock_transit",
+      "args": [
+        0,
+        300,
+        100
+      ],
+      "expected": {
+        "ballast_fee": 0,
+        "flow_index": 0,
+        "status_code": 1
+      },
+      "actual": {
+        "ballast_fee": 0,
+        "flow_index": 0,
+        "status_code": 1
+      },
+      "expected_host_calls": [],
+      "actual_host_calls": [],
+      "passed": true
+    },
+    {
+      "id": "LOCK-TC-002",
+      "requirement": "LOCK-001",
+      "function": "evaluate_lock_transit",
+      "args": [
+        250,
+        200,
+        100
+      ],
+      "expected": {
+        "ballast_fee": 0,
+        "flow_index": 0,
+        "status_code": 1
+      },
+      "actual": {
+        "ballast_fee": 0,
+        "flow_index": 0,
+        "status_code": 1
+      },
+      "expected_host_calls": [],
+      "actual_host_calls": [],
+      "passed": true
+    },
+    {
+      "id": "LOCK-TC-003",
+      "requirement": "LOCK-003",
+      "function": "evaluate_lock_transit",
+      "args": [
+        200,
+        300,
+        100
+      ],
+      "expected": {
+        "ballast_fee": 640,
+        "flow_index": 700,
+        "status_code": 0
+      },
+      "actual": {
+        "ballast_fee": 640,
+        "flow_index": 700,
+        "status_code": 0
+      },
+      "expected_host_calls": [
+        {
+          "import": "emit_audit",
+          "args": [
+            300
+          ]
+        }
+      ],
+      "actual_host_calls": [
+        {
+          "import": "emit_audit",
+          "args": [
+            300
+          ]
+        }
+      ],
+      "passed": true
+    },
+    {
+      "id": "LOCK-TC-004",
+      "requirement": "LOCK-002",
+      "function": "evaluate_lock_transit",
+      "args": [
+        250,
+        450,
+        150
+      ],
+      "expected": {
+        "ballast_fee": 0,
+        "flow_index": 1000,
+        "status_code": 2
+      },
+      "actual": {
+        "ballast_fee": 0,
+        "flow_index": 1000,
+        "status_code": 2
+      },
+      "expected_host_calls": [],
+      "actual_host_calls": [],
+      "passed": true
+    },
+    {
+      "id": "LOCK-TC-005",
+      "requirement": "HYDRO-001",
+      "function": "evaluate_lock_transit",
+      "args": [
+        200,
+        300,
+        -10
+      ],
+      "expected": {
+        "ballast_fee": 0,
+        "flow_index": 0,
+        "status_code": 2
+      },
+      "actual": {
+        "ballast_fee": 0,
+        "flow_index": 0,
+        "status_code": 2
+      },
+      "expected_host_calls": [],
+      "actual_host_calls": [],
+      "passed": true
+    }
+  ]
+}

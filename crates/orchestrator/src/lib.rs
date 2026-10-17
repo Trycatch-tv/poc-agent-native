@@ -120,13 +120,29 @@ pub struct BuildArtifact {
     pub wasm_file: String,
     pub bytes_len: usize,
     pub sha256: String,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub ir_file: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub ir_sha256: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub agent_metrics: Option<AgentExecutionMetrics>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BuildSummary {
     pub success: bool,
+    pub version_id: String,
     pub artifacts: Vec<BuildArtifact>,
     pub diagnostics: Vec<irtool::Diagnostic>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub agent_metrics: Option<AgentExecutionMetrics>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BuildFailPoint {
+    DuringVersionCopy,
+    DuringManifestWrite,
+    DuringActivePromote,
 }
 
 /// Agent-Native Implementation Agent Contract
@@ -138,6 +154,10 @@ pub trait ImplementationAgent {
         spec: &SystemSpec,
         diagnostics: &[irtool::Diagnostic],
     ) -> Result<serde_json::Value, String>;
+
+    fn last_execution_metrics(&self) -> Option<AgentExecutionMetrics> {
+        None
+    }
 }
 
 /// Dynamic Synthesizer Agent that produces Semantic IR based on System Specification and Requirement AST rules
@@ -1119,7 +1139,12 @@ pub fn parse_work_items_consolidated(
                         "Broken reference in {filename}: Work item attempts to replace non-existent requirement '{repl}'"
                     ));
                 }
-                // Add new requirement
+                // Add new requirement and link it to component operations
+                for op in &mut spec.operations {
+                    if op.component == req.component && !op.rules_applied.contains(&req.id) {
+                        op.rules_applied.push(req.id.clone());
+                    }
+                }
                 spec.requirements.push(req);
             }
         }
@@ -1191,11 +1216,184 @@ pub fn compute_spec_diff(before: &SystemSpec, after: &SystemSpec) -> SpecDiff {
     diff
 }
 
+/// Platform-native atomic file replacement without prior target deletion.
+/// - On Windows: uses `MoveFileExW` with `MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH`.
+/// - On Unix/POSIX: uses `std::fs::rename` over the existing file atomically.
+pub fn atomic_replace_file(temp_path: &Path, final_path: &Path) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStrExt;
+        const MOVEFILE_REPLACE_EXISTING: u32 = 0x0000_0001;
+        const MOVEFILE_WRITE_THROUGH: u32 = 0x0000_0008;
+
+        #[link(name = "kernel32")]
+        extern "system" {
+            fn MoveFileExW(
+                lpExistingFileName: *const u16,
+                lpNewFileName: *const u16,
+                dwFlags: u32,
+            ) -> i32;
+        }
+
+        let src_wide: Vec<u16> = temp_path
+            .as_os_str()
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+        let dst_wide: Vec<u16> = final_path
+            .as_os_str()
+            .encode_wide()
+            .chain(std::iter::once(0))
+            .collect();
+
+        // SAFETY: `src_wide` and `dst_wide` are valid null-terminated UTF-16 paths.
+        let ok = unsafe {
+            MoveFileExW(
+                src_wide.as_ptr(),
+                dst_wide.as_ptr(),
+                MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
+            )
+        };
+        if ok == 0 {
+            return Err(format!(
+                "MoveFileExW atomic replacement failed ({} -> {}): {}",
+                temp_path.display(),
+                final_path.display(),
+                std::io::Error::last_os_error()
+            ));
+        }
+        Ok(())
+    }
+
+    #[cfg(not(windows))]
+    {
+        std::fs::rename(temp_path, final_path).map_err(|e| {
+            format!(
+                "POSIX atomic rename failed ({} -> {}): {e}",
+                temp_path.display(),
+                final_path.display()
+            )
+        })
+    }
+}
+
+/// Cleans up interrupted staging/temp files and verifies the integrity of the currently active version.
+/// Returns the active `version_id` and its verified `manifest.json` value if an active version exists.
+pub fn recover_and_verify_dist_state(out_dir: &Path) -> Result<Option<(String, serde_json::Value)>, String> {
+    let temp_staging = out_dir.join(".staging");
+    if temp_staging.exists() {
+        let _ = std::fs::remove_dir_all(&temp_staging);
+    }
+    let active_temp = out_dir.join(".active.json.tmp");
+    if active_temp.exists() {
+        let _ = std::fs::remove_file(&active_temp);
+    }
+
+    let active_final = out_dir.join("active.json");
+    if !active_final.exists() {
+        return Ok(None);
+    }
+
+    let active_content = std::fs::read_to_string(&active_final)
+        .map_err(|e| format!("Failed to read active.json: {e}"))?;
+    let active_json: serde_json::Value = serde_json::from_str(&active_content)
+        .map_err(|e| format!("Corrupted active.json: {e}"))?;
+
+    let active_version = active_json
+        .get("active_version")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "active.json missing 'active_version'".to_string())?
+        .to_string();
+
+    let manifest_rel = active_json
+        .get("manifest_path")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "active.json missing 'manifest_path'".to_string())?;
+
+    let manifest_path = out_dir.join(manifest_rel);
+    if !manifest_path.exists() {
+        return Err(format!(
+            "Active version '{active_version}' manifest does not exist at {}",
+            manifest_path.display()
+        ));
+    }
+
+    let manifest_content = std::fs::read_to_string(&manifest_path)
+        .map_err(|e| format!("Failed to read active manifest {}: {e}", manifest_path.display()))?;
+    let manifest_json: serde_json::Value = serde_json::from_str(&manifest_content)
+        .map_err(|e| format!("Corrupted manifest.json for '{active_version}': {e}"))?;
+
+    let artifacts = manifest_json
+        .get("artifacts")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| format!("manifest.json for '{active_version}' missing 'artifacts' array"))?;
+
+    for art in artifacts {
+        let wasm_rel = art
+            .get("wasm_file")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| "Artifact entry missing 'wasm_file'".to_string())?;
+        let expected_sha = art
+            .get("sha256")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| "Artifact entry missing 'sha256'".to_string())?;
+
+        let wasm_path = out_dir.join(wasm_rel);
+        let bytes = std::fs::read(&wasm_path).map_err(|e| {
+            format!(
+                "Active artifact binary missing or unreadable at {}: {e}",
+                wasm_path.display()
+            )
+        })?;
+        let actual_sha = format!("{:x}", <sha2::Sha256 as sha2::Digest>::digest(&bytes));
+        if actual_sha != expected_sha {
+            return Err(format!(
+                "SHA-256 mismatch for active artifact {}: expected {expected_sha}, got {actual_sha}",
+                wasm_path.display()
+            ));
+        }
+    }
+
+    Ok(Some((active_version, manifest_json)))
+}
+
+/// Resolves the canonical path to an active component's `.wasm` binary solely via `active.json`.
+pub fn resolve_active_component_artifact(out_dir: &Path, component_id: &str) -> Result<std::path::PathBuf, String> {
+    let (_, manifest) = recover_and_verify_dist_state(out_dir)?
+        .ok_or_else(|| format!("No active version published in {}", out_dir.display()))?;
+
+    let artifacts = manifest
+        .get("artifacts")
+        .and_then(|v| v.as_array())
+        .ok_or_else(|| "Active manifest missing 'artifacts'".to_string())?;
+
+    for art in artifacts {
+        if art.get("component_id").and_then(|v| v.as_str()) == Some(component_id) {
+            if let Some(wasm_rel) = art.get("wasm_file").and_then(|v| v.as_str()) {
+                return Ok(out_dir.join(wasm_rel));
+            }
+        }
+    }
+    Err(format!(
+        "Component '{component_id}' not found in active version manifest"
+    ))
+}
+
 /// Orchestrates synthesis and compilation of all declared components using an ImplementationAgent
 pub fn build_all_components_with_agent<A: ImplementationAgent>(
     agent: &A,
     spec: &SystemSpec,
     out_dir: &Path,
+) -> Result<BuildSummary, String> {
+    build_all_components_with_options(agent, spec, out_dir, None)
+}
+
+/// Orchestrates synthesis, compilation, and atomic version promotion with optional failure injection for testing.
+pub fn build_all_components_with_options<A: ImplementationAgent>(
+    agent: &A,
+    spec: &SystemSpec,
+    out_dir: &Path,
+    fail_point: Option<BuildFailPoint>,
 ) -> Result<BuildSummary, String> {
     let temp_staging = out_dir.join(".staging");
     if temp_staging.exists() {
@@ -1204,7 +1402,15 @@ pub fn build_all_components_with_agent<A: ImplementationAgent>(
     std::fs::create_dir_all(&temp_staging).map_err(|e| e.to_string())?;
     std::fs::create_dir_all(out_dir).map_err(|e| e.to_string())?;
 
-    let mut artifacts = Vec::new();
+    struct StagedComponent {
+        component_id: String,
+        bytes_len: usize,
+        sha256: String,
+        ir_sha256: String,
+        agent_metrics: Option<AgentExecutionMetrics>,
+    }
+
+    let mut staged_components = Vec::new();
     let mut all_diags = Vec::new();
 
     for comp in &spec.components {
@@ -1232,14 +1438,20 @@ pub fn build_all_components_with_agent<A: ImplementationAgent>(
                 Ok(wasm_bytes) => {
                     let staged_wasm_path = temp_staging.join(format!("{comp_id}.wasm"));
                     std::fs::write(&staged_wasm_path, &wasm_bytes).map_err(|e| e.to_string())?;
-                    let sha256 = format!("{:x}", <sha2::Sha256 as sha2::Digest>::digest(&wasm_bytes));
 
-                    let final_wasm_path = out_dir.join(format!("{comp_id}.wasm"));
-                    artifacts.push(BuildArtifact {
+                    let staged_ir_path = temp_staging.join(format!("{comp_id}.ir.json"));
+                    let ir_bytes = serde_json::to_vec_pretty(&proposed_ir).map_err(|e| e.to_string())?;
+                    std::fs::write(&staged_ir_path, &ir_bytes).map_err(|e| e.to_string())?;
+
+                    let sha256 = format!("{:x}", <sha2::Sha256 as sha2::Digest>::digest(&wasm_bytes));
+                    let ir_sha256 = format!("{:x}", <sha2::Sha256 as sha2::Digest>::digest(&ir_bytes));
+
+                    staged_components.push(StagedComponent {
                         component_id: comp_id.clone(),
-                        wasm_file: final_wasm_path.to_string_lossy().to_string(),
                         bytes_len: wasm_bytes.len(),
                         sha256,
+                        ir_sha256,
+                        agent_metrics: agent.last_execution_metrics(),
                     });
                     last_error = None;
                     break;
@@ -1258,43 +1470,71 @@ pub fn build_all_components_with_agent<A: ImplementationAgent>(
         }
     }
 
-    // Transactional publication: create versioned directory under versions/build-<timestamp>
-    let version_id = format!("build-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis());
+    // Transactional publication: create immutable version directory under versions/build-<timestamp_nanos>
+    let now_nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let version_id = format!("build-{now_nanos}");
     let versions_dir = out_dir.join("versions");
     let version_path = versions_dir.join(&version_id);
     std::fs::create_dir_all(&version_path).map_err(|e| e.to_string())?;
 
-    // Copy staged artifacts strictly into the immutable versioned directory first
-    let mut versioned_artifacts = Vec::with_capacity(artifacts.len());
-    for art in &artifacts {
-        let src = temp_staging.join(format!("{}.wasm", art.component_id));
-        let ver_dst = version_path.join(format!("{}.wasm", art.component_id));
-        std::fs::copy(&src, &ver_dst).map_err(|e| e.to_string())?;
+    // Copy staged artifacts strictly into the immutable versioned directory
+    let mut versioned_artifacts = Vec::with_capacity(staged_components.len());
+    for (idx, staged) in staged_components.iter().enumerate() {
+        if fail_point == Some(BuildFailPoint::DuringVersionCopy) && idx == 0 {
+            let _ = std::fs::remove_dir_all(&temp_staging);
+            return Err("Injected failure during version copy into versions/<version_id>/".to_string());
+        }
+
+        let src_wasm = temp_staging.join(format!("{}.wasm", staged.component_id));
+        let dst_wasm = version_path.join(format!("{}.wasm", staged.component_id));
+        std::fs::copy(&src_wasm, &dst_wasm).map_err(|e| e.to_string())?;
+
+        let src_ir = temp_staging.join(format!("{}.ir.json", staged.component_id));
+        let dst_ir = version_path.join(format!("{}.ir.json", staged.component_id));
+        std::fs::copy(&src_ir, &dst_ir).map_err(|e| e.to_string())?;
+
         versioned_artifacts.push(BuildArtifact {
-            component_id: art.component_id.clone(),
-            wasm_file: format!("versions/{version_id}/{}.wasm", art.component_id),
-            bytes_len: art.bytes_len,
-            sha256: art.sha256.clone(),
+            component_id: staged.component_id.clone(),
+            wasm_file: format!("versions/{version_id}/{}.wasm", staged.component_id),
+            ir_file: Some(format!("versions/{version_id}/{}.ir.json", staged.component_id)),
+            ir_sha256: Some(staged.ir_sha256.clone()),
+            bytes_len: staged.bytes_len,
+            sha256: staged.sha256.clone(),
+            agent_metrics: staged.agent_metrics.clone(),
         });
     }
 
-    // Write manifest.json inside the version directory
+    if fail_point == Some(BuildFailPoint::DuringManifestWrite) {
+        let _ = std::fs::remove_dir_all(&temp_staging);
+        return Err("Injected failure before writing manifest.json in versions/<version_id>/".to_string());
+    }
+
+    let agent_metrics = agent.last_execution_metrics();
+
+    // Write manifest.json inside the immutable version directory
     let manifest = serde_json::json!({
         "version_id": version_id,
         "created_at": chrono_or_iso_now(),
         "spec_version": spec.spec_version,
         "spec_source": spec.metadata.source_type,
+        "agent_name": agent.name(),
+        "agent_metrics": agent_metrics,
         "components_count": versioned_artifacts.len(),
         "artifacts": versioned_artifacts,
     });
     let manifest_bytes = serde_json::to_vec_pretty(&manifest).map_err(|e| e.to_string())?;
     std::fs::write(version_path.join("manifest.json"), &manifest_bytes).map_err(|e| e.to_string())?;
 
-    // Atomically promote active.json referencing the immutable version
+    // Write .active.json.tmp and atomically replace active.json without prior deletion
     let active_manifest = serde_json::json!({
         "active_version": version_id,
         "promoted_at": chrono_or_iso_now(),
         "manifest_path": format!("versions/{version_id}/manifest.json"),
+        "agent_name": agent.name(),
+        "agent_metrics": agent_metrics,
         "artifacts": versioned_artifacts,
     });
     let active_temp = out_dir.join(".active.json.tmp");
@@ -1302,25 +1542,21 @@ pub fn build_all_components_with_agent<A: ImplementationAgent>(
     std::fs::write(&active_temp, serde_json::to_vec_pretty(&active_manifest).map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())?;
 
-    // Safe cross-platform atomic replace: on Windows rename over existing file can fail
-    if active_final.exists() {
-        let _ = std::fs::remove_file(&active_final);
+    if fail_point == Some(BuildFailPoint::DuringActivePromote) {
+        let _ = std::fs::remove_dir_all(&temp_staging);
+        return Err("Injected failure after writing .active.json.tmp before atomic promotion".to_string());
     }
-    std::fs::rename(&active_temp, &active_final).map_err(|e| e.to_string())?;
 
-    // Now that promotion is committed, expose convenience top-level symlinks/copies
-    for art in &artifacts {
-        let src = temp_staging.join(format!("{}.wasm", art.component_id));
-        let top_dst = out_dir.join(format!("{}.wasm", art.component_id));
-        let _ = std::fs::copy(&src, &top_dst);
-    }
+    atomic_replace_file(&active_temp, &active_final)?;
 
     let _ = std::fs::remove_dir_all(&temp_staging);
 
     Ok(BuildSummary {
         success: true,
-        artifacts,
+        version_id,
+        artifacts: versioned_artifacts,
         diagnostics: all_diags,
+        agent_metrics,
     })
 }
 
@@ -1389,12 +1625,17 @@ mod tests {
         let content = include_str!("../../../spec/narrative-005.md");
         let spec = parse_narrative(content, "narrative-005.md").expect("valid parse");
         let temp_dir = std::env::temp_dir().join("orch_test_build");
+        let _ = std::fs::remove_dir_all(&temp_dir);
         let summary = build_all_components(&spec, &temp_dir).expect("build success");
         assert!(summary.success);
         assert_eq!(summary.artifacts.len(), 2);
         for art in &summary.artifacts {
             assert!(art.bytes_len > 500);
             assert!(!art.sha256.is_empty());
+            assert!(art.wasm_file.starts_with("versions/build-"));
+            assert!(temp_dir.join(&art.wasm_file).exists());
+            // Verify single source of truth: no convenience copy in root of out_dir
+            assert!(!temp_dir.join(format!("{}.wasm", art.component_id)).exists());
         }
     }
 
@@ -1436,6 +1677,7 @@ mod tests {
         let content = include_str!("../../../spec/narrative-005.md");
         let spec = parse_narrative(content, "narrative-005.md").expect("valid parse");
         let temp_dir = std::env::temp_dir().join("orch_recovery_test");
+        let _ = std::fs::remove_dir_all(&temp_dir);
         let summary = build_all_components_with_agent(&agent, &spec, &temp_dir)
             .expect("should recover and succeed");
         assert!(summary.success);
@@ -1456,6 +1698,7 @@ mod tests {
 
         // Step 2: Build initial components transactionally
         let build_dir = std::env::temp_dir().join("res_test_build");
+        let _ = std::fs::remove_dir_all(&build_dir);
         let summary_initial = build_all_components(&spec_initial, &build_dir)
             .expect("Initial build must succeed");
         assert!(summary_initial.success);
@@ -1492,4 +1735,101 @@ mod tests {
         assert!(summary_step2.success);
         assert_eq!(summary_step2.artifacts.len(), 2);
     }
+
+    #[test]
+    fn test_atomic_promotion_and_partial_failure_preservation() {
+        let narrative = include_str!("../../../spec/narrative-resource-reservation.md");
+        let spec_v1 = parse_narrative(narrative, "narrative-resource-reservation.md")
+            .expect("Valid narrative");
+
+        let dist_dir = std::env::temp_dir().join("orch_atomic_promotion_test");
+        let _ = std::fs::remove_dir_all(&dist_dir);
+
+        // 1. Publish initial valid version v1
+        let summary_v1 = build_all_components(&spec_v1, &dist_dir).expect("v1 build succeeds");
+        let v1_id = summary_v1.version_id.clone();
+        let active_content_v1 = std::fs::read_to_string(dist_dir.join("active.json")).unwrap();
+
+        let (verified_id, _) = recover_and_verify_dist_state(&dist_dir)
+            .expect("valid dist state")
+            .expect("active version present");
+        assert_eq!(verified_id, v1_id);
+
+        // Prepare evolved spec v2
+        let wi1 = include_str!("../../../spec/work-items-res/WI-RES-01-quota-limit.md");
+        let spec_v2 = parse_work_items_consolidated(
+            Some(&spec_v1),
+            &[("WI-RES-01-quota-limit.md", wi1)],
+        )
+        .expect("Valid WI-RES-01");
+
+        // 2. Simulate interrupted build during version copy
+        let err_copy = build_all_components_with_options(
+            &SynthesizerAgent,
+            &spec_v2,
+            &dist_dir,
+            Some(BuildFailPoint::DuringVersionCopy),
+        );
+        assert!(err_copy.is_err());
+        assert_eq!(
+            std::fs::read_to_string(dist_dir.join("active.json")).unwrap(),
+            active_content_v1,
+            "active.json must remain byte-for-byte identical after copy failure"
+        );
+        let (recovered_after_copy, _) = recover_and_verify_dist_state(&dist_dir).unwrap().unwrap();
+        assert_eq!(recovered_after_copy, v1_id);
+
+        // 3. Simulate interrupted build during manifest write
+        let err_manifest = build_all_components_with_options(
+            &SynthesizerAgent,
+            &spec_v2,
+            &dist_dir,
+            Some(BuildFailPoint::DuringManifestWrite),
+        );
+        assert!(err_manifest.is_err());
+        assert_eq!(
+            std::fs::read_to_string(dist_dir.join("active.json")).unwrap(),
+            active_content_v1,
+            "active.json must remain byte-for-byte identical after manifest failure"
+        );
+        let (recovered_after_manifest, _) = recover_and_verify_dist_state(&dist_dir).unwrap().unwrap();
+        assert_eq!(recovered_after_manifest, v1_id);
+
+        // 4. Simulate interrupted build during active.json promotion (.active.json.tmp left on disk)
+        let err_promote = build_all_components_with_options(
+            &SynthesizerAgent,
+            &spec_v2,
+            &dist_dir,
+            Some(BuildFailPoint::DuringActivePromote),
+        );
+        assert!(err_promote.is_err());
+        assert!(dist_dir.join(".active.json.tmp").exists(), "Orphan .active.json.tmp simulated");
+        assert_eq!(
+            std::fs::read_to_string(dist_dir.join("active.json")).unwrap(),
+            active_content_v1,
+            "active.json must never be deleted or modified when promotion fails"
+        );
+        let (recovered_after_promote, _) = recover_and_verify_dist_state(&dist_dir).unwrap().unwrap();
+        assert_eq!(recovered_after_promote, v1_id);
+        assert!(
+            !dist_dir.join(".active.json.tmp").exists(),
+            "Recovery must clean up orphan .active.json.tmp"
+        );
+
+        // 5. Complete v2 build and verify atomic promotion transitions cleanly to v2 while v1 remains intact
+        let summary_v2 = build_all_components(&spec_v2, &dist_dir).expect("v2 build succeeds");
+        assert_ne!(summary_v2.version_id, v1_id);
+        let (active_now, _) = recover_and_verify_dist_state(&dist_dir).unwrap().unwrap();
+        assert_eq!(active_now, summary_v2.version_id);
+
+        // Verify v1 directory and artifacts are still intact in versions/<v1_id>/
+        assert!(dist_dir.join("versions").join(&v1_id).join("manifest.json").exists());
+        assert!(dist_dir.join("versions").join(&v1_id).join("quota-engine.wasm").exists());
+        assert!(dist_dir.join("versions").join(&v1_id).join("reservation-coordinator.wasm").exists());
+
+        // Verify active component resolution points to v2
+        let active_quota = resolve_active_component_artifact(&dist_dir, "quota-engine").unwrap();
+        assert!(active_quota.to_string_lossy().contains(&summary_v2.version_id));
+    }
 }
+

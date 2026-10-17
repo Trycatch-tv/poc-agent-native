@@ -56,17 +56,37 @@ struct ParsedHostState {
     credit_limits: HashMap<i32, i32>,
     credit_ok: Option<bool>,
     tenant_status: HashMap<i32, i32>,
+    custom_maps: HashMap<String, HashMap<i32, i32>>,
+    custom_scalars: HashMap<String, i32>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 struct HostStoreData {
     kv: HashMap<i32, i32>,
     credit_limits: HashMap<i32, i32>,
     credit_ok: Option<bool>,
     tenant_status: HashMap<i32, i32>,
+    custom_maps: HashMap<String, HashMap<i32, i32>>,
+    custom_scalars: HashMap<String, i32>,
     all_calls: Vec<HostCallRecord>,
-    shipping_wasm_bytes: Option<Vec<u8>>,
     linked_wasm_bytes: Option<Vec<u8>>,
+    dependency_error: Option<String>,
+}
+
+impl HostStoreData {
+    fn clone_for_child(&self) -> Self {
+        Self {
+            kv: self.kv.clone(),
+            credit_limits: self.credit_limits.clone(),
+            credit_ok: self.credit_ok,
+            tenant_status: self.tenant_status.clone(),
+            custom_maps: self.custom_maps.clone(),
+            custom_scalars: self.custom_scalars.clone(),
+            all_calls: Vec::new(),
+            linked_wasm_bytes: None,
+            dependency_error: None,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -137,73 +157,61 @@ fn yaml_to_json_val(v: &YamlValue) -> serde_json::Value {
     }
 }
 
+fn parse_i32_map(yaml_map: &serde_yaml::Mapping) -> HashMap<i32, i32> {
+    let mut out = HashMap::new();
+    for (k, v) in yaml_map {
+        let key_i32 = match k {
+            YamlValue::Number(n) => n.as_i64().and_then(|i| i32::try_from(i).ok()),
+            YamlValue::String(s) => s.parse::<i32>().ok(),
+            _ => None,
+        };
+        let val_i32 = match v {
+            YamlValue::Number(n) => n.as_i64().and_then(|i| i32::try_from(i).ok()),
+            YamlValue::Bool(b) => Some(if *b { 1 } else { 0 }),
+            YamlValue::String(s) => s.parse::<i32>().ok(),
+            _ => None,
+        };
+        if let (Some(k), Some(v)) = (key_i32, val_i32) {
+            out.insert(k, v);
+        }
+    }
+    out
+}
+
 fn parse_host_state(val: Option<&YamlValue>) -> ParsedHostState {
     let mut state = ParsedHostState::default();
     let Some(val) = val else { return state; };
     if let Some(map) = val.as_mapping() {
-        if let Some(kv_map) = map
-            .get(&YamlValue::String("kv".to_string()))
-            .and_then(|v| v.as_mapping())
-        {
-            for (k, v) in kv_map {
-                let key_i32 = match k {
-                    YamlValue::Number(n) => n.as_i64().and_then(|i| i32::try_from(i).ok()),
-                    YamlValue::String(s) => s.parse::<i32>().ok(),
-                    _ => None,
-                };
-                let val_i32 = match v {
-                    YamlValue::Number(n) => n.as_i64().and_then(|i| i32::try_from(i).ok()),
-                    YamlValue::String(s) => s.parse::<i32>().ok(),
-                    _ => None,
-                };
-                if let (Some(k), Some(v)) = (key_i32, val_i32) {
-                    state.kv.insert(k, v);
+        for (k, v) in map {
+            let Some(key_name) = k.as_str() else { continue; };
+            let norm_key = key_name.replace('-', "_");
+            match norm_key.as_str() {
+                "kv" => {
+                    if let Some(m) = v.as_mapping() {
+                        state.kv = parse_i32_map(m);
+                    }
                 }
-            }
-        }
-        if let Some(cl_map) = map
-            .get(&YamlValue::String("credit_limits".to_string()))
-            .and_then(|v| v.as_mapping())
-        {
-            for (k, v) in cl_map {
-                let key_i32 = match k {
-                    YamlValue::Number(n) => n.as_i64().and_then(|i| i32::try_from(i).ok()),
-                    YamlValue::String(s) => s.parse::<i32>().ok(),
-                    _ => None,
-                };
-                let val_i32 = match v {
-                    YamlValue::Number(n) => n.as_i64().and_then(|i| i32::try_from(i).ok()),
-                    YamlValue::String(s) => s.parse::<i32>().ok(),
-                    _ => None,
-                };
-                if let (Some(k), Some(v)) = (key_i32, val_i32) {
-                    state.credit_limits.insert(k, v);
+                "credit_limits" => {
+                    if let Some(m) = v.as_mapping() {
+                        state.credit_limits = parse_i32_map(m);
+                    }
                 }
-            }
-        }
-        if let Some(b) = map
-            .get(&YamlValue::String("credit_ok".to_string()))
-            .and_then(|v| v.as_bool())
-        {
-            state.credit_ok = Some(b);
-        }
-        if let Some(ts_map) = map
-            .get(&YamlValue::String("tenant_status".to_string()))
-            .and_then(|v| v.as_mapping())
-        {
-            for (k, v) in ts_map {
-                let key_i32 = match k {
-                    YamlValue::Number(n) => n.as_i64().and_then(|i| i32::try_from(i).ok()),
-                    YamlValue::String(s) => s.parse::<i32>().ok(),
-                    _ => None,
-                };
-                let val_i32 = match v {
-                    YamlValue::Number(n) => n.as_i64().and_then(|i| i32::try_from(i).ok()),
-                    YamlValue::String(s) => s.parse::<i32>().ok(),
-                    _ => None,
-                };
-                if let (Some(k), Some(v)) = (key_i32, val_i32) {
-                    state.tenant_status.insert(k, v);
+                "credit_ok" => {
+                    if let Some(b) = v.as_bool() {
+                        state.credit_ok = Some(b);
+                    }
+                }
+                "tenant_status" => {
+                    if let Some(m) = v.as_mapping() {
+                        state.tenant_status = parse_i32_map(m);
+                    }
+                }
+                other => {
+                    if let Some(m) = v.as_mapping() {
+                        state.custom_maps.insert(other.to_string(), parse_i32_map(m));
+                    } else if let Ok(scalar) = yaml_val_to_i32(v) {
+                        state.custom_scalars.insert(other.to_string(), scalar);
+                    }
                 }
             }
         }
@@ -248,194 +256,294 @@ fn parse_cases(raw_yaml: &str) -> Result<Vec<TestCaseInput>, String> {
     }
 }
 
-mod poc004 {
-    wasmtime::component::bindgen!({
-        path: "../../wit/order.wit",
-        world: "order-processor",
-    });
-}
-
-mod poc005_shipping {
-    wasmtime::component::bindgen!({
-        path: "../../wit/shipping-calculator.wit",
-        world: "shipping-component",
-    });
-}
-
-mod poc005_order {
-    wasmtime::component::bindgen!({
-        path: "../../wit/order-processor.wit",
-        world: "order-processor",
-    });
-}
-
-mod poc005_quota {
-    wasmtime::component::bindgen!({
-        path: "../../wit/quota-engine.wit",
-        world: "quota-engine",
-    });
-}
-
-mod poc005_res_coord {
-    wasmtime::component::bindgen!({
-        path: "../../wit/reservation-coordinator.wit",
-        world: "reservation-coordinator",
-    });
-}
-
-impl poc004::kaddo::commercial::host_services::Host for HostStoreData {
-    fn check_credit(&mut self, customer_id: i32, amount: i32) -> bool {
-        let ok = if let Some(flag) = self.credit_ok {
-            flag
-        } else {
-            let limit = *self.credit_limits.get(&customer_id).unwrap_or(&0);
-            amount <= limit
-        };
-        self.all_calls.push(HostCallRecord {
-            import: "check_credit".to_string(),
-            args: vec![serde_json::json!(customer_id), serde_json::json!(amount)],
-        });
-        ok
-    }
-
-    fn kv_get(&mut self, key: i32) -> i32 {
-        let val = *self.kv.get(&key).unwrap_or(&0);
-        self.all_calls.push(HostCallRecord {
-            import: "kv_get".to_string(),
-            args: vec![serde_json::json!(key)],
-        });
-        val
-    }
-
-    fn emit_audit(&mut self, event_type: i32, entity_id: i32) -> i32 {
-        self.all_calls.push(HostCallRecord {
-            import: "emit_audit".to_string(),
-            args: vec![serde_json::json!(event_type), serde_json::json!(entity_id)],
-        });
-        1
+fn component_val_to_json(
+    val: &wasmtime::component::Val,
+    expected_hint: &serde_json::Value,
+) -> serde_json::Value {
+    match val {
+        wasmtime::component::Val::S32(v) => serde_json::json!(*v),
+        wasmtime::component::Val::Bool(b) => {
+            if expected_hint.is_number() {
+                serde_json::json!(if *b { 1 } else { 0 })
+            } else {
+                serde_json::json!(*b)
+            }
+        }
+        wasmtime::component::Val::Record(fields) => {
+            let mut map = serde_json::Map::new();
+            let exp_obj = expected_hint.as_object();
+            for (k, v) in fields.iter() {
+                let key_str: &str = k.as_ref();
+                let snake_key = key_str.replace('-', "_");
+                let chosen_key = if let Some(obj) = exp_obj {
+                    if obj.contains_key(key_str) {
+                        key_str.to_string()
+                    } else {
+                        snake_key
+                    }
+                } else {
+                    snake_key
+                };
+                let field_hint = exp_obj
+                    .and_then(|o| o.get(&chosen_key))
+                    .unwrap_or(&serde_json::Value::Null);
+                map.insert(chosen_key, component_val_to_json(v, field_hint));
+            }
+            serde_json::Value::Object(map)
+        }
+        other => serde_json::json!(format!("{other:?}")),
     }
 }
 
-impl poc004::kaddo::commercial::types::Host for HostStoreData {}
+fn find_exported_component_func(
+    engine: &Engine,
+    comp: &wasmtime::component::Component,
+    instance: &wasmtime::component::Instance,
+    store: &mut Store<HostStoreData>,
+    target_fn: &str,
+) -> Option<(wasmtime::component::Func, wasmtime::component::types::ComponentFunc)> {
+    let target_kebab = target_fn.replace('_', "-");
+    let target_snake = target_fn.replace('-', "_");
+    let comp_ty = comp.component_type();
 
-impl poc005_order::kaddo::commercial::host_services::Host for HostStoreData {
-    fn check_credit(&mut self, customer_id: i32, amount: i32) -> bool {
-        let ok = if let Some(flag) = self.credit_ok {
-            flag
-        } else {
-            let limit = *self.credit_limits.get(&customer_id).unwrap_or(&0);
-            amount <= limit
-        };
-        self.all_calls.push(HostCallRecord {
-            import: "check_credit".to_string(),
-            args: vec![serde_json::json!(customer_id), serde_json::json!(amount)],
-        });
-        ok
+    for (export_name, item) in comp_ty.exports(engine) {
+        match item {
+            wasmtime::component::types::ComponentItem::ComponentFunc(func_ty) => {
+                if export_name == target_fn || export_name == target_kebab || export_name == target_snake {
+                    if let Some(f) = instance.get_func(&mut *store, export_name) {
+                        return Some((f, func_ty));
+                    }
+                }
+            }
+            wasmtime::component::types::ComponentItem::ComponentInstance(inst_ty) => {
+                let Some(iface_export_idx) = instance.get_export(&mut *store, None, export_name) else {
+                    continue;
+                };
+                for (fn_name, sub_item) in inst_ty.exports(engine) {
+                    if let wasmtime::component::types::ComponentItem::ComponentFunc(func_ty) = sub_item {
+                        if fn_name == target_fn || fn_name == target_kebab || fn_name == target_snake {
+                            if let Some(fn_export_idx) =
+                                instance.get_export(&mut *store, Some(&iface_export_idx), fn_name)
+                            {
+                                if let Some(f) = instance.get_func(&mut *store, fn_export_idx) {
+                                    return Some((f, func_ty));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
     }
-
-    fn kv_get(&mut self, key: i32) -> i32 {
-        let val = *self.kv.get(&key).unwrap_or(&0);
-        self.all_calls.push(HostCallRecord {
-            import: "kv_get".to_string(),
-            args: vec![serde_json::json!(key)],
-        });
-        val
-    }
-
-    fn emit_audit(&mut self, event_type: i32, entity_id: i32) -> i32 {
-        self.all_calls.push(HostCallRecord {
-            import: "emit_audit".to_string(),
-            args: vec![serde_json::json!(event_type), serde_json::json!(entity_id)],
-        });
-        1
-    }
+    None
 }
 
-impl poc005_order::kaddo::commercial::types::Host for HostStoreData {}
+fn register_component_imports(
+    engine: &Engine,
+    comp: &wasmtime::component::Component,
+    linker: &mut wasmtime::component::Linker<HostStoreData>,
+) -> Result<(), String> {
+    let comp_type = comp.component_type();
+    for (import_name, item) in comp_type.imports(engine) {
+        if let wasmtime::component::types::ComponentItem::ComponentInstance(inst_ty) = item {
+            let mut linker_inst = linker.instance(import_name).map_err(|e| e.to_string())?;
+            let is_host_service = import_name.contains("host-services") || import_name == "host";
+            let iface_name_owned = import_name.to_string();
 
-impl poc005_order::kaddo::commercial::shipping_service::Host for HostStoreData {
-    fn quote_shipping(&mut self, subtotal_cents: i32, weight_grams: i32, is_express: i32) -> i32 {
-        self.all_calls.push(HostCallRecord {
-            import: "quote_shipping".to_string(),
-            args: vec![
-                serde_json::json!(subtotal_cents),
-                serde_json::json!(weight_grams),
-                serde_json::json!(is_express),
-            ],
-        });
+            for (func_name, export_item) in inst_ty.exports(engine) {
+                if let wasmtime::component::types::ComponentItem::ComponentFunc(func_ty) = export_item {
+                    let fn_name_owned = func_name.to_string();
+                    let norm_fn_name = fn_name_owned.replace('-', "_");
+                    let iface_for_closure = iface_name_owned.clone();
+                    let ret_types: Vec<wasmtime::component::types::Type> = func_ty.results().collect();
 
-        let Some(ref bytes) = self.shipping_wasm_bytes else {
-            eprintln!("[runner host] Missing shipping_wasm_bytes dependency");
-            return 0;
-        };
-        let engine = Engine::default();
-        let Ok(comp) = wasmtime::component::Component::from_binary(&engine, bytes) else {
-            eprintln!("[runner host] Invalid shipping-calculator component binary");
-            return 0;
-        };
-        let mut sstore = Store::new(&engine, ());
-        let slinker = wasmtime::component::Linker::new(&engine);
-        let Ok(shipping_inst) = poc005_shipping::ShippingComponent::instantiate(&mut sstore, &comp, &slinker) else {
-            eprintln!("[runner host] Failed to instantiate shipping-calculator component");
-            return 0;
-        };
-        shipping_inst
-            .kaddo_shipping_shipping_service()
-            .call_quote_shipping(&mut sstore, subtotal_cents, weight_grams, is_express)
-            .unwrap_or(0)
+                    if is_host_service {
+                        linker_inst
+                            .func_new(func_name, move |mut store, params, results| {
+                                let mut i32_params = Vec::with_capacity(params.len());
+                                let mut json_params = Vec::with_capacity(params.len());
+                                for p in params {
+                                    match p {
+                                        wasmtime::component::Val::S32(v) => {
+                                            i32_params.push(*v);
+                                            json_params.push(serde_json::json!(*v));
+                                        }
+                                        wasmtime::component::Val::Bool(b) => {
+                                            let iv = if *b { 1 } else { 0 };
+                                            i32_params.push(iv);
+                                            json_params.push(serde_json::json!(iv));
+                                        }
+                                        other => {
+                                            return Err(wasmtime::Error::msg(format!(
+                                                "[HostServiceError] component={} operation={} kind=unsupported_param: {:?}",
+                                                iface_for_closure, norm_fn_name, other
+                                            )));
+                                        }
+                                    }
+                                }
+
+                                store.data_mut().all_calls.push(HostCallRecord {
+                                    import: norm_fn_name.clone(),
+                                    args: json_params,
+                                });
+
+                                let data = store.data();
+                                let ret_i32 = match norm_fn_name.as_str() {
+                                    "kv_get" => {
+                                        let key = i32_params.first().copied().unwrap_or(0);
+                                        *data.kv.get(&key).unwrap_or(&0)
+                                    }
+                                    "emit_audit" => 1,
+                                    "check_credit" => {
+                                        let customer_id = i32_params.first().copied().unwrap_or(0);
+                                        let amount = i32_params.get(1).copied().unwrap_or(0);
+                                        let ok = if let Some(flag) = data.credit_ok {
+                                            flag
+                                        } else {
+                                            let limit = *data.credit_limits.get(&customer_id).unwrap_or(&0);
+                                            amount <= limit
+                                        };
+                                        if ok { 1 } else { 0 }
+                                    }
+                                    "tenant_status" => {
+                                        let tenant_id = i32_params.first().copied().unwrap_or(0);
+                                        *data.tenant_status.get(&tenant_id).unwrap_or(&1)
+                                    }
+                                    other => {
+                                        if let Some(&scalar) = data.custom_scalars.get(other) {
+                                            scalar
+                                        } else if let Some(map) = data.custom_maps.get(other) {
+                                            let key = i32_params.first().copied().unwrap_or(0);
+                                            *map.get(&key).unwrap_or(&0)
+                                        } else if !data.kv.is_empty() && !i32_params.is_empty() {
+                                            let key = i32_params[0];
+                                            *data.kv.get(&key).unwrap_or(&0)
+                                        } else {
+                                            0
+                                        }
+                                    }
+                                };
+
+                                if !results.is_empty() {
+                                    match ret_types.first() {
+                                        Some(wasmtime::component::types::Type::Bool) => {
+                                            results[0] = wasmtime::component::Val::Bool(ret_i32 != 0);
+                                        }
+                                        _ => {
+                                            results[0] = wasmtime::component::Val::S32(ret_i32);
+                                        }
+                                    }
+                                }
+                                Ok(())
+                            })
+                            .map_err(|e| e.to_string())?;
+                    } else {
+                        linker_inst
+                            .func_new(func_name, move |mut store, params, results| {
+                                let mut json_params = Vec::with_capacity(params.len());
+                                for p in params {
+                                    match p {
+                                        wasmtime::component::Val::S32(v) => json_params.push(serde_json::json!(*v)),
+                                        wasmtime::component::Val::Bool(b) => {
+                                            json_params.push(serde_json::json!(if *b { 1 } else { 0 }))
+                                        }
+                                        _ => {}
+                                    }
+                                }
+                                store.data_mut().all_calls.push(HostCallRecord {
+                                    import: norm_fn_name.clone(),
+                                    args: json_params,
+                                });
+
+                                let Some(linked_bytes) = store.data().linked_wasm_bytes.clone() else {
+                                    let msg = format!(
+                                        "[DependencyError] component={} operation={} kind=missing_dependency: required linked component binary was not provided",
+                                        iface_for_closure, fn_name_owned
+                                    );
+                                    store.data_mut().dependency_error = Some(msg.clone());
+                                    return Err(wasmtime::Error::msg(msg));
+                                };
+
+                                let child_engine = store.engine().clone();
+                                let child_comp = match wasmtime::component::Component::from_binary(
+                                    &child_engine,
+                                    &linked_bytes,
+                                ) {
+                                    Ok(c) => c,
+                                    Err(e) => {
+                                        let msg = format!(
+                                            "[DependencyError] component={} operation={} kind=invalid_binary: failed to parse dependent component binary: {e}",
+                                            iface_for_closure, fn_name_owned
+                                        );
+                                        store.data_mut().dependency_error = Some(msg.clone());
+                                        return Err(wasmtime::Error::msg(msg));
+                                    }
+                                };
+
+                                let mut child_store =
+                                    Store::new(&child_engine, store.data().clone_for_child());
+                                let mut child_linker =
+                                    wasmtime::component::Linker::<HostStoreData>::new(&child_engine);
+                                if let Err(e) = register_component_imports(
+                                    &child_engine,
+                                    &child_comp,
+                                    &mut child_linker,
+                                ) {
+                                    let msg = format!(
+                                        "[DependencyError] component={} operation={} kind=link_failed: failed to link dependent component imports: {e}",
+                                        iface_for_closure, fn_name_owned
+                                    );
+                                    store.data_mut().dependency_error = Some(msg.clone());
+                                    return Err(wasmtime::Error::msg(msg));
+                                }
+
+                                let child_instance =
+                                    match child_linker.instantiate(&mut child_store, &child_comp) {
+                                        Ok(inst) => inst,
+                                        Err(e) => {
+                                            let msg = format!(
+                                                "[DependencyError] component={} operation={} kind=instantiation_failed: failed to instantiate dependent component: {e}",
+                                                iface_for_closure, fn_name_owned
+                                            );
+                                            store.data_mut().dependency_error = Some(msg.clone());
+                                            return Err(wasmtime::Error::msg(msg));
+                                        }
+                                    };
+
+                                let Some((child_func, _)) = find_exported_component_func(
+                                    &child_engine,
+                                    &child_comp,
+                                    &child_instance,
+                                    &mut child_store,
+                                    &fn_name_owned,
+                                ) else {
+                                    let msg = format!(
+                                        "[DependencyError] component={} operation={} kind=instantiation_failed: dependent component does not export required operation '{}'",
+                                        iface_for_closure, fn_name_owned, fn_name_owned
+                                    );
+                                    store.data_mut().dependency_error = Some(msg.clone());
+                                    return Err(wasmtime::Error::msg(msg));
+                                };
+
+                                if let Err(e) = child_func.call(&mut child_store, params, results) {
+                                    let msg = format!(
+                                        "[DependencyError] component={} operation={} kind=execution_trap: dependent component failed during '{}': {e}",
+                                        iface_for_closure, fn_name_owned, fn_name_owned
+                                    );
+                                    store.data_mut().dependency_error = Some(msg.clone());
+                                    return Err(wasmtime::Error::msg(msg));
+                                }
+                                let _ = child_func.post_return(&mut child_store);
+                                Ok(())
+                            })
+                            .map_err(|e| e.to_string())?;
+                    }
+                }
+            }
+        }
     }
-}
-
-impl poc005_res_coord::kaddo::resources::host_services::Host for HostStoreData {
-    fn tenant_status(&mut self, tenant_id: i32) -> i32 {
-        let status = *self.tenant_status.get(&tenant_id).unwrap_or(&1);
-        self.all_calls.push(HostCallRecord {
-            import: "tenant_status".to_string(),
-            args: vec![serde_json::json!(tenant_id)],
-        });
-        status
-    }
-
-    fn emit_audit(&mut self, event_type: i32, entity_id: i32) -> i32 {
-        self.all_calls.push(HostCallRecord {
-            import: "emit_audit".to_string(),
-            args: vec![serde_json::json!(event_type), serde_json::json!(entity_id)],
-        });
-        1
-    }
-}
-
-impl poc005_res_coord::kaddo::resources::quota_service::Host for HostStoreData {
-    fn check_quota(&mut self, tenant_id: i32, requested_units: i32, current_usage: i32) -> i32 {
-        self.all_calls.push(HostCallRecord {
-            import: "check_quota".to_string(),
-            args: vec![
-                serde_json::json!(tenant_id),
-                serde_json::json!(requested_units),
-                serde_json::json!(current_usage),
-            ],
-        });
-
-        let Some(ref bytes) = self.linked_wasm_bytes else {
-            eprintln!("[runner host] Missing linked quota-engine wasm bytes");
-            return 0;
-        };
-        let engine = Engine::default();
-        let Ok(comp) = wasmtime::component::Component::from_binary(&engine, bytes) else {
-            eprintln!("[runner host] Invalid quota-engine component binary");
-            return 0;
-        };
-        let mut qstore = Store::new(&engine, ());
-        let qlinker = wasmtime::component::Linker::new(&engine);
-        let Ok(quota_inst) = poc005_quota::QuotaEngine::instantiate(&mut qstore, &comp, &qlinker) else {
-            eprintln!("[runner host] Failed to instantiate quota-engine component");
-            return 0;
-        };
-        quota_inst
-            .kaddo_resources_quota_service()
-            .call_check_quota(&mut qstore, tenant_id, requested_units, current_usage)
-            .unwrap_or(0)
-    }
+    Ok(())
 }
 
 fn run_suite_component(
@@ -445,17 +553,8 @@ fn run_suite_component(
     start: Instant,
 ) -> Result<SuiteReport, String> {
     let engine = Engine::default();
-    let component = wasmtime::component::Component::from_binary(&engine, wasm_bytes).map_err(|e| e.to_string())?;
-
-    let is_poc005_order = test_cases.iter().any(|c| {
-        (c.function == "calculate_order" || c.function == "calculate-order") && c.args.len() == 7
-    });
-    let is_poc005_shipping = test_cases.iter().any(|c| {
-        (c.function == "quote_shipping" || c.function == "quote-shipping") && c.args.len() == 3
-    });
-    let is_poc005_reservation = test_cases.iter().any(|c| {
-        (c.function == "reserve_resource" || c.function == "reserve-resource") && c.args.len() == 4
-    });
+    let component = wasmtime::component::Component::from_binary(&engine, wasm_bytes)
+        .map_err(|e| format!("Invalid WebAssembly component binary: {e}"))?;
 
     let mut passed_count = 0usize;
     let mut failed_count = 0usize;
@@ -503,15 +602,36 @@ fn run_suite_component(
             credit_limits: parsed_host_state.credit_limits,
             credit_ok: parsed_host_state.credit_ok,
             tenant_status: parsed_host_state.tenant_status,
+            custom_maps: parsed_host_state.custom_maps,
+            custom_scalars: parsed_host_state.custom_scalars,
             all_calls: Vec::new(),
-            shipping_wasm_bytes: linked_wasm_bytes.clone(),
             linked_wasm_bytes: linked_wasm_bytes.clone(),
+            dependency_error: None,
         };
 
-        let (actual_json, mut is_pass, mut err, store_calls) = if is_poc005_order {
-            let mut store = Store::new(&engine, initial_store_data);
-            let mut linker = wasmtime::component::Linker::new(&engine);
-            if let Err(e) = poc005_order::OrderProcessor::add_to_linker(&mut linker, |state: &mut HostStoreData| state) {
+        let mut store = Store::new(&engine, initial_store_data);
+        let mut linker = wasmtime::component::Linker::<HostStoreData>::new(&engine);
+
+        if let Err(e) = register_component_imports(&engine, &component, &mut linker) {
+            failed_count += 1;
+            results.push(CaseResult {
+                id: tc.id.clone(),
+                requirement: tc.requirement.clone(),
+                function: tc.function.clone(),
+                args: json_args,
+                expected: expected_json,
+                actual: None,
+                expected_host_calls: expected_calls,
+                actual_host_calls: None,
+                passed: false,
+                error: Some(format!("Failed to link component imports: {e}")),
+            });
+            continue;
+        }
+
+        let instance = match linker.instantiate(&mut store, &component) {
+            Ok(inst) => inst,
+            Err(e) => {
                 failed_count += 1;
                 results.push(CaseResult {
                     id: tc.id.clone(),
@@ -523,311 +643,101 @@ fn run_suite_component(
                     expected_host_calls: expected_calls,
                     actual_host_calls: None,
                     passed: false,
-                    error: Some(format!("Failed to link component imports: {e}")),
+                    error: Some(format!("Failed to instantiate component: {e}")),
                 });
                 continue;
             }
-
-            let processor = match poc005_order::OrderProcessor::instantiate(&mut store, &component, &linker) {
-                Ok(p) => p,
-                Err(e) => {
-                    failed_count += 1;
-                    results.push(CaseResult {
-                        id: tc.id.clone(),
-                        requirement: tc.requirement.clone(),
-                        function: tc.function.clone(),
-                        args: json_args,
-                        expected: expected_json,
-                        actual: None,
-                        expected_host_calls: expected_calls,
-                        actual_host_calls: None,
-                        passed: false,
-                        error: Some(format!("Failed to instantiate component: {e}")),
-                    });
-                    continue;
-                }
-            };
-
-            let calc = processor.kaddo_commercial_order_calculator();
-            let (act, pass, er) = match tc.function.as_str() {
-                "calculate_order" | "calculate-order" => {
-                    if i32_args.len() != 7 {
-                        (
-                            None,
-                            false,
-                            Some(format!("calculate_order requires 7 arguments in POC 005, found {}", i32_args.len())),
-                        )
-                    } else {
-                        match calc.call_calculate_order(
-                            &mut store,
-                            i32_args[0],
-                            i32_args[1],
-                            i32_args[2],
-                            i32_args[3],
-                            i32_args[4],
-                            i32_args[5],
-                            i32_args[6],
-                        ) {
-                            Ok(order) => {
-                                let mut map = serde_json::Map::new();
-                                map.insert("status_code".to_string(), serde_json::json!(order.status_code));
-                                map.insert("subtotal_cents".to_string(), serde_json::json!(order.subtotal_cents));
-                                map.insert("discount_cents".to_string(), serde_json::json!(order.discount_cents));
-                                map.insert("tax_cents".to_string(), serde_json::json!(order.tax_cents));
-                                map.insert("shipping_cents".to_string(), serde_json::json!(order.shipping_cents));
-                                map.insert("total_cents".to_string(), serde_json::json!(order.total_cents));
-                                let act_val = serde_json::Value::Object(map);
-                                let p = act_val == expected_json;
-                                (Some(act_val), p, None)
-                            }
-                            Err(e) => (None, false, Some(format!("Component execution trap: {e}"))),
-                        }
-                    }
-                }
-                other => (None, false, Some(format!("Unknown component exported function '{other}'"))),
-            };
-            (act, pass, er, store.data().all_calls.clone())
-        } else if is_poc005_shipping {
-            let mut store = Store::new(&engine, ());
-            let linker = wasmtime::component::Linker::new(&engine);
-            let processor = match poc005_shipping::ShippingComponent::instantiate(&mut store, &component, &linker) {
-                Ok(p) => p,
-                Err(e) => {
-                    failed_count += 1;
-                    results.push(CaseResult {
-                        id: tc.id.clone(),
-                        requirement: tc.requirement.clone(),
-                        function: tc.function.clone(),
-                        args: json_args,
-                        expected: expected_json,
-                        actual: None,
-                        expected_host_calls: expected_calls,
-                        actual_host_calls: None,
-                        passed: false,
-                        error: Some(format!("Failed to instantiate shipping component: {e}")),
-                    });
-                    continue;
-                }
-            };
-
-            let (act, pass, er) = match tc.function.as_str() {
-                "quote_shipping" | "quote-shipping" => {
-                    if i32_args.len() != 3 {
-                        (
-                            None,
-                            false,
-                            Some(format!("quote_shipping requires 3 arguments in POC 005, found {}", i32_args.len())),
-                        )
-                    } else {
-                        match processor
-                            .kaddo_shipping_shipping_service()
-                            .call_quote_shipping(&mut store, i32_args[0], i32_args[1], i32_args[2])
-                        {
-                            Ok(q) => {
-                                let act_val = serde_json::json!(q);
-                                let p = act_val == expected_json;
-                                (Some(act_val), p, None)
-                            }
-                            Err(e) => (None, false, Some(format!("Component execution trap: {e}"))),
-                        }
-                    }
-                }
-                other => (None, false, Some(format!("Unknown shipping exported function '{other}'"))),
-            };
-            (act, pass, er, Vec::new())
-        } else if is_poc005_reservation {
-            let mut store = Store::new(&engine, initial_store_data);
-            let mut linker = wasmtime::component::Linker::new(&engine);
-            if let Err(e) = poc005_res_coord::ReservationCoordinator::add_to_linker(&mut linker, |state: &mut HostStoreData| state) {
-                failed_count += 1;
-                results.push(CaseResult {
-                    id: tc.id.clone(),
-                    requirement: tc.requirement.clone(),
-                    function: tc.function.clone(),
-                    args: json_args,
-                    expected: expected_json,
-                    actual: None,
-                    expected_host_calls: expected_calls,
-                    actual_host_calls: None,
-                    passed: false,
-                    error: Some(format!("Failed to link reservation coordinator imports: {e}")),
-                });
-                continue;
-            }
-
-            let coordinator = match poc005_res_coord::ReservationCoordinator::instantiate(&mut store, &component, &linker) {
-                Ok(c) => c,
-                Err(e) => {
-                    failed_count += 1;
-                    results.push(CaseResult {
-                        id: tc.id.clone(),
-                        requirement: tc.requirement.clone(),
-                        function: tc.function.clone(),
-                        args: json_args,
-                        expected: expected_json,
-                        actual: None,
-                        expected_host_calls: expected_calls,
-                        actual_host_calls: None,
-                        passed: false,
-                        error: Some(format!("Failed to instantiate reservation coordinator component: {e}")),
-                    });
-                    continue;
-                }
-            };
-
-            let res_service = coordinator.kaddo_resources_reservation_service();
-            let (act, pass, er) = match tc.function.as_str() {
-                "reserve_resource" | "reserve-resource" => {
-                    if i32_args.len() != 4 {
-                        (
-                            None,
-                            false,
-                            Some(format!("reserve_resource requires 4 arguments, found {}", i32_args.len())),
-                        )
-                    } else {
-                        match res_service.call_reserve_resource(
-                            &mut store,
-                            i32_args[0],
-                            i32_args[1],
-                            i32_args[2],
-                            i32_args[3],
-                        ) {
-                            Ok(res) => {
-                                let mut map = serde_json::Map::new();
-                                map.insert("status_code".to_string(), serde_json::json!(res.status_code));
-                                map.insert("approved_units".to_string(), serde_json::json!(res.approved_units));
-                                map.insert("penalty_points".to_string(), serde_json::json!(res.penalty_points));
-                                let act_val = serde_json::Value::Object(map);
-                                let p = act_val == expected_json;
-                                (Some(act_val), p, None)
-                            }
-                            Err(e) => (None, false, Some(format!("Component execution trap: {e}"))),
-                        }
-                    }
-                }
-                other => (None, false, Some(format!("Unknown reservation exported function '{other}'"))),
-            };
-            (act, pass, er, store.data().all_calls.clone())
-        } else {
-            // POC 004 legacy
-            let mut store = Store::new(&engine, initial_store_data);
-            let mut linker = wasmtime::component::Linker::new(&engine);
-            if let Err(e) = poc004::OrderProcessor::add_to_linker(&mut linker, |state: &mut HostStoreData| state) {
-                failed_count += 1;
-                results.push(CaseResult {
-                    id: tc.id.clone(),
-                    requirement: tc.requirement.clone(),
-                    function: tc.function.clone(),
-                    args: json_args,
-                    expected: expected_json,
-                    actual: None,
-                    expected_host_calls: expected_calls,
-                    actual_host_calls: None,
-                    passed: false,
-                    error: Some(format!("Failed to link component imports: {e}")),
-                });
-                continue;
-            }
-
-            let processor = match poc004::OrderProcessor::instantiate(&mut store, &component, &linker) {
-                Ok(p) => p,
-                Err(e) => {
-                    failed_count += 1;
-                    results.push(CaseResult {
-                        id: tc.id.clone(),
-                        requirement: tc.requirement.clone(),
-                        function: tc.function.clone(),
-                        args: json_args,
-                        expected: expected_json,
-                        actual: None,
-                        expected_host_calls: expected_calls,
-                        actual_host_calls: None,
-                        passed: false,
-                        error: Some(format!("Failed to instantiate component: {e}")),
-                    });
-                    continue;
-                }
-            };
-
-            let calc = processor.kaddo_commercial_order_calculator();
-            let (act, pass, er) = match tc.function.as_str() {
-                "calculate_order" | "calculate-order" => {
-                    if i32_args.len() != 6 {
-                        (
-                            None,
-                            false,
-                            Some(format!("calculate_order requires 6 arguments, found {}", i32_args.len())),
-                        )
-                    } else {
-                        match calc.call_calculate_order(
-                            &mut store,
-                            i32_args[0],
-                            i32_args[1],
-                            i32_args[2],
-                            i32_args[3],
-                            i32_args[4],
-                            i32_args[5],
-                        ) {
-                            Ok(order) => {
-                                let mut map = serde_json::Map::new();
-                                map.insert("status_code".to_string(), serde_json::json!(order.status_code));
-                                map.insert("subtotal_cents".to_string(), serde_json::json!(order.subtotal_cents));
-                                map.insert("discount_cents".to_string(), serde_json::json!(order.discount_cents));
-                                map.insert("tax_cents".to_string(), serde_json::json!(order.tax_cents));
-                                map.insert("shipping_cents".to_string(), serde_json::json!(order.shipping_cents));
-                                map.insert("total_cents".to_string(), serde_json::json!(order.total_cents));
-                                let act_val = serde_json::Value::Object(map);
-                                let p = act_val == expected_json;
-                                (Some(act_val), p, None)
-                            }
-                            Err(e) => (None, false, Some(format!("Component execution trap: {e}"))),
-                        }
-                    }
-                }
-                "quote_shipping" | "quote-shipping" => {
-                    if i32_args.len() != 2 {
-                        (
-                            None,
-                            false,
-                            Some(format!("quote_shipping requires 2 arguments, found {}", i32_args.len())),
-                        )
-                    } else {
-                        match calc.call_quote_shipping(&mut store, i32_args[0], i32_args[1]) {
-                            Ok(q) => {
-                                let act_val = serde_json::json!(q);
-                                let p = act_val == expected_json;
-                                (Some(act_val), p, None)
-                            }
-                            Err(e) => (None, false, Some(format!("Component execution trap: {e}"))),
-                        }
-                    }
-                }
-                other => (None, false, Some(format!("Unknown component exported function '{other}'"))),
-            };
-            (act, pass, er, store.data().all_calls.clone())
         };
 
+        let Some((func, func_ty)) =
+            find_exported_component_func(&engine, &component, &instance, &mut store, &tc.function)
+        else {
+            failed_count += 1;
+            results.push(CaseResult {
+                id: tc.id.clone(),
+                requirement: tc.requirement.clone(),
+                function: tc.function.clone(),
+                args: json_args,
+                expected: expected_json,
+                actual: None,
+                expected_host_calls: expected_calls,
+                actual_host_calls: None,
+                passed: false,
+                error: Some(format!("Exported component function '{}' not found", tc.function)),
+            });
+            continue;
+        };
+
+        let param_types: Vec<wasmtime::component::types::Type> = func_ty.params().collect();
+        if i32_args.len() != param_types.len() {
+            failed_count += 1;
+            results.push(CaseResult {
+                id: tc.id.clone(),
+                requirement: tc.requirement.clone(),
+                function: tc.function.clone(),
+                args: json_args,
+                expected: expected_json,
+                actual: None,
+                expected_host_calls: expected_calls,
+                actual_host_calls: None,
+                passed: false,
+                error: Some(format!(
+                    "Function '{}' requires {} arguments, found {}",
+                    tc.function,
+                    param_types.len(),
+                    i32_args.len()
+                )),
+            });
+            continue;
+        }
+
+        let mut wasm_params = Vec::with_capacity(i32_args.len());
+        for (arg_val, param_ty) in i32_args.iter().zip(param_types.iter()) {
+            match param_ty {
+                wasmtime::component::types::Type::Bool => {
+                    wasm_params.push(wasmtime::component::Val::Bool(*arg_val != 0));
+                }
+                _ => {
+                    wasm_params.push(wasmtime::component::Val::S32(*arg_val));
+                }
+            }
+        }
+
+        let num_results = func_ty.results().len();
+        let mut wasm_results = vec![wasmtime::component::Val::Bool(false); num_results];
+
+        let (actual_json, mut is_pass, mut err) =
+            match func.call(&mut store, &wasm_params, &mut wasm_results) {
+                Ok(()) => {
+                    let _ = func.post_return(&mut store);
+                    if let Some(dep_err) = store.data().dependency_error.clone() {
+                        (None, false, Some(dep_err))
+                    } else if let Some(first_res) = wasm_results.first() {
+                        let act_val = component_val_to_json(first_res, &expected_json);
+                        let pass = act_val == expected_json;
+                        (Some(act_val), pass, None)
+                    } else {
+                        (Some(serde_json::Value::Null), expected_json.is_null(), None)
+                    }
+                }
+                Err(e) => {
+                    let err_str = if let Some(dep_err) = store.data().dependency_error.clone() {
+                        dep_err
+                    } else {
+                        format!("Component execution trap: {e:#}")
+                    };
+                    (None, false, Some(err_str))
+                }
+            };
+
+        let store_calls = store.data().all_calls.clone();
         let actual_matched_calls = if let Some(ref exp_calls) = expected_calls {
-            let has_kv_assertion = exp_calls.iter().any(|c| c.import == "kv_get");
-            let has_shipping_assertion = exp_calls.iter().any(|c| c.import == "quote_shipping");
-            let has_quota_assertion = exp_calls.iter().any(|c| c.import == "check_quota");
-            let has_tenant_assertion = exp_calls.iter().any(|c| c.import == "tenant_status");
             let filtered: Vec<HostCallRecord> = store_calls
                 .into_iter()
                 .filter(|c| {
-                    if !has_kv_assertion && c.import == "kv_get" {
-                        return false;
-                    }
-                    if !has_shipping_assertion && c.import == "quote_shipping" {
-                        return false;
-                    }
-                    if !has_quota_assertion && c.import == "check_quota" {
-                        return false;
-                    }
-                    if !has_tenant_assertion && c.import == "tenant_status" {
-                        return false;
-                    }
-                    true
+                    c.import == "emit_audit"
+                        || c.import == "check_credit"
+                        || exp_calls.iter().any(|e| e.import == c.import)
                 })
                 .collect();
             if is_pass && &filtered != exp_calls {
@@ -940,9 +850,11 @@ fn run_suite_core(wasm_bytes: &[u8], test_cases: &[TestCaseInput], start: Instan
             credit_limits: parsed_host_state.credit_limits,
             credit_ok: parsed_host_state.credit_ok,
             tenant_status: parsed_host_state.tenant_status,
+            custom_maps: parsed_host_state.custom_maps,
+            custom_scalars: parsed_host_state.custom_scalars,
             all_calls: Vec::new(),
-            shipping_wasm_bytes: None,
             linked_wasm_bytes: None,
+            dependency_error: None,
         };
 
         let mut store = Store::new(&engine, initial_store_data);
@@ -1095,18 +1007,12 @@ fn run_suite_core(wasm_bytes: &[u8], test_cases: &[TestCaseInput], start: Instan
 
                 let store_calls = store.data().all_calls.clone();
                 let actual_matched_calls = if let Some(ref exp_calls) = expected_calls {
-                    let has_kv_assertion = exp_calls.iter().any(|c| c.import == "kv_get");
-                    let has_shipping_assertion = exp_calls.iter().any(|c| c.import == "quote_shipping");
                     let filtered: Vec<HostCallRecord> = store_calls
                         .into_iter()
                         .filter(|c| {
-                            if !has_kv_assertion && c.import == "kv_get" {
-                                return false;
-                            }
-                            if !has_shipping_assertion && c.import == "quote_shipping" {
-                                return false;
-                            }
-                            true
+                            c.import == "emit_audit"
+                                || c.import == "check_credit"
+                                || exp_calls.iter().any(|e| e.import == c.import)
                         })
                         .collect();
                     if is_pass && &filtered != exp_calls {
@@ -1205,20 +1111,12 @@ fn main() -> ExitCode {
                 match fs::read(lpath) {
                     Ok(b) => Some(b),
                     Err(e) => {
-                        eprintln!("Warning: failed to read linked WASM '{}': {e}", lpath.display());
-                        None
+                        eprintln!("Failed to read linked WASM '{}': {e}", lpath.display());
+                        return ExitCode::from(2);
                     }
                 }
             } else {
-                let mut candidates = vec![
-                    PathBuf::from("shipping-calculator.wasm"),
-                    PathBuf::from("runs/poc005-dev-test/shipping-calculator.wasm"),
-                    PathBuf::from("runs/poc005-e1-narrative/attempt-01/shipping-calculator.wasm"),
-                ];
-                if let Some(p) = wasm.parent() {
-                    candidates.insert(0, p.join("shipping-calculator.wasm"));
-                }
-                candidates.into_iter().find_map(|p| fs::read(&p).ok())
+                None
             };
 
             let report = match run_suite_with_link(&wasm_bytes, &parsed_cases, linked_bytes) {
@@ -1593,5 +1491,149 @@ cases:
         let report_v3 = run_suite_with_link(&coord_v3_wasm, &cases_v3, Some(quota_v2_wasm)).unwrap();
         assert_eq!(report_v3.failed, 0, "WI-RES-02 (v3) failures: {:?}", report_v3.cases.iter().filter(|c| !c.passed).collect::<Vec<_>>());
     }
+
+    #[test]
+    fn test_dependency_failures_never_fallback_to_zero() {
+        let narrative = include_str!("../../../spec/narrative-resource-reservation.md");
+        let spec = orchestrator::parse_narrative(narrative, "narrative-resource-reservation.md")
+            .expect("parse resource narrative");
+        let coord_ir = orchestrator::synthesize_reservation_coordinator_ir("reservation-coordinator", &spec)
+            .expect("synthesize reservation coordinator IR");
+        let coord_wasm = irtool::compile_ir_to_wasm(&coord_ir).expect("compile coordinator");
+
+        let single_case_yaml = r#"
+cases:
+  - id: NEG-DEP-01
+    requirement: RES-002
+    function: reserve_resource
+    args: [1, 100, 200, 0]
+    host_state:
+      tenant_status:
+        1: 1
+    expected:
+      status_code: 0
+      approved_units: 0
+      penalty_points: 0
+"#;
+        let cases = parse_cases(single_case_yaml).expect("parse negative test case");
+
+        // 1. Missing dependency (None): must fail with missing_dependency and never match status_code: 0
+        let rep_missing = run_suite_with_link(&coord_wasm, &cases, None).expect("run with missing dep");
+        assert_eq!(rep_missing.passed, 0, "Missing dependency must not pass even when expected is 0");
+        assert_eq!(rep_missing.failed, 1);
+        assert!(rep_missing.cases[0].actual.is_none(), "Actual business output must be None on dependency error");
+        let err_missing = rep_missing.cases[0].error.as_deref().unwrap_or("");
+        assert!(err_missing.contains("[DependencyError]") && err_missing.contains("kind=missing_dependency"), "Error was: {err_missing}");
+
+        // 2. Corrupt / invalid binary: must fail with invalid_binary
+        let rep_invalid = run_suite_with_link(&coord_wasm, &cases, Some(b"not-a-valid-wasm-component".to_vec()))
+            .expect("run with invalid dep binary");
+        assert_eq!(rep_invalid.passed, 0);
+        assert_eq!(rep_invalid.failed, 1);
+        assert!(rep_invalid.cases[0].actual.is_none());
+        let err_invalid = rep_invalid.cases[0].error.as_deref().unwrap_or("");
+        assert!(err_invalid.contains("[DependencyError]") && err_invalid.contains("kind=invalid_binary"), "Error was: {err_invalid}");
+
+        // 3. Instantiation / contract mismatch (shipping-calculator passed instead of quota-engine)
+        let shipping_str = include_str!("../../../ir/shipping-005.ir.json");
+        let shipping_ir: serde_json::Value = serde_json::from_str(shipping_str).unwrap();
+        let shipping_wasm = irtool::compile_ir_to_wasm(&shipping_ir).unwrap();
+        let rep_mismatch = run_suite_with_link(&coord_wasm, &cases, Some(shipping_wasm))
+            .expect("run with mismatched dep component");
+        assert_eq!(rep_mismatch.passed, 0);
+        assert_eq!(rep_mismatch.failed, 1);
+        assert!(rep_mismatch.cases[0].actual.is_none());
+        let err_mismatch = rep_mismatch.cases[0].error.as_deref().unwrap_or("");
+        assert!(err_mismatch.contains("[DependencyError]") && err_mismatch.contains("kind=instantiation_failed"), "Error was: {err_mismatch}");
+
+        // 4. Execution trap inside dependent component (e.g., runtime division by zero in check_quota)
+        let mut trapping_quota_ir = orchestrator::synthesize_quota_engine_ir("quota-engine", &spec).unwrap();
+        trapping_quota_ir["functions"][0]["body"] = json!({
+            "op": "div_s",
+            "left": { "op": "param", "name": "requested_units" },
+            "right": { "op": "sub", "left": { "op": "param", "name": "tenant_id" }, "right": { "op": "param", "name": "tenant_id" } }
+        });
+        let trapping_quota_wasm = irtool::compile_ir_to_wasm(&trapping_quota_ir).expect("compile trapping quota component");
+        let rep_trap = run_suite_with_link(&coord_wasm, &cases, Some(trapping_quota_wasm))
+            .expect("run with trapping dep component");
+        assert_eq!(rep_trap.passed, 0);
+        assert_eq!(rep_trap.failed, 1);
+        assert!(rep_trap.cases[0].actual.is_none());
+        let err_trap = rep_trap.cases[0].error.as_deref().unwrap_or("");
+        assert!(err_trap.contains("[DependencyError]") && err_trap.contains("kind=execution_trap"), "Error was: {err_trap}");
+    }
+
+    #[test]
+    fn test_unseen_llm_domain_canal_lock_v1_and_v2() {
+        use orchestrator::ImplementationAgent;
+
+        // 1. Verify SynthesizerAgent does NOT know hydro-sensor or lock-controller
+        let narrative = include_str!("../../../runs/unknown-domain-e2e/spec/narrative-canal-lock.md");
+        let spec_v1 = orchestrator::parse_narrative(narrative, "narrative-canal-lock.md")
+            .expect("parse unseen domain narrative");
+        assert!(
+            orchestrator::SynthesizerAgent
+                .propose_ir("hydro-sensor", &spec_v1, &[])
+                .is_err(),
+            "SynthesizerAgent must not have a hardcoded branch for hydro-sensor"
+        );
+        assert!(
+            orchestrator::SynthesizerAgent
+                .propose_ir("lock-controller", &spec_v1, &[])
+                .is_err(),
+            "SynthesizerAgent must not have a hardcoded branch for lock-controller"
+        );
+
+        // 2. Verify v1 LLM-generated IRs compile and pass 5/5 acceptance tests in dynamic runner
+        let hydro_v1_ir: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../runs/unknown-domain-e2e/dist/versions/build-1792206976764513300/hydro-sensor.ir.json"
+        ))
+        .unwrap();
+        let lock_v1_ir: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../runs/unknown-domain-e2e/dist/versions/build-1792206976764513300/lock-controller.ir.json"
+        ))
+        .unwrap();
+
+        assert!(irtool::verify_ir(&hydro_v1_ir).is_empty());
+        assert!(irtool::verify_ir(&lock_v1_ir).is_empty());
+
+        let hydro_v1_wasm = irtool::compile_ir_to_wasm(&hydro_v1_ir).expect("compile hydro v1");
+        let lock_v1_wasm = irtool::compile_ir_to_wasm(&lock_v1_ir).expect("compile lock v1");
+
+        let cases_v1 = parse_cases(include_str!(
+            "../../../runs/unknown-domain-e2e/tests/acceptance-v1.yaml"
+        ))
+        .expect("parse acceptance-v1.yaml");
+        let rep_v1 = run_suite_with_link(&lock_v1_wasm, &cases_v1, Some(hydro_v1_wasm))
+            .expect("run v1 suite");
+        assert_eq!(rep_v1.failed, 0, "v1 failures: {:?}", rep_v1.cases);
+        assert_eq!(rep_v1.passed, 5);
+
+        // 3. Verify v2 evolved LLM-generated IRs compile and pass 5/5 acceptance tests in dynamic runner
+        let hydro_v2_ir: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../runs/unknown-domain-e2e/dist/versions/build-1792207389433634100/hydro-sensor.ir.json"
+        ))
+        .unwrap();
+        let lock_v2_ir: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../runs/unknown-domain-e2e/dist/versions/build-1792207389433634100/lock-controller.ir.json"
+        ))
+        .unwrap();
+
+        assert!(irtool::verify_ir(&hydro_v2_ir).is_empty());
+        assert!(irtool::verify_ir(&lock_v2_ir).is_empty());
+
+        let hydro_v2_wasm = irtool::compile_ir_to_wasm(&hydro_v2_ir).expect("compile hydro v2");
+        let lock_v2_wasm = irtool::compile_ir_to_wasm(&lock_v2_ir).expect("compile lock v2");
+
+        let cases_v2 = parse_cases(include_str!(
+            "../../../runs/unknown-domain-e2e/tests/acceptance-v2.yaml"
+        ))
+        .expect("parse acceptance-v2.yaml");
+        let rep_v2 = run_suite_with_link(&lock_v2_wasm, &cases_v2, Some(hydro_v2_wasm))
+            .expect("run v2 suite");
+        assert_eq!(rep_v2.failed, 0, "v2 failures: {:?}", rep_v2.cases);
+        assert_eq!(rep_v2.passed, 5);
+    }
 }
+
 

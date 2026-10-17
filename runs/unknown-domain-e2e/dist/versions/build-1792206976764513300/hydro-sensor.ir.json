@@ -1,0 +1,122 @@
+{
+  "functions": [
+    {
+      "body": {
+        "condition": {
+          "left": {
+            "left": {
+              "op": "const",
+              "type": "i32",
+              "value": 0
+            },
+            "op": "gte_s",
+            "right": {
+              "name": "water_level_cm",
+              "op": "param"
+            }
+          },
+          "op": "or",
+          "right": {
+            "left": {
+              "name": "gate_pressure_kpa",
+              "op": "param"
+            },
+            "op": "lt_s",
+            "right": {
+              "op": "const",
+              "type": "i32",
+              "value": 0
+            }
+          }
+        },
+        "else": {
+          "condition": {
+            "left": {
+              "left": {
+                "left": {
+                  "name": "water_level_cm",
+                  "op": "param"
+                },
+                "op": "mul",
+                "right": {
+                  "op": "const",
+                  "type": "i32",
+                  "value": 2
+                }
+              },
+              "op": "add",
+              "right": {
+                "name": "gate_pressure_kpa",
+                "op": "param"
+              }
+            },
+            "op": "gte_s",
+            "right": {
+              "op": "const",
+              "type": "i32",
+              "value": 1000
+            }
+          },
+          "else": {
+            "left": {
+              "left": {
+                "name": "water_level_cm",
+                "op": "param"
+              },
+              "op": "mul",
+              "right": {
+                "op": "const",
+                "type": "i32",
+                "value": 2
+              }
+            },
+            "op": "add",
+            "right": {
+              "name": "gate_pressure_kpa",
+              "op": "param"
+            }
+          },
+          "op": "if",
+          "then": {
+            "op": "const",
+            "type": "i32",
+            "value": 1000
+          }
+        },
+        "op": "if",
+        "then": {
+          "op": "const",
+          "type": "i32",
+          "value": 0
+        }
+      },
+      "export": true,
+      "name": "compute_flow_index",
+      "params": [
+        {
+          "name": "water_level_cm",
+          "type": "i32"
+        },
+        {
+          "name": "gate_pressure_kpa",
+          "type": "i32"
+        }
+      ],
+      "requirements": [
+        "HYDRO-001",
+        "HYDRO-002"
+      ],
+      "returns": "i32",
+      "wit_interface": "hydro-service"
+    }
+  ],
+  "ir_version": "0.5",
+  "spec_version": 1,
+  "wit_contract": {
+    "export_interface": "hydro-service",
+    "import_interfaces": [],
+    "package": "kaddo:canal@0.1.0",
+    "wit_file": "wit/hydro-sensor.wit",
+    "world": "hydro-sensor"
+  }
+}

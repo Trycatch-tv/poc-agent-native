@@ -1,0 +1,59 @@
+{
+  "agent_metrics": {
+    "attempts": 1,
+    "completion_tokens": 7859,
+    "latency_ms": 93999,
+    "model": "claude-sonnet-4-6",
+    "prompt_tokens": 17903,
+    "provider": "claude-cli",
+    "recovered_from_diagnostics": false,
+    "tokens_reported": true,
+    "total_tokens": 25762
+  },
+  "agent_name": "LlmImplementationAgent",
+  "artifacts": [
+    {
+      "agent_metrics": {
+        "attempts": 1,
+        "completion_tokens": 2959,
+        "latency_ms": 39538,
+        "model": "claude-sonnet-4-6",
+        "prompt_tokens": 17401,
+        "provider": "claude-cli",
+        "recovered_from_diagnostics": false,
+        "tokens_reported": true,
+        "total_tokens": 20360
+      },
+      "bytes_len": 605,
+      "component_id": "hydro-sensor",
+      "ir_file": "versions/build-1792207389433634100/hydro-sensor.ir.json",
+      "ir_sha256": "58315f1fc2783220d83722b22b61dcb7315a2a37b35167e40ac7a8728be7904c",
+      "sha256": "4ae71032e4cb83385721ce25848f906230e5fbcb74a2af55787f3cbcb3873641",
+      "wasm_file": "versions/build-1792207389433634100/hydro-sensor.wasm"
+    },
+    {
+      "agent_metrics": {
+        "attempts": 1,
+        "completion_tokens": 7859,
+        "latency_ms": 93999,
+        "model": "claude-sonnet-4-6",
+        "prompt_tokens": 17903,
+        "provider": "claude-cli",
+        "recovered_from_diagnostics": false,
+        "tokens_reported": true,
+        "total_tokens": 25762
+      },
+      "bytes_len": 1618,
+      "component_id": "lock-controller",
+      "ir_file": "versions/build-1792207389433634100/lock-controller.ir.json",
+      "ir_sha256": "b130a61a9c07f97006b979e8ecb26bfe49558c09fbc23d42e3311614b838f528",
+      "sha256": "d4fb2fc0e20837f9b637cbbe2a2a0e3a3f88405bd768b2add44b77ddb29b6f37",
+      "wasm_file": "versions/build-1792207389433634100/lock-controller.wasm"
+    }
+  ],
+  "components_count": 2,
+  "created_at": "1792207389.437",
+  "spec_source": "work-items",
+  "spec_version": "1.0.0",
+  "version_id": "build-1792207389433634100"
+}

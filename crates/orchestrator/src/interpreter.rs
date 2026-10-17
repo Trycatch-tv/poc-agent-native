@@ -90,6 +90,15 @@ impl RequirementsInterpreter for MarkdownRequirementsInterpreter {
                         if !cid.is_empty() {
                             current_component_id = Some(cid);
                         }
+                    } else if current_section == "wit" {
+                        if let (Some(s), Some(e)) = (header_text.find('`'), header_text.rfind('`')) {
+                            if s < e {
+                                let candidate = header_text[s + 1..e].trim();
+                                if components.iter().any(|c| c.id == candidate) {
+                                    current_component_id = Some(candidate.to_string());
+                                }
+                            }
+                        }
                     } else if current_section == "entities" {
                         // Flush previous entity if any
                         if let Some(ename) = current_entity_name.take() {
@@ -225,8 +234,6 @@ impl RequirementsInterpreter for MarkdownRequirementsInterpreter {
                         let rest = line[4 + end_bold + 2..].trim();
                         let initial_statement = if let Some(stripped) = rest.strip_prefix(':') {
                             stripped.trim()
-                        } else if let Some(colon_pos) = rest.find(':') {
-                            rest[colon_pos + 1..].trim()
                         } else {
                             rest
                         };
@@ -285,64 +292,91 @@ impl RequirementsInterpreter for MarkdownRequirementsInterpreter {
             // Extract WIT Interface blocks
             if line.starts_with("interface ") && line.ends_with('{') {
                 let iface_name = line.trim_start_matches("interface ").trim_end_matches('{').trim().to_string();
-                let mut wit_body = Vec::new();
+                let mut wit_body = String::new();
                 let mut j = i + 1;
                 while j < lines.len() {
                     let wline = lines[j].trim();
                     if wline == "}" {
                         break;
                     }
-                    wit_body.push(wline);
+                    if !wline.starts_with("//") {
+                        wit_body.push_str(wline);
+                        wit_body.push(' ');
+                    }
                     j += 1;
                 }
 
-                // Parse operations from interface body
-                for wline in wit_body {
-                    if let Some(colon_pos) = wline.find(": func(") {
-                        let op_name = wline[..colon_pos].trim().replace('-', "_");
-                        let after_func = &wline[colon_pos + 7..];
-                        let mut params = Vec::new();
-                        let mut returns = "i32".to_string();
+                if iface_name == "host-services" {
+                    if let Some(ref cid) = current_component_id {
+                        if let Some(comp) = components.iter_mut().find(|c| &c.id == cid) {
+                            if !comp.import_interfaces.contains(&iface_name) {
+                                comp.import_interfaces.push(iface_name.clone());
+                            }
+                        }
+                    }
+                } else if iface_name != "types" {
+                    // Parse operations from semicolon-separated statements in interface body
+                    for stmt in wit_body.split(';') {
+                        let wstmt = stmt.trim();
+                        if let Some(colon_pos) = wstmt.find(": func(") {
+                            let op_name = wstmt[..colon_pos].trim().replace('-', "_");
+                            let after_func = &wstmt[colon_pos + 7..];
+                            let mut params = Vec::new();
+                            let mut returns = "i32".to_string();
 
-                        if let Some(r_paren) = after_func.find(')') {
-                            let params_chunk = &after_func[..r_paren];
-                            for p in params_chunk.split(',') {
-                                let p_trim = p.trim();
-                                if let Some((pname, ptype)) = p_trim.split_once(':') {
-                                    let clean_name = pname.trim().replace('-', "_");
-                                    let clean_type = ptype.trim().replace("s32", "i32");
-                                    if !clean_name.is_empty() {
-                                        params.push(OperationParam {
-                                            name: clean_name,
-                                            param_type: clean_type,
-                                        });
+                            if let Some(r_paren) = after_func.find(')') {
+                                let params_chunk = &after_func[..r_paren];
+                                for p in params_chunk.split(',') {
+                                    let p_trim = p.trim();
+                                    if let Some((pname, ptype)) = p_trim.split_once(':') {
+                                        let clean_name = pname.trim().replace('-', "_");
+                                        let clean_type = ptype.trim().replace("s32", "i32");
+                                        if !clean_name.is_empty() {
+                                            params.push(OperationParam {
+                                                name: clean_name,
+                                                param_type: clean_type,
+                                            });
+                                        }
+                                    }
+                                }
+                                let ret_chunk = after_func[r_paren + 1..].trim();
+                                if let Some(arrow) = ret_chunk.find("->") {
+                                    let raw_ret = ret_chunk[arrow + 2..]
+                                        .trim()
+                                        .trim_end_matches(';')
+                                        .trim()
+                                        .replace("s32", "i32");
+                                    let norm_cmp = raw_ret.replace('-', "").to_lowercase();
+                                    if let Some(ent) = entities
+                                        .iter()
+                                        .find(|e| e.name.replace('_', "").to_lowercase() == norm_cmp)
+                                    {
+                                        returns = ent.name.clone();
+                                    } else {
+                                        returns = raw_ret;
                                     }
                                 }
                             }
-                            let ret_chunk = after_func[r_paren + 1..].trim();
-                            if let Some(arrow) = ret_chunk.find("->") {
-                                returns = ret_chunk[arrow + 2..].trim().trim_end_matches(';').trim().to_string();
-                            }
+
+                            // Associate with matching component
+                            let target_comp = if let Some(ref cid) = current_component_id {
+                                cid.clone()
+                            } else if !components.is_empty() {
+                                components[0].id.clone()
+                            } else {
+                                "main-component".to_string()
+                            };
+
+                            operations.push(OperationSpec {
+                                name: op_name,
+                                component: target_comp,
+                                wit_interface: iface_name.clone(),
+                                params,
+                                returns,
+                                rules_applied: Vec::new(),
+                                effects: Vec::new(),
+                            });
                         }
-
-                        // Associate with matching component
-                        let target_comp = if let Some(ref cid) = current_component_id {
-                            cid.clone()
-                        } else if !components.is_empty() {
-                            components[0].id.clone()
-                        } else {
-                            "main-component".to_string()
-                        };
-
-                        operations.push(OperationSpec {
-                            name: op_name,
-                            component: target_comp,
-                            wit_interface: iface_name.clone(),
-                            params,
-                            returns,
-                            rules_applied: Vec::new(),
-                            effects: Vec::new(),
-                        });
                     }
                 }
                 i = j;
@@ -358,6 +392,17 @@ impl RequirementsInterpreter for MarkdownRequirementsInterpreter {
                 description: current_entity_desc,
                 fields: current_entity_fields,
             });
+        }
+
+        // Normalize operation return types against flushed entities
+        for op in &mut operations {
+            let norm_cmp = op.returns.replace('-', "").to_lowercase();
+            if let Some(ent) = entities
+                .iter()
+                .find(|e| e.name.replace('_', "").to_lowercase() == norm_cmp)
+            {
+                op.returns = ent.name.clone();
+            }
         }
 
         // Link dependencies and operations rules_applied
@@ -378,16 +423,38 @@ impl RequirementsInterpreter for MarkdownRequirementsInterpreter {
             }
         }
 
-        // Detect inter-component dependencies
-        let comp_ids: Vec<String> = components.iter().map(|c| c.id.clone()).collect();
+        // Detect inter-component dependencies and import_interfaces
+        let comp_snapshot: Vec<(String, Vec<String>)> = components
+            .iter()
+            .map(|c| (c.id.clone(), c.export_interfaces.clone()))
+            .collect();
         for comp in &mut components {
-            for other_id in &comp_ids {
+            for (other_id, other_exports) in &comp_snapshot {
                 if other_id != &comp.id {
-                    let has_dep = requirements.iter().any(|r| r.component == comp.id && r.statement.contains(other_id));
-                    if has_dep && !comp.dependencies.contains(other_id) {
-                        comp.dependencies.push(other_id.clone());
+                    let has_dep = requirements
+                        .iter()
+                        .any(|r| r.component == comp.id && r.statement.contains(other_id));
+                    if has_dep {
+                        if !comp.dependencies.contains(other_id) {
+                            comp.dependencies.push(other_id.clone());
+                        }
+                        for exp_iface in other_exports {
+                            if !comp.import_interfaces.contains(exp_iface) {
+                                comp.import_interfaces.push(exp_iface.clone());
+                            }
+                        }
                     }
                 }
+            }
+            let uses_host = requirements.iter().any(|r| {
+                r.component == comp.id
+                    && (r.statement.contains("kv_get")
+                        || r.statement.contains("emit_audit")
+                        || r.statement.contains("check_credit")
+                        || r.statement.contains("tenant_status"))
+            });
+            if uses_host && !comp.import_interfaces.contains(&"host-services".to_string()) {
+                comp.import_interfaces.insert(0, "host-services".to_string());
             }
         }
 

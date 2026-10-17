@@ -177,8 +177,11 @@ enabled = false
                     orchestrator::build_all_components(&system_spec, &actual_out_dir)
                 }
                 "llm" => {
-                    println!("[orchestrator] Using LlmImplementationAgent (strict LLM mode)");
-                    let config = orchestrator::agent::LlmConfig::default();
+                    let config = orchestrator::agent::LlmConfig::for_cli_build();
+                    println!(
+                        "[orchestrator] Using LlmImplementationAgent (strict LLM mode, provider={}, model={})",
+                        config.provider, config.model
+                    );
                     let llm_agent = orchestrator::agent::LlmImplementationAgent::strict(config);
                     orchestrator::build_all_components_with_agent(&llm_agent, &system_spec, &actual_out_dir)
                 }

@@ -1,0 +1,9 @@
+package kaddo:canal@0.1.0;
+
+interface hydro-service {
+    compute-flow-index: func(water-level-cm: s32, gate-pressure-kpa: s32) -> s32;
+}
+
+world hydro-sensor {
+    export hydro-service;
+}

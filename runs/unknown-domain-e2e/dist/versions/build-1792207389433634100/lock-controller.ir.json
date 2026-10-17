@@ -1,0 +1,312 @@
+{
+  "capabilities": [
+    "component_call",
+    "kv_store",
+    "audit_log"
+  ],
+  "functions": [
+    {
+      "body": {
+        "condition": {
+          "left": {
+            "left": {
+              "op": "const",
+              "type": "i32",
+              "value": 0
+            },
+            "op": "gte_s",
+            "right": {
+              "name": "flow_index",
+              "op": "param"
+            }
+          },
+          "op": "or",
+          "right": {
+            "left": {
+              "name": "flow_index",
+              "op": "param"
+            },
+            "op": "gte_s",
+            "right": {
+              "op": "const",
+              "type": "i32",
+              "value": 1000
+            }
+          }
+        },
+        "else": {
+          "fields": {
+            "ballast_fee": {
+              "left": {
+                "left": {
+                  "name": "vessel_draft_cm",
+                  "op": "param"
+                },
+                "op": "mul",
+                "right": {
+                  "op": "const",
+                  "type": "i32",
+                  "value": 3
+                }
+              },
+              "op": "add",
+              "right": {
+                "args": [
+                  {
+                    "name": "vessel_draft_cm",
+                    "op": "param"
+                  }
+                ],
+                "import": "kv_get",
+                "op": "call_import"
+              }
+            },
+            "flow_index": {
+              "name": "flow_index",
+              "op": "param"
+            },
+            "status_code": {
+              "left": {
+                "op": "const",
+                "type": "i32",
+                "value": 0
+              },
+              "op": "add",
+              "right": {
+                "left": {
+                  "args": [
+                    {
+                      "op": "const",
+                      "type": "i32",
+                      "value": 300
+                    }
+                  ],
+                  "import": "emit_audit",
+                  "op": "call_import"
+                },
+                "op": "mul",
+                "right": {
+                  "op": "const",
+                  "type": "i32",
+                  "value": 0
+                }
+              }
+            }
+          },
+          "op": "record.construct",
+          "type": "TransitDecision"
+        },
+        "op": "if",
+        "then": {
+          "fields": {
+            "ballast_fee": {
+              "op": "const",
+              "type": "i32",
+              "value": 0
+            },
+            "flow_index": {
+              "name": "flow_index",
+              "op": "param"
+            },
+            "status_code": {
+              "op": "const",
+              "type": "i32",
+              "value": 2
+            }
+          },
+          "op": "record.construct",
+          "type": "TransitDecision"
+        }
+      },
+      "export": false,
+      "name": "evaluate_with_flow",
+      "params": [
+        {
+          "name": "vessel_draft_cm",
+          "type": "i32"
+        },
+        {
+          "name": "flow_index",
+          "type": "i32"
+        }
+      ],
+      "requirements": [],
+      "returns": "TransitDecision"
+    },
+    {
+      "body": {
+        "condition": {
+          "left": {
+            "left": {
+              "op": "const",
+              "type": "i32",
+              "value": 0
+            },
+            "op": "gte_s",
+            "right": {
+              "name": "vessel_draft_cm",
+              "op": "param"
+            }
+          },
+          "op": "or",
+          "right": {
+            "left": {
+              "name": "water_level_cm",
+              "op": "param"
+            },
+            "op": "lt_s",
+            "right": {
+              "name": "vessel_draft_cm",
+              "op": "param"
+            }
+          }
+        },
+        "else": {
+          "args": [
+            {
+              "name": "vessel_draft_cm",
+              "op": "param"
+            },
+            {
+              "args": [
+                {
+                  "name": "water_level_cm",
+                  "op": "param"
+                },
+                {
+                  "name": "gate_pressure_kpa",
+                  "op": "param"
+                }
+              ],
+              "import": "compute_flow_index",
+              "op": "call_import"
+            }
+          ],
+          "function": "evaluate_with_flow",
+          "op": "call"
+        },
+        "op": "if",
+        "then": {
+          "fields": {
+            "ballast_fee": {
+              "op": "const",
+              "type": "i32",
+              "value": 0
+            },
+            "flow_index": {
+              "op": "const",
+              "type": "i32",
+              "value": 0
+            },
+            "status_code": {
+              "op": "const",
+              "type": "i32",
+              "value": 1
+            }
+          },
+          "op": "record.construct",
+          "type": "TransitDecision"
+        }
+      },
+      "export": true,
+      "name": "evaluate_lock_transit",
+      "params": [
+        {
+          "name": "vessel_draft_cm",
+          "type": "i32"
+        },
+        {
+          "name": "water_level_cm",
+          "type": "i32"
+        },
+        {
+          "name": "gate_pressure_kpa",
+          "type": "i32"
+        }
+      ],
+      "requirements": [
+        "LOCK-001",
+        "LOCK-002",
+        "LOCK-003"
+      ],
+      "returns": "TransitDecision",
+      "wit_interface": "lock-service"
+    }
+  ],
+  "imports": [
+    {
+      "capability": "component_call",
+      "module": "kaddo:canal@0.1.0",
+      "name": "compute_flow_index",
+      "params": [
+        {
+          "name": "water_level_cm",
+          "type": "i32"
+        },
+        {
+          "name": "gate_pressure_kpa",
+          "type": "i32"
+        }
+      ],
+      "returns": "i32",
+      "wit_interface": "hydro-service"
+    },
+    {
+      "capability": "kv_store",
+      "module": "host",
+      "name": "kv_get",
+      "params": [
+        {
+          "name": "key",
+          "type": "i32"
+        }
+      ],
+      "returns": "i32",
+      "wit_interface": "host-services"
+    },
+    {
+      "capability": "audit_log",
+      "module": "host",
+      "name": "emit_audit",
+      "params": [
+        {
+          "name": "event_type",
+          "type": "i32"
+        }
+      ],
+      "returns": "i32",
+      "wit_interface": "host-services"
+    }
+  ],
+  "ir_version": "0.5",
+  "spec_version": 1,
+  "types": [
+    {
+      "fields": [
+        {
+          "name": "status_code",
+          "type": "i32"
+        },
+        {
+          "name": "flow_index",
+          "type": "i32"
+        },
+        {
+          "name": "ballast_fee",
+          "type": "i32"
+        }
+      ],
+      "name": "TransitDecision"
+    }
+  ],
+  "wit_contract": {
+    "export_interface": "lock-service",
+    "import_interfaces": [
+      "host-services",
+      "hydro-service"
+    ],
+    "package": "kaddo:canal@0.1.0",
+    "wit_file": "wit/lock-controller.wit",
+    "world": "lock-controller"
+  }
+}
